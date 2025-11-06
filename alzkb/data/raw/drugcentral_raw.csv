@@ -1,6 +1,0 @@
-struct_id,drug_name,indication,approval_year,mechanism
-1,Donepezil,Alzheimer Disease,1996,Acetylcholinesterase Inhibitor
-2,Rivastigmine,Alzheimer Disease,2000,Acetylcholinesterase Inhibitor
-3,Galantamine,Alzheimer Disease,2001,Acetylcholinesterase Inhibitor
-4,Memantine,Alzheimer Disease,2003,NMDA Receptor Antagonist
-5,Aducanumab,Alzheimer Disease,2021,Amyloid-beta targeting monoclonal antibody

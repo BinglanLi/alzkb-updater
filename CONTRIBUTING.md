@@ -92,8 +92,8 @@ Before submitting, ensure:
 
 ```bash
 # Clone your fork
-git clone https://github.com/YOUR_USERNAME/AlzKB-updater-mcp.git
-cd AlzKB-updater-mcp
+git clone https://github.com/YOUR_USERNAME/AlzKB-updater.git
+cd AlzKB-updater
 
 # Create virtual environment
 python -m venv venv

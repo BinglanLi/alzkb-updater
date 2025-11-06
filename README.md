@@ -37,7 +37,7 @@ Get started with AlzKB Updater in 5 minutes!
 ```bash
 # Clone the repository
 git clone <your-repo-url>
-cd AlzKB-updater-mcp
+cd AlzKB-updater
 
 # Create virtual environment
 python -m venv venv
@@ -90,7 +90,7 @@ python main.py --output-dir /path/to/my/data
 ## Project Structure
 
 ```
-AlzKB-updater-mcp/
+AlzKB-updater/
 ├── alzkb/                      # Main package
 │   ├── __init__.py
 │   ├── config.py              # Configuration settings
@@ -298,7 +298,7 @@ DATA_SOURCES["newsource"] = {
 
 ```bash
 # Solution: Make sure you're in the project directory
-cd AlzKB-updater-mcp
+cd AlzKB-updater
 python main.py
 ```
 
