@@ -1,0 +1,7 @@
+drug_id,drug_name,drug_type,indication,mechanism,approval_status
+DB00843,Donepezil,small molecule,Alzheimer's disease,Acetylcholinesterase inhibitor,approved
+DB00989,Rivastigmine,small molecule,Alzheimer's disease,Cholinesterase inhibitor,approved
+DB00674,Galantamine,small molecule,Alzheimer's disease,Acetylcholinesterase inhibitor,approved
+DB16845,Aducanumab,biotech,Alzheimer's disease,Amyloid beta binding,approved
+DB17148,Lecanemab,biotech,Alzheimer's disease,Amyloid beta binding,approved
+DB00764,Memantine,small molecule,Alzheimer's disease,NMDA receptor antagonist,approved

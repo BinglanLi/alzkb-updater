@@ -1,0 +1,6 @@
+drug_id,drug_name,indication,approval_year,mechanism_of_action,source,source_type,last_updated
+1,Donepezil,Alzheimer Disease,1996,Acetylcholinesterase Inhibitor,DrugCentral,drug,2025-11-05T12:58:05.646335
+2,Rivastigmine,Alzheimer Disease,2000,Acetylcholinesterase Inhibitor,DrugCentral,drug,2025-11-05T12:58:05.646335
+3,Galantamine,Alzheimer Disease,2001,Acetylcholinesterase Inhibitor,DrugCentral,drug,2025-11-05T12:58:05.646335
+4,Memantine,Alzheimer Disease,2003,NMDA Receptor Antagonist,DrugCentral,drug,2025-11-05T12:58:05.646335
+5,Aducanumab,Alzheimer Disease,2021,Amyloid-beta targeting monoclonal antibody,DrugCentral,drug,2025-11-05T12:58:05.646335

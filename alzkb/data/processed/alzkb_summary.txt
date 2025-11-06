@@ -1,0 +1,13 @@
+AlzKB Integration Summary
+==================================================
+
+Total Records: 696
+Last Updated: 2025-11-05T12:58:05.664456
+
+Records by Source:
+  - UniProt: 691
+  - DrugCentral: 5
+
+Records by Type:
+  - protein: 691
+  - drug: 5
