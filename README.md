@@ -1,396 +1,198 @@
-# AlzKB Updater MCP
+# AlzKB Updater
 
-Alzheimer's KnowledgeBase (AlzKB) Updater - An automated tool for integrating Alzheimer's disease data from multiple biomedical databases.
+An automated system for updating the Alzheimer's Knowledge Base (AlzKB) by integrating data from multiple biomedical databases.
 
 ## Overview
 
-**AlzKB Updater MCP** is a Python-based automated tool for integrating Alzheimer's disease data from multiple biomedical databases. It provides a simple, extensible framework for researchers to maintain an up-to-date knowledge base.
+AlzKB Updater retrieves, cleans, integrates, and exports Alzheimer's disease-related data from:
+- **UniProt**: Protein information including disease associations
+- **PubChem**: Chemical compound data
 
-### Key Features
+The system is designed to run automatically via GitHub Actions or manually on a local machine.
 
-- **Automated Data Retrieval**: Fetches data from multiple biomedical databases
-- **Data Cleaning & Standardization**: Processes raw data into consistent CSV format
-- **CSV Export**: Outputs clean, structured CSV files
-- **GitHub Actions Integration**: Automatically updates data on a schedule
-- **Extensible Architecture**: Easy to add new data sources
-- **Local & Cloud Execution**: Run on any machine with Python or via GitHub Actions
+## Features
 
-### Current Data Sources
-
-1. **UniProt**: Protein information for Alzheimer's-related proteins (genes, functions, disease associations)
-2. **DrugCentral**: Drug information for Alzheimer's treatments (indications, mechanisms, approvals)
-
-### Design Principles
-
-1. **Simplicity**: Easy to understand and modify
-2. **Modularity**: Each source is independent
-3. **Extensibility**: Simple to add new sources
-4. **Automation**: Runs without manual intervention
-5. **Transparency**: Clear logs and outputs
-
-## Quick Start
-
-Get started with AlzKB Updater in 5 minutes!
-
-### 1. Installation
-
-```bash
-# Clone the repository
-git clone <your-repo-url>
-cd AlzKB-updater
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### 2. Run Your First Update
-
-```bash
-# Run the demo with limited keywords
-python demo.py
-```
-
-This will:
-- Fetch Alzheimer's-related proteins from UniProt
-- Fetch Alzheimer's drugs from DrugCentral
-- Clean and standardize the data
-- Create integrated CSV files in `data/processed/`
-
-### 3. Check the Results
-
-```bash
-# View the summary
-cat data/processed/alzkb_summary.txt
-
-# View integrated data
-head data/processed/alzkb_integrated.csv
-```
-
-### 4. Run Full Update
-
-```bash
-# Run with all default keywords
-python main.py
-```
-
-### 5. Customize Your Update
-
-```bash
-# Use custom keywords
-python main.py --keywords Alzheimer APOE APP PSEN1 tau
-
-# Use custom output directory
-python main.py --output-dir /path/to/my/data
-```
+- 🔄 Automated data retrieval from biomedical databases
+- 🧹 Data cleaning and standardization
+- 🔗 Multi-source data integration
+- 📊 CSV export for easy analysis
+- 🤖 GitHub Actions for scheduled updates
+- 📝 Comprehensive logging and error handling
 
 ## Project Structure
 
 ```
-AlzKB-updater/
-├── alzkb/                      # Main package
-│   ├── __init__.py
-│   ├── config.py              # Configuration settings
-│   ├── integrator.py          # Main integration logic
-│   └── sources/               # Data source implementations
-│       ├── __init__.py
-│       ├── base.py           # Base class for data sources
-│       ├── uniprot.py        # UniProt data source
-│       └── drugcentral.py    # DrugCentral data source
-├── data/                      # Data directory
-│   ├── raw/                  # Raw data from sources
-│   └── processed/            # Cleaned and integrated data
+AlzKB-updater-mcp/
+├── src/
+│   ├── retrievers/           # Database-specific data retrievers
+│   │   ├── base_retriever.py
+│   │   ├── uniprot_retriever.py
+│   │   └── pubchem_retriever.py
+│   ├── integrators/          # Data cleaning and integration
+│   │   ├── data_cleaner.py
+│   │   └── data_integrator.py
+│   ├── csv_exporter.py       # CSV export functionality
+│   └── main.py               # Main application entry point
+├── data/
+│   ├── raw/                  # Raw data cache (gitignored)
+│   └── processed/            # Cleaned and integrated CSV files
 ├── .github/
 │   └── workflows/
 │       └── update-alzkb.yml  # GitHub Actions workflow
-├── main.py                   # Main entry point
-├── demo.py                   # Demo script
-├── requirements.txt          # Python dependencies
-├── README.md                # This file
-├── CONTRIBUTING.md          # Contribution guidelines
-└── ARCHITECTURE.md          # Technical architecture documentation
+├── requirements.txt
+└── README.md
 ```
 
-## Core Components
-
-### 1. Data Sources (`alzkb/sources/`)
-
-**Base Class** (`base.py`):
-- Abstract interface for all data sources
-- Implements common workflow: fetch → clean → save
-- Handles file I/O and logging
-
-**UniProt Source** (`uniprot.py`):
-- Queries UniProt REST API
-- Fetches Alzheimer's-related proteins
-- Extracts gene names, functions, disease associations
-
-**DrugCentral Source** (`drugcentral.py`):
-- Fetches drug information
-- Filters for Alzheimer's-related drugs
-- Extracts indications and mechanisms
-
-### 2. Integration (`alzkb/integrator.py`)
-
-**AlzKBIntegrator**:
-- Coordinates all data sources
-- Manages update workflow
-- Combines data into unified format
-- Generates summary statistics
-
-### 3. Configuration (`alzkb/config.py`)
-
-Customize the following:
-- Data source URLs and settings
-- Alzheimer's disease keywords
-- Output paths and formats
-- Enable/disable specific data sources
-
-Example configuration:
-```python
-ALZHEIMER_KEYWORDS = [
-    "Alzheimer",
-    "APOE",
-    "APP",
-    "PSEN1",
-    "PSEN2",
-    "MAPT"
-]
-
-DATA_SOURCES = {
-    "uniprot": {
-        "enabled": True,
-        "url": "https://rest.uniprot.org/uniprotkb/stream"
-    }
-}
-```
-
-### 4. Automation (`.github/workflows/`)
-
-**GitHub Actions Workflow**:
-- Runs weekly (Mondays at 00:00 UTC)
-- Can be triggered manually
-- Auto-commits updated data
-- Uploads artifacts
-
-## Data Flow
-
-```
-1. Fetch Data
-   ├── UniProt API → Raw protein data
-   └── DrugCentral → Raw drug data
-
-2. Clean Data
-   ├── Standardize column names
-   ├── Filter for Alzheimer's relevance
-   ├── Remove duplicates
-   └── Add metadata
-
-3. Integrate
-   ├── Combine all sources
-   ├── Add integration timestamps
-   └── Generate summary
-
-4. Export
-   ├── Save CSV files
-   ├── Create summary report
-   └── Commit to repository (if automated)
-```
-
-## Output Files
-
-After running, check these files:
-
-| File | Description |
-|------|-------------|
-| `data/processed/alzkb_integrated.csv` | All data combined from all sources |
-| `data/processed/uniprot_processed.csv` | Cleaned protein data |
-| `data/processed/drugcentral_processed.csv` | Cleaned drug data |
-| `data/processed/alzkb_summary.txt` | Summary statistics |
-| `data/raw/uniprot_raw.csv` | Raw UniProt data (before cleaning) |
-| `data/raw/drugcentral_raw.csv` | Raw DrugCentral data (before cleaning) |
-
-### Integrated CSV Format
-
-The integrated CSV file (`alzkb_integrated.csv`) contains:
-
-**Common columns:**
-- `source`: Data source name
-- `source_type`: Type of entity (protein, drug, etc.)
-- `last_updated`: Timestamp of last update
-- `integration_date`: Date of integration
-
-**UniProt-specific columns:**
-- `protein_id`: UniProt accession
-- `protein_name`: Protein name
-- `gene_names`: Associated gene names
-- `organism`: Source organism
-- `function`: Protein function
-- `disease_involvement`: Disease associations
-
-**DrugCentral-specific columns:**
-- `drug_id`: Drug identifier
-- `drug_name`: Drug name
-- `indication`: Medical indication
-- `mechanism_of_action`: How the drug works
-- `approval_year`: FDA approval year
-
-## Automated Updates with GitHub Actions
-
-The project includes a GitHub Actions workflow that automatically updates the data:
-
-- **Schedule**: Runs weekly on Mondays at 00:00 UTC
-- **Manual Trigger**: Can be triggered manually from the Actions tab
-- **Auto-commit**: Automatically commits updated data to the repository
-
-### Setting Up Automated Updates
-
-1. Push the repository to GitHub
-2. Enable GitHub Actions in your repository settings
-3. The workflow will run automatically according to the schedule
-4. View results in the "Actions" tab
-
-## Adding New Data Sources
-
-To add a new data source, see the detailed guide in [ARCHITECTURE.md](ARCHITECTURE.md). Quick overview:
-
-1. **Create source class** in `alzkb/sources/newsource.py`:
-
-```python
-from alzkb.sources.base import DataSource
-
-class NewSource(DataSource):
-    def fetch_data(self):
-        # Implement data fetching logic
-        pass
-    
-    def clean_data(self, df):
-        # Implement data cleaning logic
-        pass
-```
-
-2. **Register the source** in `alzkb/integrator.py`:
-
-```python
-from alzkb.sources.newsource import NewSource
-
-# In _initialize_sources method:
-if DATA_SOURCES["newsource"]["enabled"]:
-    self.sources.append(NewSource(self.output_dir, self.keywords))
-```
-
-3. **Add configuration** in `alzkb/config.py`:
-
-```python
-DATA_SOURCES["newsource"] = {
-    "name": "New Source",
-    "url": "https://api.example.com",
-    "enabled": True
-}
-```
-
-## Troubleshooting
-
-### Import errors
-
-```bash
-# Solution: Make sure you're in the project directory
-cd AlzKB-updater
-python main.py
-```
-
-### No data fetched
-
-```bash
-# Solution: Check your internet connection
-# The scripts need to access external APIs
-```
-
-### Rate limiting errors
-
-```bash
-# Solution: The scripts include delays, but you can:
-# - Run with fewer keywords
-# - Wait and try again later
-```
-
-### API errors
-
-If you encounter API-related errors, the application will log detailed information. Check the console output for:
-- Data fetching progress
-- Number of records processed
-- Specific error messages
-
-## Technical Details
+## Installation
 
 ### Prerequisites
 
-- Python 3.10 or higher
+- Python 3.8 or higher
 - pip package manager
-- Internet connection (for API access)
 
-### Dependencies
+### Setup
 
-- **pandas**: Data manipulation
-- **requests**: HTTP requests
-- **numpy**: Numerical operations
-- **python-dateutil**: Date handling
-- **tqdm**: Progress bars
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd AlzKB-updater-mcp
+```
 
-### API Rate Limiting
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-- Built-in delays between requests
-- Respects API guidelines
-- Handles errors gracefully
+## Usage
 
-## Future Enhancements
+### Local Execution
 
-Potential additions:
+Run the updater with default settings:
+```bash
+cd src
+python main.py
+```
 
-- [ ] More data sources (PubMed, ClinicalTrials.gov, etc.)
-- [ ] Data validation and quality checks
-- [ ] Relationship extraction between entities
-- [ ] Graph database export (Neo4j)
-- [ ] Web interface for browsing data
-- [ ] Automated testing suite
-- [ ] Docker containerization
+### Command-Line Options
+
+```bash
+python main.py --help
+```
+
+Available options:
+- `--query`: Search query for data retrieval (default: "alzheimer")
+- `--protein-limit`: Maximum number of proteins to retrieve (default: 100)
+- `--compound-limit`: Maximum number of compounds to retrieve (default: 50)
+- `--output-dir`: Output directory for CSV files (default: "data/processed")
+
+Example with custom parameters:
+```bash
+python main.py --query "alzheimer disease" --protein-limit 200 --compound-limit 100
+```
+
+### Automated Updates via GitHub Actions
+
+The system includes a GitHub Actions workflow that automatically updates AlzKB:
+
+- **Schedule**: Runs every Monday at 00:00 UTC
+- **Manual trigger**: Can be triggered manually from the Actions tab
+
+The workflow:
+1. Retrieves data from UniProt and PubChem
+2. Cleans and integrates the data
+3. Exports to CSV files
+4. Commits and pushes updated data to the repository
+5. Creates artifacts for download
+
+## Output Files
+
+The system generates the following CSV files in `data/processed/`:
+
+1. **alzkb_uniprot_YYYYMMDD.csv**: Protein data from UniProt
+   - Columns: uniprot_id, protein_name, gene_name, organism, function, subcellular_location, disease_association, data_source, integration_date
+
+2. **alzkb_pubchem_YYYYMMDD.csv**: Compound data from PubChem
+   - Columns: pubchem_cid, compound_name, molecular_formula, molecular_weight, smiles, inchi, description, data_source, integration_date
+
+3. **alzkb_summary_YYYYMMDD.csv**: Summary statistics
+   - Columns: source, total_records, columns, non_null_records, null_records
+
+4. **alzkb_metadata_YYYYMMDD.csv**: Integration metadata
+   - Contains: sources, integration_date, record_counts
+
+## Data Sources
+
+### UniProt
+- **URL**: https://www.uniprot.org/
+- **API**: UniProt REST API
+- **Rate Limit**: 2 requests per second
+- **Data**: Protein sequences, functions, disease associations
+
+### PubChem
+- **URL**: https://pubchem.ncbi.nlm.nih.gov/
+- **API**: PubChem PUG REST
+- **Rate Limit**: 5 requests per second
+- **Data**: Chemical compounds, molecular properties
+
+## Error Handling
+
+The system is designed to handle errors gracefully:
+- Network failures are logged and do not crash the application
+- Missing data returns empty DataFrames with proper schema
+- Rate limiting is enforced to respect API guidelines
+- All errors are logged with detailed messages
+
+## Development
+
+### Adding New Data Sources
+
+1. Create a new retriever in `src/retrievers/`:
+```python
+from .base_retriever import BaseRetriever
+
+class NewRetriever(BaseRetriever):
+    def __init__(self):
+        super().__init__(name="NewSource", base_url="https://api.example.com")
+    
+    def get_schema(self):
+        return ["column1", "column2", ...]
+    
+    def retrieve_data(self, **kwargs):
+        # Implementation
+        pass
+```
+
+2. Update `src/retrievers/__init__.py` to export the new retriever
+
+3. Add the retriever to `src/main.py`:
+```python
+from retrievers import NewRetriever
+
+new_retriever = NewRetriever()
+data = new_retriever.retrieve_data()
+integrator.add_source_data("NewSource", data)
+```
 
 ## Contributing
 
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details on:
-
-- How to report issues
-- Adding new data sources
-- Code style guidelines
-- Pull request process
-
-## Architecture
-
-For detailed technical documentation about the system architecture, design patterns, and implementation details, see [ARCHITECTURE.md](ARCHITECTURE.md).
+This project focuses on core functionality:
+- Data retrieval from biomedical databases
+- Data cleaning and standardization
+- Data integration and export
 
 ## References
 
-This project was inspired by:
-
-- [PrimeKG](https://github.com/mims-harvard/PrimeKG) - Precision Medicine Knowledge Graph
-- [AlzKB-updates](https://github.com/EpistasisLab/AlzKB-updates) - Alzheimer's Knowledge Base updates
+- PrimeKG: https://github.com/mims-harvard/PrimeKG
+- AlzKB-updates: https://github.com/EpistasisLab/AlzKB-updates
 
 ## Support
 
-For issues, questions, or suggestions, please open an issue on GitHub.
+For issues or questions:
+1. Check the logs in the console output
+2. Review error messages for specific API failures
+3. Verify network connectivity and API availability
+4. Check rate limits are not exceeded
 
-## Changelog
+## Version
 
-### Version 0.1.0 (Initial Release)
-
-- Basic data integration from UniProt and DrugCentral
-- CSV export functionality
-- GitHub Actions automation
-- Local execution support
-
-## License
-
-To be determined.
+Current version: 1.0.0
