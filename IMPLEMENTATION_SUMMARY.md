@@ -261,7 +261,7 @@ alzkb-updater/
 ├── data/
 │   └── ontology/                    # NEW
 │       └── alzkb_v2.rdf
-├── README_v2.md                     # NEW
+├── README.md                     # NEW
 ├── BUILD_GUIDE.md                   # NEW
 ├── CHANGELOG.md                     # NEW
 ├── test_implementation.py           # NEW
