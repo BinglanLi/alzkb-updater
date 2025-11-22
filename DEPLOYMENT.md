@@ -22,7 +22,7 @@ python3 --version  # Should be 3.8+
 
 # Run with small limits for testing
 cd src
-python main.py --protein-limit 10 --compound-limit 10
+python src/main.py --protein-limit 10 --compound-limit 10
 
 # Verify outputs
 ls -lh ../data/processed/

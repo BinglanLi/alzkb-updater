@@ -25,7 +25,7 @@ echo.
 echo Running AlzKB updater...
 echo.
 cd src
-python main.py %*
+python src/main.py %*
 
 echo.
 echo ================================

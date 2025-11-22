@@ -9,7 +9,7 @@ on:
     branches:
       - main
     paths:
-      - 'alzkb/**'
+      - 'src/**'
       - 'main.py'
 
 jobs:
@@ -32,7 +32,7 @@ jobs:
         
     - name: Run AlzKB updater
       run: |
-        python main.py
+        python src/main.py
         
     - name: Check for data changes
       id: check_changes
