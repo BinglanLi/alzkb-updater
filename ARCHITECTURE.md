@@ -1,4 +1,4 @@
-# AlzKB-updater-mcp Architecture
+# alzkb-updater Architecture
 
 ## System Overview
 

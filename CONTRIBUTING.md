@@ -1,4 +1,4 @@
-# Contributing to AlzKB-updater-mcp
+# Contributing to alzkb-updater
 
 ## Adding New Data Sources
 

@@ -22,7 +22,7 @@ The system is designed to run automatically via GitHub Actions or manually on a 
 ## Project Structure
 
 ```
-AlzKB-updater-mcp/
+alzkb-updater/
 ├── src/
 │   ├── retrievers/           # Database-specific data retrievers
 │   │   ├── base_retriever.py
@@ -55,7 +55,7 @@ AlzKB-updater-mcp/
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd AlzKB-updater-mcp
+cd alzkb-updater
 ```
 
 2. Install dependencies:

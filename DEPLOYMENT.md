@@ -9,7 +9,7 @@
 
 ### Setup Steps
 1. [ ] Clone or download the repository
-2. [ ] Navigate to project directory: `cd AlzKB-updater-mcp`
+2. [ ] Navigate to project directory: `cd alzkb-updater`
 3. [ ] Run the setup script:
    - Linux/Mac: `./run.sh`
    - Windows: `run.bat`
@@ -34,7 +34,7 @@ ls -lh ../data/processed/
 1. [ ] Create new GitHub repository
 2. [ ] Initialize git in project directory:
 ```bash
-cd AlzKB-updater-mcp
+cd alzkb-updater
 git init
 git add .
 git commit -m "Initial commit: AlzKB updater"
@@ -42,7 +42,7 @@ git commit -m "Initial commit: AlzKB updater"
 
 3. [ ] Add remote and push:
 ```bash
-git remote add origin https://github.com/YOUR_USERNAME/AlzKB-updater-mcp.git
+git remote add origin https://github.com/YOUR_USERNAME/alzkb-updater.git
 git branch -M main
 git push -u origin main
 ```

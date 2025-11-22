@@ -1,6 +1,6 @@
 
 
-PROJECT: AlzKB-updater-mcp
+PROJECT: alzkb-updater
 ==========================
 
 OVERVIEW
@@ -113,7 +113,7 @@ QUALITY ASSURANCE
 
 REQUIREMENTS MET
 ----------------
-✅ Project folder: AlzKB-updater-mcp
+✅ Project folder: alzkb-updater
 ✅ Two databases: UniProt and PubChem
 ✅ GitHub Actions: Automated updates
 ✅ Local execution: Cross-platform support
@@ -126,7 +126,7 @@ REQUIREMENTS MET
 
 NEXT STEPS
 ----------
-1. Clone/download the AlzKB-updater-mcp folder
+1. Clone/download the alzkb-updater folder
 2. Run ./run.sh (or run.bat on Windows)
 3. Check data/processed/ for CSV outputs
 4. (Optional) Push to GitHub for automated updates
@@ -135,7 +135,7 @@ NEXT STEPS
 
 PROJECT STRUCTURE
 -----------------
-AlzKB-updater-mcp/
+alzkb-updater/
 ├── src/                      # Source code
 │   ├── retrievers/          # Database retrievers
 │   ├── integrators/         # Data processing

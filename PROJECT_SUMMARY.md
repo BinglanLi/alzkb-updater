@@ -1,4 +1,4 @@
-# AlzKB-updater-mcp Project Summary
+# alzkb-updater Project Summary
 
 ## Project Overview
 
@@ -116,7 +116,7 @@ This project provides an automated system for creating and updating the Alzheime
 ## File Structure
 
 ```
-AlzKB-updater-mcp/
+alzkb-updater/
 ├── src/
 │   ├── retrievers/              # Data source modules
 │   │   ├── base_retriever.py    # Abstract base class

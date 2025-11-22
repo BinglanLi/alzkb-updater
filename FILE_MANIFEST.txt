@@ -1,5 +1,5 @@
 
-AlzKB-updater-mcp/
+alzkb-updater/
 │
 ├── 📄 BUILD_SUMMARY.txt          - Project creation summary
 ├── 📄 README.md                  - Main documentation (198 lines)
