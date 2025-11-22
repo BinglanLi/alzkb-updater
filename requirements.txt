@@ -1,11 +1,12 @@
-# Core dependencies
+# Existing requirements
 requests>=2.31.0
 pandas>=2.0.0
 biopython>=1.81
-
-# Data validation and cleaning
 numpy>=1.24.0
-
-# Logging and utilities
-python-dateutil>=2.8.2
 tqdm>=4.65.0
+python-dateutil>=2.8.2
+
+# New requirements for AlzKB v2
+owlready2>=0.43  # For OWL ontology handling
+mysql-connector-python>=8.0.33  # For AOP-DB MySQL database
+rdflib>=6.3.0  # Additional RDF support
