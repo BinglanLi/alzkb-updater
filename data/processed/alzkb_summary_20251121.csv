@@ -1,0 +1,4 @@
+source,entity_type,record_count,columns
+hetionet,nodes,47031,"id, name, kind..."
+hetionet,edges,2250198,"source, metaedge, target..."
+ncbigene,genes,193618,"tax_id, GeneID, Symbol, LocusTag, Synonyms..."
