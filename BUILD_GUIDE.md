@@ -1,450 +1,515 @@
-# AlzKB v2 Build Guide
+# AlzKB v2.1 Build Guide
 
-This guide provides detailed instructions for building AlzKB v2 from scratch, based on the original BUILD.org specifications.
+This guide provides step-by-step instructions for building AlzKB from scratch.
 
-## Overview
+## Table of Contents
 
-Building AlzKB v2 involves three main phases:
-
-1. **Data Collection**: Download and prepare data from multiple sources
-2. **Data Processing**: Parse and integrate data into the ontology
-3. **Export**: Generate output files in various formats
+1. [Prerequisites](#prerequisites)
+2. [Environment Setup](#environment-setup)
+3. [Data Source Configuration](#data-source-configuration)
+4. [Building AlzKB](#building-alzkb)
+5. [Verification](#verification)
+6. [Troubleshooting](#troubleshooting)
 
 ## Prerequisites
 
 ### System Requirements
 
-- **Operating System**: Linux, macOS, or Windows
+- **Operating System**: Linux, macOS, or Windows with WSL
 - **Python**: 3.8 or higher
-- **Disk Space**: 15+ GB free space
-  - Raw data: ~10 GB
-  - Processed data: ~2 GB
-  - MySQL database (AOP-DB): ~3 GB
-- **Memory**: 8+ GB RAM recommended
-- **MySQL Server**: Optional, required only for AOP-DB
+- **Memory**: At least 8GB RAM (16GB recommended)
+- **Disk Space**: At least 50GB free space
+- **MySQL**: Version 5.7 or higher (for AOP-DB)
 
-### Software Installation
+### Required Software
 
-1. **Python and pip**:
 ```bash
-# Check Python version
-python --version  # Should be 3.8+
+# Python 3.8+
+python3 --version
 
+# Git
+git --version
+
+# MySQL (for AOP-DB)
+mysql --version
+
+# pip
+pip --version
+```
+
+## Environment Setup
+
+### 1. Clone the Repository
+
+```bash
+cd ~/GitHub
+git clone https://github.com/BinglanLi/alzkb-updater.git
+cd alzkb-updater
+```
+
+### 2. Checkout the Correct Branch
+
+```bash
+git checkout alzkb-v2.1
+```
+
+### 3. Create Virtual Environment
+
+```bash
+# Create virtual environment
+python3 -m venv .venv
+
+# Activate virtual environment
+source .venv/bin/activate  # On macOS/Linux
+# OR
+.venv\Scripts\activate  # On Windows
+```
+
+### 4. Install Python Dependencies
+
+```bash
 # Upgrade pip
 pip install --upgrade pip
-```
 
-2. **MySQL Server** (optional, for AOP-DB):
-```bash
-# Ubuntu/Debian
-sudo apt-get install mysql-server
-
-# macOS with Homebrew
-brew install mysql
-
-# Windows
-# Download from: https://dev.mysql.com/downloads/mysql/
-```
-
-3. **Git**:
-```bash
-# Check if git is installed
-git --version
-```
-
-## Step-by-Step Build Process
-
-### Phase 1: Setup
-
-#### 1.1 Clone Repository
-
-```bash
-git clone <repository-url>
-cd alzkb-updater
-git checkout alzkb-v2
-```
-
-#### 1.2 Install Python Dependencies
-
-```bash
+# Install requirements
 pip install -r requirements.txt
 ```
 
-Verify installation:
-```bash
-python -c "import owlready2; print('owlready2 OK')"
-python -c "import pandas; print('pandas OK')"
-```
-
-#### 1.3 Create Data Directories
+### 5. Install ista
 
 ```bash
-mkdir -p data/raw
-mkdir -p data/processed
-mkdir -p data/ontology
+# Clone ista repository
+git clone https://github.com/RomanoLab/ista.git .ista
+
+# Install ista
+pip install -e .ista
 ```
 
-### Phase 2: Data Collection
+### 6. Verify Installation
 
-#### 2.1 Automated Downloads
-
-These sources can be downloaded automatically:
-
-**Hetionet:**
 ```bash
-cd src
-python -c "
-from parsers import HetionetParser
-parser = HetionetParser()
-parser.download_data()
-"
+# Check if csv2rdf is available
+which csv2rdf
+
+# Test csv2rdf
+csv2rdf --help
 ```
 
-**NCBI Gene:**
+## Data Source Configuration
+
+### 1. Create Environment File
+
+Create a `.env` file in the project root:
+
 ```bash
-python -c "
-from parsers import NCBIGeneParser
-parser = NCBIGeneParser()
-parser.download_data()
-"
+# DisGeNET API
+DISGENET_API=your_api_key_here
+
+# DrugBank credentials
+DRUGBANK_USERNAME=your_username
+DRUGBANK_PASSWORD=your_password
+
+# MySQL (for AOP-DB)
+MYSQL_USERNAME=root
+MYSQL_PASSWORD=your_mysql_password
+MYSQL_DB_NAME=aopdb
 ```
 
-#### 2.2 Manual Downloads
+### 2. Obtain API Keys and Credentials
 
-##### DrugBank
+#### DisGeNET API Key
 
-1. **Create Account**:
-   - Visit: https://go.drugbank.com/
-   - Sign up for free academic account
-   - Verify email address
-   - Wait for approval (may take several days)
+1. Go to https://www.disgenet.org/
+2. Create an account
+3. Navigate to your profile
+4. Copy your API key
+5. Add to `.env` file
 
-2. **Download Data**:
-   - Log in to DrugBank
-   - Navigate to: Downloads → Academic Download
-   - Click "External Links" tab
-   - In "External Drug Links" table, click "Download" for "All"
-   - Save as: `data/raw/drugbank/drug_links.csv`
+#### DrugBank Credentials
 
-3. **Verify**:
+1. Go to https://go.drugbank.com/
+2. Create an account
+3. Verify your email
+4. Use your email and password in `.env`
+
+### 3. Set Up AOP-DB (MySQL)
+
+#### Download AOP-DB
+
 ```bash
-ls -lh data/raw/drugbank/drug_links.csv
+# Create directory
+mkdir -p data/raw/aopdb
+
+# Download AOP-DB SQL dump
+# Note: You may need to request access from AOP-DB maintainers
+# or use a local copy if available
 ```
 
-##### DisGeNET
+#### Import to MySQL
 
-1. **Create Account**:
-   - Visit: https://www.disgenet.org/
-   - Create free account
-   - Log in
-
-2. **Download Files**:
-   - Navigate to Downloads page
-   - Download these files:
-     - `curated_gene_disease_associations.tsv.gz`
-     - `disease_mappings.tsv.gz`
-
-3. **Extract and Place**:
-```bash
-cd data/raw/disgenet
-gunzip curated_gene_disease_associations.tsv.gz
-gunzip disease_mappings.tsv.gz
-cd ../../..
-```
-
-4. **Verify**:
-```bash
-ls -lh data/raw/disgenet/*.tsv
-```
-
-##### AOP-DB (Optional)
-
-**Warning**: This is a large download (7.2 GB compressed)!
-
-1. **Download**:
-```bash
-cd /tmp
-wget https://gaftp.epa.gov/EPADataCommons/ORD/AOP-DB/AOP-DB_v2.zip
-```
-
-2. **Extract**:
-```bash
-unzip AOP-DB_v2.zip
-tar -xzf aopdb_no-orthoscores.tar.gz
-```
-
-3. **Import to MySQL**:
 ```bash
 # Create database
 mysql -u root -p -e "CREATE DATABASE aopdb;"
 
-# Import data (this takes a while!)
-mysql -u root -p aopdb < aopdb_no-orthoscores.sql
+# Import SQL dump
+mysql -u root -p aopdb < path/to/aopdb_dump.sql
+
+# Verify import
+mysql -u root -p -e "USE aopdb; SHOW TABLES;"
 ```
 
-4. **Verify**:
-```bash
-mysql -u root -p aopdb -e "SHOW TABLES;"
-```
-
-### Phase 3: Build AlzKB
-
-#### 3.1 Basic Build (No AOP-DB)
-
-Build with automatically downloadable sources:
+### 4. Verify Credentials
 
 ```bash
-cd src
-python main.py --sources hetionet ncbigene
+# Test DisGeNET API
+curl -H "Authorization: Bearer YOUR_API_KEY" \
+  "https://www.disgenet.org/api/gda/disease/C0002395"
+
+# Test MySQL connection
+mysql -u root -p -e "USE aopdb; SELECT COUNT(*) FROM pathways;"
 ```
 
-#### 3.2 Full Build (With Manual Sources)
+## Building AlzKB
 
-After completing manual downloads:
+### Option 1: Complete Pipeline (Recommended)
+
+Run the complete pipeline with ista integration:
 
 ```bash
-python main.py --sources hetionet ncbigene drugbank disgenet
+# Activate virtual environment
+source .venv/bin/activate
+
+# Run pipeline
+python src/main.py --use-ista
 ```
 
-#### 3.3 Complete Build (With AOP-DB)
+This will:
+1. Download data from all sources
+2. Parse and transform data
+3. Export to TSV format
+4. Populate ontology using ista
+5. Create database files
+6. Generate release notes
 
-If you have MySQL and AOP-DB set up:
+### Option 2: Step-by-Step Build
+
+#### Step 1: Download and Parse Data
+
+```python
+from src.parsers import (
+    AOPDBParser, DisGeNETParser, DrugBankParser,
+    NCBIGeneParser, HetionetBuilder
+)
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Initialize parsers
+parsers = {
+    'aopdb': AOPDBParser(
+        data_dir='data/raw/aopdb',
+        mysql_config={
+            'host': 'localhost',
+            'user': os.getenv('MYSQL_USERNAME'),
+            'password': os.getenv('MYSQL_PASSWORD'),
+            'database': 'aopdb'
+        }
+    ),
+    'disgenet': DisGeNETParser(
+        data_dir='data/raw/disgenet',
+        api_key=os.getenv('DISGENET_API')
+    ),
+    'drugbank': DrugBankParser(
+        data_dir='data/raw/drugbank',
+        username=os.getenv('DRUGBANK_USERNAME'),
+        password=os.getenv('DRUGBANK_PASSWORD')
+    ),
+    'ncbigene': NCBIGeneParser(
+        data_dir='data/raw/ncbigene'
+    ),
+    'hetionet': HetionetBuilder(
+        data_dir='data/raw/hetionet'
+    )
+}
+
+# Download and parse each source
+for name, parser in parsers.items():
+    print(f"Processing {name}...")
+    parser.download_data()
+    data = parser.parse_data()
+    print(f"Completed {name}")
+```
+
+#### Step 2: Export to TSV
+
+```python
+# Export parsed data to TSV files
+for name, parser in parsers.items():
+    output_dir = f'data/processed/{name}'
+    parser.export_to_tsv(data, output_dir)
+```
+
+#### Step 3: Populate Ontology with ista
+
+```python
+from src.ontology.ista_integrator import IstaIntegrator, get_default_configs
+
+# Initialize ista
+ista = IstaIntegrator(
+    ontology_path='data/ontology/alzkb_v2.rdf',
+    output_dir='data/output/rdf',
+    venv_path='.venv'
+)
+
+# Get configurations
+configs = get_default_configs()
+
+# Populate for each source
+rdf_files = []
+for source_name, config in configs.items():
+    tsv_file = f'data/processed/{source_name}/main_data.tsv'
+    rdf_file = ista.populate_from_tsv(source_name, tsv_file, config)
+    rdf_files.append(rdf_file)
+
+# Merge RDF files
+merged_rdf = ista.merge_rdf_files(rdf_files, 'data/output/alzkb_v2.1.rdf')
+```
+
+#### Step 4: Create Database Files
+
+```python
+from rdflib import Graph
+import pandas as pd
+
+# Load RDF
+g = Graph()
+g.parse('data/output/alzkb_v2.1.rdf', format='xml')
+
+# Extract nodes and edges
+nodes = set()
+edges = []
+
+for s, p, o in g:
+    nodes.add(str(s))
+    if str(o).startswith('http'):
+        nodes.add(str(o))
+        edges.append({
+            'source': str(s),
+            'relationship': str(p),
+            'target': str(o)
+        })
+
+# Export to CSV
+pd.DataFrame({'node_id': list(nodes)}).to_csv('data/output/nodes.csv', index=False)
+pd.DataFrame(edges).to_csv('data/output/edges.csv', index=False)
+```
+
+### Monitoring Progress
+
+The pipeline creates detailed logs:
 
 ```bash
-python main.py \
-  --sources hetionet ncbigene drugbank disgenet aopdb \
-  --mysql-host localhost \
-  --mysql-user root \
-  --mysql-password yourpassword \
-  --mysql-db aopdb
+# View real-time logs
+tail -f alzkb_build.log
+
+# View completed logs
+less alzkb_build.log
 ```
 
-### Phase 4: Verify Output
+## Verification
 
-#### 4.1 Check Output Files
+### 1. Check Output Files
 
 ```bash
-ls -lh data/processed/
+# List output files
+ls -lh data/output/
+
+# Expected files:
+# - alzkb_v2.1_populated.rdf
+# - alzkb_nodes.csv
+# - alzkb_edges.csv
+# - RELEASE_NOTES_v2.1.md
 ```
 
-Expected files:
-- `alzkb_hetionet_nodes_YYYYMMDD.csv`
-- `alzkb_hetionet_edges_YYYYMMDD.csv`
-- `alzkb_ncbigene_genes_YYYYMMDD.csv`
-- `alzkb_drugbank_drugs_YYYYMMDD.csv` (if manual download completed)
-- `alzkb_disgenet_associations_YYYYMMDD.csv` (if manual download completed)
-- `alzkb_summary_YYYYMMDD.csv`
-
-#### 4.2 Inspect Data
-
-```bash
-# View summary
-cat data/processed/alzkb_summary_*.csv
-
-# Count records
-wc -l data/processed/alzkb_*.csv
-```
-
-#### 4.3 Validate CSV Files
+### 2. Verify Data Integrity
 
 ```python
 import pandas as pd
 
-# Check Hetionet nodes
-df = pd.read_csv('data/processed/alzkb_hetionet_nodes_YYYYMMDD.csv')
-print(f"Hetionet nodes: {len(df)}")
-print(df.head())
+# Check nodes
+nodes = pd.read_csv('data/output/alzkb_nodes.csv')
+print(f"Total nodes: {len(nodes)}")
 
-# Check gene data
-df = pd.read_csv('data/processed/alzkb_ncbigene_genes_YYYYMMDD.csv')
-print(f"Genes: {len(df)}")
-print(df.head())
+# Check edges
+edges = pd.read_csv('data/output/alzkb_edges.csv')
+print(f"Total edges: {len(edges)}")
+
+# Check for duplicates
+print(f"Duplicate nodes: {nodes.duplicated().sum()}")
+print(f"Duplicate edges: {edges.duplicated().sum()}")
 ```
 
-## Build Options
+### 3. Verify RDF
 
-### Incremental Builds
+```python
+from rdflib import Graph
 
-If you've already downloaded data:
-
-```bash
-# Skip download, only parse and export
-python main.py --no-download
+g = Graph()
+g.parse('data/output/alzkb_v2.1_populated.rdf', format='xml')
+print(f"Total triples: {len(g)}")
 ```
 
-### Specific Sources Only
+### 4. Run Test Queries
 
-```bash
-# Build only Hetionet
-python main.py --sources hetionet
+```python
+# Example: Find all genes
+genes = nodes[nodes['node_id'].str.contains('gene', case=False)]
+print(f"Number of genes: {len(genes)}")
 
-# Build only gene data
-python main.py --sources ncbigene
-
-# Build multiple specific sources
-python main.py --sources hetionet ncbigene drugbank
-```
-
-### Custom Data Directory
-
-```bash
-python main.py --data-dir /path/to/custom/data
+# Example: Find all drug-gene interactions
+drug_gene = edges[
+    (edges['source'].str.contains('drug', case=False)) &
+    (edges['target'].str.contains('gene', case=False))
+]
+print(f"Drug-gene interactions: {len(drug_gene)}")
 ```
 
 ## Troubleshooting
 
 ### Common Issues
 
-#### 1. Download Failures
+#### 1. ista Not Found
 
-**Problem**: Network errors or timeouts during download
-
-**Solutions**:
-- Check internet connection
-- Retry the download
-- Use `--no-download` and download manually
-- Check if source website is accessible
-
-#### 2. Missing Dependencies
-
-**Problem**: `ModuleNotFoundError: No module named 'owlready2'`
+**Problem**: `csv2rdf: command not found`
 
 **Solution**:
 ```bash
-pip install owlready2
+# Reinstall ista
+pip install -e .ista
+
+# Verify installation
+which csv2rdf
 ```
 
-#### 3. MySQL Connection Errors
+#### 2. MySQL Connection Failed
 
-**Problem**: `Can't connect to MySQL server`
+**Problem**: `Access denied for user 'root'@'localhost'`
 
-**Solutions**:
-- Verify MySQL is running: `sudo systemctl status mysql`
-- Check credentials are correct
-- Ensure database exists: `mysql -u root -p -e "SHOW DATABASES;"`
-- Verify user has permissions
+**Solution**:
+```bash
+# Check MySQL is running
+sudo systemctl status mysql
 
-#### 4. Out of Memory
+# Test connection
+mysql -u root -p
 
-**Problem**: Process killed due to memory
+# Update .env with correct credentials
+```
 
-**Solutions**:
-- Close other applications
-- Process sources separately:
-  ```bash
-  python main.py --sources hetionet
-  python main.py --sources ncbigene --no-download
-  ```
-- Use a machine with more RAM
+#### 3. API Authentication Failed
 
-#### 5. Disk Space Issues
+**Problem**: `401 Unauthorized` from DisGeNET API
 
-**Problem**: No space left on device
+**Solution**:
+- Verify API key in `.env`
+- Check if API key is active
+- Try generating a new API key
 
-**Solutions**:
-- Check available space: `df -h`
-- Clean up old data: `rm -rf data/raw/*/`
-- Use external drive: `python main.py --data-dir /mnt/external/alzkb`
+#### 4. Memory Error
 
-### Data Fetching Errors
+**Problem**: `MemoryError` during processing
 
-Some data sources may be temporarily unavailable. This is expected and acceptable:
+**Solution**:
+```python
+# Process data in chunks
+chunk_size = 10000
+for chunk in pd.read_csv('large_file.tsv', chunksize=chunk_size):
+    process_chunk(chunk)
+```
 
-- **Hetionet**: GitHub may rate-limit; retry later
-- **NCBI Gene**: FTP server may be down for maintenance
-- **DrugBank**: Requires valid account and approval
-- **DisGeNET**: Requires account login
-- **AOP-DB**: Large file, may timeout; use download manager
+#### 5. Download Timeouts
 
-**Do not fabricate data to bypass errors!** Report issues honestly.
+**Problem**: Downloads timing out
+
+**Solution**:
+```python
+# Increase timeout in parser
+response = requests.get(url, timeout=600)  # 10 minutes
+
+# Or download manually and place in data/raw/
+```
 
 ### Getting Help
 
-1. Check logs in console output
-2. Review error messages carefully
-3. Consult documentation:
-   - README_v2.md
-   - Original BUILD.org
-4. Open GitHub issue with:
+If you encounter issues:
+
+1. Check the logs: `alzkb_build.log`
+2. Search existing issues on GitHub
+3. Open a new issue with:
    - Error message
-   - Steps to reproduce
+   - Log file excerpt
    - System information
+   - Steps to reproduce
 
-## Performance Tips
+## Performance Optimization
 
-### Faster Downloads
+### For Large Datasets
 
-```bash
-# Use parallel downloads for Hetionet
-# (already implemented in parsers)
-```
-
-### Reduce Memory Usage
-
-```bash
-# Process one source at a time
-for source in hetionet ncbigene drugbank disgenet; do
-  python main.py --sources $source --no-download
-done
-```
-
-### Speed Up MySQL Import
-
-```bash
-# Increase MySQL buffer size
-mysql -u root -p -e "SET GLOBAL innodb_buffer_pool_size=2G;"
-```
-
-## Advanced Configuration
-
-### Custom Parsers
-
-To add a new data source:
-
-1. Create parser in `src/parsers/`:
 ```python
-from .base_parser import BaseParser
+# Use multiprocessing
+from multiprocessing import Pool
 
-class MyParser(BaseParser):
-    def download_data(self):
-        # Implementation
-        pass
-    
-    def parse_data(self):
-        # Implementation
-        pass
-    
-    def get_schema(self):
-        # Implementation
-        pass
+def process_source(source_name):
+    parser = get_parser(source_name)
+    return parser.download_and_parse()
+
+with Pool(processes=4) as pool:
+    results = pool.map(process_source, source_names)
 ```
 
-2. Register in `__init__.py`
-3. Add to main.py
+### For Limited Memory
 
-### Environment Variables
-
-Set environment variables for sensitive data:
-
-```bash
-export MYSQL_PASSWORD="yourpassword"
-python main.py --mysql-password "$MYSQL_PASSWORD"
+```python
+# Process in batches
+batch_size = 1000
+for i in range(0, len(data), batch_size):
+    batch = data[i:i+batch_size]
+    process_batch(batch)
 ```
 
 ## Next Steps
 
 After building AlzKB:
 
-1. **Analyze Data**: Use Jupyter notebooks in `examples/`
-2. **Export to Graph DB**: Convert to Neo4j (future feature)
-3. **Query Knowledge Graph**: Use SPARQL or Cypher
-4. **Extend**: Add new data sources or relationships
+1. **Import to Graph Database**:
+   ```bash
+   # For Memgraph
+   COPY nodes FROM 'data/output/alzkb_nodes.csv' WITH (HEADER = TRUE);
+   COPY edges FROM 'data/output/alzkb_edges.csv' WITH (HEADER = TRUE);
+   ```
+
+2. **Run Queries**:
+   ```cypher
+   // Example Cypher query
+   MATCH (d:Disease)-[r]-(g:Gene)
+   WHERE d.name CONTAINS 'Alzheimer'
+   RETURN d, r, g LIMIT 10;
+   ```
+
+3. **Deploy API**:
+   - Set up GraphQL or REST API
+   - Configure authentication
+   - Deploy to server
 
 ## References
 
-- Original BUILD.org: https://github.com/EpistasisLab/AlzKB/blob/master/BUILD.org
-- Hetionet: https://het.io/
-- NCBI Gene: https://www.ncbi.nlm.nih.gov/gene/
-- DrugBank: https://go.drugbank.com/
-- DisGeNET: https://www.disgenet.org/
-- AOP-DB: https://aopdb.epa.gov/
+- [AlzKB Original](https://github.com/EpistasisLab/AlzKB)
+- [ista Documentation](https://github.com/RomanoLab/ista)
+- [Hetionet](https://het.io/)
+- [Memgraph Documentation](https://memgraph.com/docs)
+
+---
+
+**Last Updated**: 2024-01-20
+**Version**: 2.1
