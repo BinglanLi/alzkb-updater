@@ -1,338 +1,308 @@
-# AlzKB v2 - Alzheimer's Knowledge Base
+# AlzKB Updater v2.1
 
-A comprehensive knowledge graph for Alzheimer's disease research, integrating data from multiple biomedical databases and structured using an OWL ontology.
+Comprehensive pipeline for building and updating the Alzheimer's Knowledge Base (AlzKB).
 
 ## Overview
 
-AlzKB v2 is a complete reimplementation based on the original [AlzKB](https://github.com/EpistasisLab/AlzKB) build process. It creates a knowledge graph by:
+AlzKB v2.1 is a knowledge graph that integrates data from multiple biomedical sources to support Alzheimer's disease research. This repository provides tools to:
 
-1. **Collecting data** from multiple authoritative biomedical databases
-2. **Structuring data** using an OWL 2 ontology
-3. **Populating** the ontology with entities and relationships
-4. **Exporting** to various formats (CSV, graph databases)
+1. Retrieve data from various sources (APIs, databases, web)
+2. Parse and transform data into standardized formats
+3. Populate an OWL ontology using ista
+4. Export to graph database formats (Memgraph/Neo4j)
 
-## Architecture
+## Features
 
 ### Data Sources
 
-AlzKB v2 integrates data from the following sources:
+- **AOP-DB**: Adverse Outcome Pathway Database (via MySQL)
+- **DisGeNET**: Gene-disease associations (via API)
+- **DrugBank**: Drug information (via web authentication)
+- **NCBI Gene**: Gene annotations
+- **Hetionet**: Integrated biomedical knowledge graph built from:
+  - Disease Ontology
+  - Gene Ontology
+  - Uberon (Anatomy Ontology)
+  - GWAS Catalog
+  - MeSH
+  - DrugCentral
+  - BindingDB
+  - Bgee (Gene Expression)
+  - MEDLINE (planned)
 
-| Source | Type | Content | Status |
-|--------|------|---------|--------|
-| **Hetionet** | Flat files | Multi-entity biomedical knowledge graph | ✓ Implemented |
-| **NCBI Gene** | Flat files | Human gene information | ✓ Implemented |
-| **DrugBank** | Flat files | Drug information and targets | ✓ Implemented |
-| **DisGeNET** | Flat files | Disease-gene associations | ✓ Implemented |
-| **AOP-DB** | MySQL | Adverse Outcome Pathways | ✓ Implemented |
+### Key Improvements in v2.1
 
-### Components
-
-```
-alzkb-updater/
-├── src/
-│   ├── ontology/              # OWL ontology management
-│   │   ├── ontology_manager.py
-│   │   └── ontology_populator.py
-│   ├── parsers/               # Data source parsers
-│   │   ├── base_parser.py
-│   │   ├── hetionet_parser.py
-│   │   ├── ncbigene_parser.py
-│   │   ├── drugbank_parser.py
-│   │   ├── disgenet_parser.py
-│   │   └── aopdb_parser.py
-│   ├── integrators/           # Data integration
-│   ├── csv_exporter.py        # CSV export
-│   └── main.py                # Main pipeline
-├── data/
-│   ├── ontology/              # OWL ontology file
-│   │   └── alzkb_v2.rdf
-│   ├── raw/                   # Downloaded data (gitignored)
-│   └── processed/             # Processed outputs
-└── requirements.txt
-```
+- ✅ Integrated **ista** for ontology population from tabular data
+- ✅ Rebuilt Hetionet from scratch with updated data sources
+- ✅ Improved error handling and logging
+- ✅ Modular parser architecture
+- ✅ Memgraph-compatible CSV export
+- ✅ Comprehensive release notes generation
 
 ## Installation
 
 ### Prerequisites
 
-- Python 3.8 or higher
-- MySQL Server (optional, for AOP-DB)
-- 10+ GB disk space for data files
+- Python 3.8+
+- MySQL (for AOP-DB)
+- Git
 
 ### Setup
 
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd alzkb-updater
-git checkout alzkb-v2
-```
+1. **Clone the repository**:
+   ```bash
+   cd ~/GitHub
+   git clone https://github.com/BinglanLi/alzkb-updater.git
+   cd alzkb-updater
+   ```
 
-2. Install Python dependencies:
-```bash
-pip install -r requirements.txt
-```
+2. **Create and activate virtual environment**:
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   ```
 
-3. (Optional) Install and configure MySQL for AOP-DB:
-```bash
-# Install MySQL Server
-# Import AOP-DB database (see Data Sources section)
-```
+3. **Install dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-## Data Sources Setup
+4. **Install ista**:
+   ```bash
+   git clone https://github.com/RomanoLab/ista.git .ista
+   pip install -e .ista
+   ```
 
-### Automated Downloads
+5. **Configure environment variables**:
+   Create a `.env` file with your credentials:
+   ```bash
+   # DisGeNET API
+   DISGENET_API=your_api_key_here
 
-The following sources can be downloaded automatically:
+   # DrugBank credentials
+   DRUGBANK_USERNAME=your_username
+   DRUGBANK_PASSWORD=your_password
 
-- **Hetionet**: Automatically downloaded from GitHub
-- **NCBI Gene**: Automatically downloaded from NCBI FTP
-
-### Manual Downloads
-
-The following sources require manual download due to licensing:
-
-#### DrugBank
-
-1. Create free account at https://go.drugbank.com/
-2. Navigate to Downloads → Academic Download → External Links
-3. Download "All" external drug links (drug_links.csv)
-4. Place in `data/raw/drugbank/drug_links.csv`
-
-#### DisGeNET
-
-1. Create free account at https://www.disgenet.org/
-2. Navigate to Downloads page
-3. Download:
-   - `curated_gene_disease_associations.tsv`
-   - `disease_mappings.tsv`
-4. Place in `data/raw/disgenet/`
-
-#### AOP-DB (Optional)
-
-1. Download from https://gaftp.epa.gov/EPADataCommons/ORD/AOP-DB/
-   - File: `AOP-DB_v2.zip` (7.2 GB)
-2. Extract and import into MySQL:
-```bash
-mysql -u username -p aopdb < aopdb_no-orthoscores.sql
-```
+   # MySQL (for AOP-DB)
+   MYSQL_USERNAME=your_mysql_user
+   MYSQL_PASSWORD=your_mysql_password
+   MYSQL_DB_NAME=aopdb
+   ```
 
 ## Usage
 
-### Basic Usage
-
-Build AlzKB with all available data sources:
+### Running the Complete Pipeline
 
 ```bash
-cd src
-python main.py
+# Activate virtual environment
+source .venv/bin/activate
+
+# Run the pipeline
+python src/main.py --use-ista
 ```
 
-### Advanced Usage
+### Pipeline Steps
 
-#### Build with specific sources only:
-```bash
-python main.py --sources hetionet ncbigene
-```
+The pipeline executes the following steps:
 
-#### Skip download (use cached data):
-```bash
-python main.py --no-download
-```
-
-#### Include AOP-DB with MySQL configuration:
-```bash
-python main.py \
-  --mysql-host localhost \
-  --mysql-user root \
-  --mysql-password yourpassword \
-  --mysql-db aopdb
-```
-
-#### Full pipeline with all options:
-```bash
-python main.py \
-  --sources hetionet ncbigene drugbank disgenet aopdb \
-  --mysql-host localhost \
-  --mysql-user root \
-  --mysql-password pass \
-  --data-dir /path/to/data
-```
+1. **Data Retrieval**: Downloads/retrieves data from all sources
+2. **Data Parsing**: Parses and transforms data into standard formats
+3. **TSV Export**: Exports data to TSV files for ista processing
+4. **Ontology Population**: Uses ista to populate the ontology
+5. **Database Building**: Creates Memgraph-compatible CSV files
+6. **Release Notes**: Generates comprehensive release documentation
 
 ### Command-Line Options
 
+```bash
+python src/main.py [options]
+
+Options:
+  --base-dir DIR      Base directory for the project (default: current directory)
+  --use-ista          Use ista for ontology population (default: True)
+  --no-ista           Use traditional ontology population method
 ```
---data-dir PATH          Directory for data files
---sources SOURCE [...]   Specific sources to process
---no-download           Skip download step
---no-parse              Skip parsing step
---no-export             Skip CSV export
---mysql-host HOST       MySQL host for AOP-DB
---mysql-user USER       MySQL username
---mysql-password PASS   MySQL password
---mysql-db DATABASE     MySQL database name
+
+### Running Individual Components
+
+You can also run individual parsers:
+
+```python
+from src.parsers import DisGeNETParser
+import os
+
+# Initialize parser
+parser = DisGeNETParser(
+    data_dir="data/raw/disgenet",
+    api_key=os.getenv('DISGENET_API')
+)
+
+# Download and parse
+parser.download_data()
+data = parser.parse_data()
+```
+
+## Project Structure
+
+```
+alzkb-updater/
+├── src/
+│   ├── parsers/              # Data source parsers
+│   │   ├── aopdb_parser.py
+│   │   ├── disgenet_parser.py
+│   │   ├── drugbank_parser.py
+│   │   ├── ncbigene_parser.py
+│   │   ├── hetionet_builder.py
+│   │   └── base_parser.py
+│   ├── ontology/             # Ontology management
+│   │   ├── ontology_manager.py
+│   │   ├── ontology_populator.py
+│   │   └── ista_integrator.py
+│   ├── integrators/          # Data integration
+│   │   ├── data_integrator.py
+│   │   └── data_cleaner.py
+│   ├── csv_exporter.py       # Database export
+│   └── main.py               # Main pipeline
+├── data/
+│   ├── raw/                  # Raw downloaded data
+│   ├── processed/            # Processed TSV files
+│   ├── ontology/             # Ontology files
+│   │   └── alzkb_v2.rdf
+│   └── output/               # Final outputs
+├── .env                      # Environment variables (create this)
+├── requirements.txt
+└── README.md
 ```
 
 ## Output Files
 
-All output files are timestamped (YYYYMMDD format):
+After running the pipeline, you'll find:
 
-### CSV Files
+- **RDF Files**: `data/output/alzkb_v2.1_populated.rdf`
+- **CSV Files** (for Memgraph):
+  - `data/output/alzkb_nodes.csv`
+  - `data/output/alzkb_edges.csv`
+- **Release Notes**: `data/output/RELEASE_NOTES_v2.1.md`
+- **Logs**: `alzkb_build.log`
 
-- `alzkb_hetionet_nodes_YYYYMMDD.csv` - Hetionet entities
-- `alzkb_hetionet_edges_YYYYMMDD.csv` - Hetionet relationships
-- `alzkb_ncbigene_genes_YYYYMMDD.csv` - Gene information
-- `alzkb_drugbank_drugs_YYYYMMDD.csv` - Drug information
-- `alzkb_disgenet_associations_YYYYMMDD.csv` - Gene-disease associations
-- `alzkb_summary_YYYYMMDD.csv` - Build summary
+## Data Source Details
 
-### Ontology Files
-
-- `data/ontology/alzkb_v2.rdf` - Base ontology
-- `data/ontology/alzkb_v2_populated.rdf` - Populated ontology (future)
-
-## Data Schema
-
-### Hetionet
-
-**Nodes:**
-- `id`: Unique identifier
-- `name`: Entity name
-- `kind`: Entity type (Gene, Disease, Compound, etc.)
-
-**Edges:**
-- `source`: Source node ID
-- `metaedge`: Relationship type
-- `target`: Target node ID
-
-### NCBI Gene
-
-- `GeneID`: NCBI Gene ID
-- `Symbol`: Gene symbol
-- `description`: Gene description
-- `type_of_gene`: Gene type
-- `chromosome`: Chromosome location
-- `dbXrefs`: Cross-references
-
-### DrugBank
-
-- `drugbank_id`: DrugBank identifier
-- `drug_name`: Drug name
-- `cas_number`: CAS Registry Number
-- `pubchem_cid`: PubChem Compound ID
-- Additional cross-references
+### AOP-DB
+- **Source**: Local MySQL database
+- **Access**: Requires MySQL credentials
+- **Content**: Adverse outcome pathways
 
 ### DisGeNET
+- **Source**: API (https://www.disgenet.org/api)
+- **Access**: Requires API key
+- **Content**: Gene-disease associations
 
-- `geneId`: NCBI Gene ID
-- `geneSymbol`: Gene symbol
-- `diseaseId`: Disease identifier (UMLS CUI)
-- `diseaseName`: Disease name
-- `score`: Association score
-- `source`: Data source
+### DrugBank
+- **Source**: Web (https://go.drugbank.com)
+- **Access**: Requires username and password
+- **Content**: Drug information and interactions
 
-## Development
+### NCBI Gene
+- **Source**: NCBI FTP
+- **Access**: Public
+- **Content**: Gene annotations
 
-### Project Structure
-
-The project follows a modular architecture:
-
-- **Parsers**: Each data source has a dedicated parser inheriting from `BaseParser`
-- **Ontology**: Manages OWL ontology loading and population
-- **Integrators**: Handle data cleaning and integration
-- **Exporters**: Export to various formats
-
-### Adding New Data Sources
-
-1. Create a new parser in `src/parsers/`:
-```python
-from .base_parser import BaseParser
-
-class NewSourceParser(BaseParser):
-    def download_data(self):
-        # Implementation
-        pass
-    
-    def parse_data(self):
-        # Implementation
-        pass
-    
-    def get_schema(self):
-        # Implementation
-        pass
-```
-
-2. Register in `src/parsers/__init__.py`
-3. Add to `main.py` initialization
-
-## Ontology
-
-AlzKB v2 uses an OWL 2 ontology (`alzkb_v2.rdf`) that defines:
-
-- **Classes**: Entity types (Gene, Disease, Drug, etc.)
-- **Object Properties**: Relationships between entities
-- **Data Properties**: Attributes of entities
-- **Individuals**: Specific instances
-
-The ontology serves as a schema for the knowledge graph and ensures consistency across data sources.
-
-## Comparison with Original AlzKB
-
-| Feature | Original AlzKB | AlzKB v2 |
-|---------|----------------|----------|
-| Data Sources | 5+ sources | 5 sources implemented |
-| Ontology | OWL 2 | OWL 2 (same) |
-| Population Tool | ista | Custom implementation |
-| Graph DB | Neo4j | Planned |
-| Export Format | Neo4j, CSV | CSV (Neo4j planned) |
-| Automation | Manual | Semi-automated |
-
-## Known Limitations
-
-1. **Manual Downloads**: DrugBank and DisGeNET require manual download due to licensing
-2. **AOP-DB Size**: 7.2 GB compressed, requires significant disk space
-3. **MySQL Requirement**: AOP-DB requires MySQL Server installation
-4. **Data Fetching Errors**: Some sources may be temporarily unavailable
+### Hetionet Components
+Each component is downloaded and integrated:
+- **Disease Ontology**: Human disease concepts
+- **Gene Ontology**: Gene functions
+- **GWAS Catalog**: Genetic associations
+- **Bgee**: Gene expression data
+- And more...
 
 ## Troubleshooting
 
-### owlready2 not found
+### Common Issues
+
+1. **ista not found**:
+   ```bash
+   # Make sure ista is installed in the virtual environment
+   pip install -e .ista
+   ```
+
+2. **MySQL connection failed**:
+   - Verify MySQL is running
+   - Check credentials in `.env`
+   - Ensure AOP-DB database is imported
+
+3. **API authentication failed**:
+   - Verify API keys/credentials in `.env`
+   - Check if API services are accessible
+
+4. **Download failures**:
+   - Some sources may require manual download
+   - Check logs for specific error messages
+   - Verify internet connectivity
+
+## Development
+
+### Adding a New Data Source
+
+1. Create a new parser in `src/parsers/`:
+   ```python
+   from .base_parser import BaseParser
+   
+   class NewSourceParser(BaseParser):
+       def download_data(self):
+           # Implement download logic
+           pass
+       
+       def parse_data(self):
+           # Implement parsing logic
+           pass
+   ```
+
+2. Add ista configuration in `src/ontology/ista_integrator.py`
+
+3. Update `src/main.py` to include the new parser
+
+### Testing
+
+Run the pipeline with verbose logging:
 ```bash
-pip install owlready2
+python src/main.py --use-ista 2>&1 | tee build.log
 ```
-
-### MySQL connection errors
-- Ensure MySQL Server is running
-- Verify credentials and database name
-- Check that AOP-DB is properly imported
-
-### Download failures
-- Check internet connection
-- Verify source URLs are accessible
-- Some sources may require VPN or institutional access
 
 ## References
 
-- **Original AlzKB**: https://github.com/EpistasisLab/AlzKB
-- **BUILD.org**: https://github.com/EpistasisLab/AlzKB/blob/master/BUILD.org
-- **Hetionet**: https://het.io/
-- **NCBI Gene**: https://www.ncbi.nlm.nih.gov/gene/
-- **DrugBank**: https://go.drugbank.com/
-- **DisGeNET**: https://www.disgenet.org/
-- **AOP-DB**: https://aopdb.epa.gov/
-
-## License
-
-This project follows the licensing requirements of all integrated data sources. Please review individual source licenses before use.
+- [AlzKB Original](https://github.com/EpistasisLab/AlzKB)
+- [AlzKB Updates](https://github.com/EpistasisLab/AlzKB-updates)
+- [ista](https://github.com/RomanoLab/ista)
+- [Hetionet](https://het.io/)
 
 ## Citation
 
-If you use AlzKB v2 in your research, please cite:
+If you use AlzKB in your research, please cite:
 
 ```
-[Citation information to be added]
+[Citation to be added]
 ```
+
+## License
+
+[License information to be added]
 
 ## Contact
 
-For questions or issues, please open an issue on GitHub.
+For questions or issues:
+- Open an issue on GitHub
+- Contact: [Contact information]
+
+## Acknowledgments
+
+This project builds upon:
+- The original AlzKB by the Epistasis Lab
+- ista by the Romano Lab
+- Hetionet by the Himmelstein Lab
+- And all the data source providers
+
+---
+
+**Version**: 2.1  
+**Last Updated**: 2024-01-20  
+**Status**: Active Development
