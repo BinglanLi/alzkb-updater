@@ -28,7 +28,7 @@ class DrugBankParser(BaseParser):
     Supports both authenticated download and manual file-based parsing.
     """
     
-    LOGIN_URL = "https://go.drugbank.com/login"
+    LOGIN_URL = "https://go.drugbank.com/public_users/log_in"
     DOWNLOAD_URL = "https://go.drugbank.com/releases/latest"
     
     def __init__(self, data_dir: str, username: Optional[str] = None, 

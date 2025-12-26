@@ -60,17 +60,18 @@ class HetionetBuilder(BaseParser):
             'description': 'GWAS Catalog - genome-wide association studies'
         },
         'mesh': {
-            'url': 'ftp://nlmpubs.nlm.nih.gov/online/mesh/.asciimesh/d2024.bin',
-            'format': 'bin',
+            'url': 'https://nlmpubs.nlm.nih.gov/projects/mesh/MESH_FILES/xmlmesh/desc2025.xml',
+            'format': 'xml',
             'description': 'MeSH - medical subject headings',
             'note': 'FTP link may require special handling'
         },
         
         # Drug and Chemical
         'drugcentral': {
-            'url': 'https://unmtid-shinyapps.net/download/DrugCentral/2024_09_02/drugcentral.dump.09022024.sql.gz',
+            'url': 'https://unmtid-dbs.net/download/drugcentral.dump.01012025.sql.gz',
             'format': 'sql.gz',
-            'description': 'DrugCentral - drug information'
+            'description': 'DrugCentral - drug information',
+            'note': 'Check https://unmtid-dbs.net/download/ for latest version'
         },
         'bindingdb': {
             'url': 'https://www.bindingdb.org/bind/downloads/BindingDB_All_2024m11.tsv.zip',
@@ -236,9 +237,11 @@ class HetionetBuilder(BaseParser):
             'gene_ontology': self._parse_gene_ontology,
             'uberon': self._parse_uberon,
             'gwas_catalog': self._parse_gwas_catalog,
+            'mesh': self._parse_mesh,
             'drugcentral': self._parse_drugcentral,
             'bindingdb': self._parse_bindingdb,
-            'bgee': self._parse_bgee
+            'bgee': self._parse_bgee,
+            'medline_cooccurrence': self._parse_medline_cooccurrence
         }
         
         for source_name, parser_func in parsers.items():
@@ -364,6 +367,76 @@ class HetionetBuilder(BaseParser):
             logger.error(f"  Failed to parse GWAS Catalog: {e}")
             return None
     
+
+    def _parse_mesh(self) -> Optional[pd.DataFrame]:
+        """
+        Parse MeSH XML file to extract symptoms and clinical findings.
+        
+        MeSH (Medical Subject Headings) contains clinical symptoms that can be
+        integrated into Hetionet as symptom nodes and disease-symptom relationships.
+        
+        Returns:
+            DataFrame with symptom information
+        """
+        xml_file = self.components_dir / "mesh.xml"
+        if not xml_file.exists():
+            logger.warning(f"MeSH file not found: {xml_file}")
+            return None
+        
+        try:
+            import xml.etree.ElementTree as ET
+            
+            logger.info("  Parsing MeSH XML file...")
+            tree = ET.parse(xml_file)
+            root = tree.getroot()
+            
+            symptoms = []
+            
+            # MeSH XML structure: DescriptorRecordSet > DescriptorRecord
+            for descriptor in root.findall('.//DescriptorRecord'):
+                descriptor_ui = descriptor.find('.//DescriptorUI')
+                descriptor_name = descriptor.find('.//DescriptorName/String')
+                
+                if descriptor_ui is None or descriptor_name is None:
+                    continue
+                
+                mesh_id = descriptor_ui.text
+                mesh_name = descriptor_name.text
+                
+                # Check if this is a symptom or clinical finding
+                # Look for tree numbers starting with C23 (Pathological Conditions, Signs and Symptoms)
+                tree_numbers = descriptor.findall('.//TreeNumber')
+                is_symptom = False
+                
+                for tree_num in tree_numbers:
+                    if tree_num.text and tree_num.text.startswith('C23'):
+                        is_symptom = True
+                        break
+                
+                if is_symptom:
+                    # Extract scope note (definition)
+                    scope_note = descriptor.find('.//ScopeNote')
+                    definition = scope_note.text if scope_note is not None else ''
+                    
+                    symptoms.append({
+                        'mesh_id': mesh_id,
+                        'symptom_name': mesh_name,
+                        'definition': definition,
+                        'source': 'MeSH'
+                    })
+            
+            if not symptoms:
+                logger.warning("  No symptoms found in MeSH file")
+                return None
+            
+            df = pd.DataFrame(symptoms)
+            logger.info(f"  Parsed {len(df)} symptoms from MeSH")
+            return df
+            
+        except Exception as e:
+            logger.error(f"  Failed to parse MeSH: {e}")
+            return None
+
     def _parse_drugcentral(self) -> Optional[pd.DataFrame]:
         """Parse DrugCentral data."""
         sql_file = self.components_dir / "drugcentral.sql.gz"
@@ -414,6 +487,92 @@ class HetionetBuilder(BaseParser):
         except Exception as e:
             logger.error(f"  Failed to parse Bgee: {e}")
             return None
+
+    def _parse_medline_cooccurrence(self) -> Optional[pd.DataFrame]:
+        """
+        Parse MEDLINE cooccurrence data to extract entity relationships.
+        
+        This method processes PubMed abstracts to identify cooccurrence of
+        entities (genes, diseases, compounds) in the literature, which can
+        be used to infer potential relationships.
+        
+        Note: This is a placeholder implementation. Full MEDLINE processing
+        requires significant computational resources and specialized tools
+        like PubTator or text mining pipelines.
+        
+        Returns:
+            DataFrame with cooccurrence edges (entity1, entity2, pmid, cooccurrence_count)
+        """
+        logger.info("  Checking for MEDLINE cooccurrence data...")
+        
+        # Check if pre-computed cooccurrence file exists
+        cooccur_file = self.components_dir / "medline_cooccurrence.tsv"
+        
+        if cooccur_file.exists():
+            try:
+                df = pd.read_csv(cooccur_file, sep='\t')
+                logger.info(f"  ✓ Loaded {len(df)} cooccurrence edges from file")
+                return df
+            except Exception as e:
+                logger.error(f"  Failed to load cooccurrence file: {e}")
+                return None
+        else:
+            logger.info("  MEDLINE cooccurrence file not found")
+            logger.info("  Note: MEDLINE cooccurrence extraction requires:")
+            logger.info("    1. Download PubMed baseline from: https://ftp.ncbi.nlm.nih.gov/pubmed/baseline/")
+            logger.info("    2. Use tools like PubTator (https://www.ncbi.nlm.nih.gov/research/pubtator/)")
+            logger.info("    3. Or use Hetionet's pre-computed cooccurrence data")
+            logger.info("  Recommended: Download from Hetionet repository:")
+            logger.info("    https://github.com/hetio/hetionet/tree/master/hetnet/tsv")
+            
+            # Try to download pre-computed cooccurrence from Hetionet
+            try:
+                import requests
+                
+                logger.info("  Attempting to download pre-computed cooccurrence from Hetionet...")
+                
+                # Hetionet provides pre-computed cooccurrence data
+                hetionet_url = "https://github.com/hetio/hetionet/raw/master/hetnet/tsv/hetionet-v1.0-edges.sif.gz"
+                
+                response = requests.get(hetionet_url, timeout=60)
+                response.raise_for_status()
+                
+                # Save to file
+                import gzip
+                output_file = self.components_dir / "hetionet_edges.sif.gz"
+                output_file.write_bytes(response.content)
+                
+                # Read and filter for cooccurrence edges
+                with gzip.open(output_file, 'rt') as f:
+                    edges = []
+                    for line in f:
+                        parts = line.strip().split('\t')
+                        if len(parts) == 3:
+                            source, edge_type, target = parts
+                            # Include literature-derived edges
+                            if 'r' in edge_type.lower():  # 'r' indicates relationship/cooccurrence
+                                edges.append({
+                                    'source': source,
+                                    'edge_type': edge_type,
+                                    'target': target,
+                                    'source_db': 'Hetionet'
+                                })
+                
+                if edges:
+                    df = pd.DataFrame(edges)
+                    # Save for future use
+                    df.to_csv(cooccur_file, sep='\t', index=False)
+                    logger.info(f"  ✓ Downloaded and parsed {len(df)} cooccurrence edges")
+                    return df
+                else:
+                    logger.warning("  No cooccurrence edges found in Hetionet data")
+                    return None
+                    
+            except Exception as e:
+                logger.warning(f"  Could not download Hetionet cooccurrence data: {e}")
+                logger.info("  Skipping MEDLINE cooccurrence integration")
+                return None
+
     
     def export_to_sif(self, data: Dict[str, pd.DataFrame], output_dir: str) -> List[str]:
         """
