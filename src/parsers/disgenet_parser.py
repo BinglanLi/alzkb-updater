@@ -102,7 +102,7 @@ class DisGeNETParser(BaseParser):
         
         try:
             # Get Alzheimer's disease associations
-            alzheimer_data = self._get_disease_associations("alzheimer")
+            alzheimer_data = self._get_disease_associations_by_id("C0002395")  # Alzheimer's Disease UMLS CUI
             
             if alzheimer_data:
                 # Save to file
@@ -140,6 +140,49 @@ class DisGeNETParser(BaseParser):
             return None
         
         logger.info(f"Found disease ID: {disease_id}")
+        
+        # Get gene-disease associations
+        endpoint = f"{self.API_BASE_URL}/gda/disease/{disease_id}"
+        params = {
+            'source': 'ALL',
+            'format': 'json',
+            'limit': limit
+        }
+        
+        try:
+            response = self.session.get(endpoint, params=params, timeout=30)
+            response.raise_for_status()
+            
+            data = response.json()
+            
+            if not data:
+                logger.warning(f"No associations found for disease: {disease_id}")
+                return None
+            
+            # Convert to DataFrame
+            df = pd.DataFrame(data)
+            
+            logger.info(f"✓ Retrieved {len(df)} gene-disease associations")
+            
+            return df
+            
+        except requests.RequestException as e:
+            logger.error(f"API request failed: {e}")
+            return None
+    
+    def _get_disease_associations_by_id(self, disease_id: str, 
+                                         limit: int = 10000) -> Optional[pd.DataFrame]:
+        """
+        Get disease-gene associations from DisGeNET API using disease ID.
+        
+        Args:
+            disease_id: Disease ID (UMLS CUI, e.g., C0002395 for Alzheimer's)
+            limit: Maximum number of results
+            
+        Returns:
+            DataFrame of associations or None if failed
+        """
+        logger.info(f"Querying DisGeNET API for disease ID: {disease_id}")
         
         # Get gene-disease associations
         endpoint = f"{self.API_BASE_URL}/gda/disease/{disease_id}"

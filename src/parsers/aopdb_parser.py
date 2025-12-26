@@ -10,7 +10,7 @@ Note: This is a large MySQL database that must be downloaded and imported.
 """
 
 import logging
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
 import pandas as pd
 from .base_parser import BaseParser
 
@@ -47,6 +47,26 @@ class AOPDBParser(BaseParser):
             logger.info("MySQL connector is available")
         except ImportError:
             logger.warning("MySQL connector not available. Install with: pip install mysql-connector-python")
+    
+    def _get_table_names(self) -> List[str]:
+        """
+        Get list of available tables in the database.
+        
+        Returns:
+            List of table names.
+        """
+        if not self.connection:
+            return []
+        
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute("SHOW TABLES")
+            tables = [table[0] for table in cursor.fetchall()]
+            cursor.close()
+            return tables
+        except Exception as e:
+            logger.error(f"Failed to get table names: {e}")
+            return []
     
     def download_data(self) -> bool:
         """
@@ -85,6 +105,12 @@ class AOPDBParser(BaseParser):
             
             self.connection = conn
             logger.info("✓ Successfully connected to AOP-DB")
+            
+            # List available tables
+            tables = self._get_table_names()
+            logger.info(f"Found {len(tables)} tables in database")
+            logger.debug(f"Available tables: {', '.join(tables)}")
+            
             return True
             
         except Exception as e:
@@ -96,6 +122,7 @@ class AOPDBParser(BaseParser):
         Parse AOP-DB data.
         
         Extracts key tables from the AOP-DB MySQL database.
+        Uses dynamic table name detection to handle schema variations.
         
         Returns:
             Dictionary with DataFrames for different AOP entities.
@@ -108,21 +135,36 @@ class AOPDBParser(BaseParser):
         
         result = {}
         
-        # Define queries for key tables
-        queries = {
-            'aops': "SELECT * FROM aop LIMIT 1000",
-            'key_events': "SELECT * FROM key_event LIMIT 1000",
-            'stressors': "SELECT * FROM stressor LIMIT 1000",
-            'genes': "SELECT * FROM gene LIMIT 1000"
+        # Get available tables
+        available_tables = self._get_table_names()
+        logger.info(f"Available tables: {available_tables}")
+        
+        # Define table name mappings (handle variations in schema)
+        table_mappings = {
+            'aops': ['aop', 'aop_info', 'aops'],
+            'key_events': ['key_event', 'key_events', 'keyevent'],
+            'stressors': ['stressor', 'stressors', 'chemical_stressor'],
+            'genes': ['gene', 'genes', 'gene_info'],
+            'relationships': ['aop_relationship', 'relationships', 'key_event_relationship']
         }
         
-        for table_name, query in queries.items():
-            try:
-                df = pd.read_sql(query, self.connection)
-                result[table_name] = df
-                logger.info(f"✓ Parsed {len(df)} rows from {table_name}")
-            except Exception as e:
-                logger.error(f"Failed to parse {table_name}: {e}")
+        # Query each table type
+        for result_key, possible_names in table_mappings.items():
+            found = False
+            for table_name in possible_names:
+                if table_name in available_tables:
+                    try:
+                        query = f"SELECT * FROM {table_name} LIMIT 1000"
+                        df = pd.read_sql(query, self.connection)
+                        result[result_key] = df
+                        logger.info(f"✓ Parsed {len(df)} rows from {table_name} (as {result_key})")
+                        found = True
+                        break
+                    except Exception as e:
+                        logger.warning(f"Failed to query {table_name}: {e}")
+            
+            if not found:
+                logger.warning(f"Could not find table for {result_key}. Tried: {possible_names}")
         
         return result
     
@@ -153,6 +195,11 @@ class AOPDBParser(BaseParser):
                 'gene_id': 'Gene identifier',
                 'gene_symbol': 'Gene symbol',
                 'ncbi_gene_id': 'NCBI Gene ID'
+            },
+            'relationships': {
+                'relationship_id': 'Relationship identifier',
+                'upstream_ke': 'Upstream key event',
+                'downstream_ke': 'Downstream key event'
             }
         }
     
