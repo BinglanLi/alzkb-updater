@@ -26,7 +26,11 @@ wheels/
 # Data files (except processed results)
 data/raw/*
 !data/raw/.gitkeep
-data/processed/*.txt
+data/processed/
+data/output/rdf/
+
+# Test files
+test/
 
 # IDE
 .vscode/
