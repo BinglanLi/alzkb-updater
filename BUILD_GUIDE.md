@@ -103,7 +103,7 @@ Create a `.env` file in the project root:
 
 ```bash
 # DisGeNET API
-DISGENET_API=your_api_key_here
+DISGENET_API_KEY=your_api_key_here
 
 # DrugBank credentials
 DRUGBANK_USERNAME=your_username
@@ -218,7 +218,7 @@ parsers = {
     ),
     'disgenet': DisGeNETParser(
         data_dir='data/raw/disgenet',
-        api_key=os.getenv('DISGENET_API')
+        api_key=os.getenv('DISGENET_API_KEY')
     ),
     'drugbank': DrugBankParser(
         data_dir='data/raw/drugbank',

@@ -77,7 +77,7 @@ AlzKB v2.1 is a knowledge graph that integrates data from multiple biomedical so
    Create a `.env` file with your credentials:
    ```bash
    # DisGeNET API
-   DISGENET_API=your_api_key_here
+   DISGENET_API_KEY=your_api_key_here
 
    # DrugBank credentials
    DRUGBANK_USERNAME=your_username
@@ -134,7 +134,7 @@ import os
 # Initialize parser
 parser = DisGeNETParser(
     data_dir="data/raw/disgenet",
-    api_key=os.getenv('DISGENET_API')
+    api_key=os.getenv('DISGENET_API_KEY')
 )
 
 # Download and parse

@@ -172,7 +172,7 @@ class AlzKBPipeline:
             ),
             'disgenet': DisGeNETParser(
                 data_dir=str(self.raw_dir / "disgenet"),
-                api_key=os.getenv('DISGENET_API')
+                api_key=os.getenv('DISGENET_API_KEY')
             ),
             'drugbank': DrugBankParser(
                 data_dir=str(self.raw_dir / "drugbank"),
