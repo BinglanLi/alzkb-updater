@@ -141,30 +141,52 @@ class AOPDBParser(BaseParser):
         
         # Define table name mappings (handle variations in schema)
         table_mappings = {
-            'aops': ['aop', 'aop_info', 'aops'],
-            'key_events': ['key_event', 'key_events', 'keyevent'],
-            'stressors': ['stressor', 'stressors', 'chemical_stressor'],
-            'genes': ['gene', 'genes', 'gene_info'],
-            'relationships': ['aop_relationship', 'relationships', 'key_event_relationship']
+            'aops': ['aop_info'],
+            'pathway': ['pathway_gene'],
+            'relationships': ['pathway_gene'],
+            'drug': ['chemical_info']
         }
+
+        # Specify query languages
+        query = dict()
+        # General query
+        for result_key, possible_names in table_mappings.items():
+            for possible_name in possible_names:
+                query[possible_name] = f"SELECT * FROM {possible_name}"
+        # Specalized queries
+        query['pathway'] = """
+            SELECT path_name, 
+                GROUP_CONCAT(DISTINCT path_id) as path_id, 
+                CONCAT('AOPDB - ', GROUP_CONCAT(DISTINCT ext_source)) as ext_source
+            FROM(
+                SELECT DISTINCT path_id, 
+                TRIM(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(path_name, '<sub>', ''), '</sub>', ''), '<i>', ''), '</i>', ''), ' - Homo sapiens (human)', '')) as path_name, 
+                ext_source 
+                FROM aopdb.pathway_gene
+                WHERE tax_id = 9606)data
+            GROUP BY path_name;
+        """
+        query['relationships'] = """
+            SELECT DISTINCT entrez, 
+                path_id, 
+                TRIM(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(path_name, '<sub>', ''), '</sub>', ''), '<i>', ''), '</i>', ''), ' - Homo sapiens (human)', '')) as path_name
+            FROM aopdb.pathway_gene
+            WHERE tax_id = 9606;
+        """
         
         # Query each table type
         for result_key, possible_names in table_mappings.items():
-            found = False
             for table_name in possible_names:
                 if table_name in available_tables:
                     try:
-                        query = f"SELECT * FROM {table_name} LIMIT 1000"
-                        df = pd.read_sql(query, self.connection)
+                        df = pd.read_sql(query[table_name], self.connection)
                         result[result_key] = df
                         logger.info(f"✓ Parsed {len(df)} rows from {table_name} (as {result_key})")
-                        found = True
                         break
                     except Exception as e:
                         logger.warning(f"Failed to query {table_name}: {e}")
-            
-            if not found:
-                logger.warning(f"Could not find table for {result_key}. Tried: {possible_names}")
+                else:
+                    logger.warning(f"Could not find table for {result_key}. Tried: {possible_names}")
         
         return result
     
