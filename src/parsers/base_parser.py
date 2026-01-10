@@ -98,7 +98,7 @@ class BaseParser(ABC):
             return str(filepath)
         
         try:
-            logger.info(f"Downloading from {url}")
+            logger.info(f"Downloading from {url} to {filepath}")
             response = requests.get(url, stream=True, timeout=300)
             response.raise_for_status()
             
@@ -128,9 +128,9 @@ class BaseParser(ABC):
             logger.warning(f"File does not appear to be gzipped: {gz_path}")
             return gz_path
         
-        output_path = gz_path[:-3]  # Remove .gz extension
+        output_path = Path(gz_path).with_suffix('')  # Remove .gz extension
         
-        if os.path.exists(output_path) and not force:
+        if Path(output_path).exists() and not force:
             logger.info(f"Extracted file already exists: {output_path}")
             return output_path
         
