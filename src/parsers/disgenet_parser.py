@@ -10,7 +10,7 @@ API Documentation: https://www.disgenet.org/api/
 
 import logging
 import os
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Tuple
 import pandas as pd
 import requests
 import time
@@ -27,7 +27,7 @@ class DisGeNETParser(BaseParser):
     Supports both API-based retrieval and manual file-based parsing.
     """
     
-    API_BASE_URL = "https://www.disgenet.org/api"
+    API_BASE_URL = "https://api.disgenet.com/api/v1"
     
     def __init__(self, data_dir: str, api_key: Optional[str] = None):
         """
@@ -42,7 +42,10 @@ class DisGeNETParser(BaseParser):
         self.session = requests.Session()
         
         if self.api_key:
-            self.session.headers.update({'Authorization': f'Bearer {self.api_key}'})
+            self.session.headers.update({
+                'Authorization': self.api_key,
+                'accept': 'application/json',
+            })
             logger.info("DisGeNET API key configured")
         else:
             logger.warning("No DisGeNET API key provided. Will attempt file-based parsing.")
@@ -69,10 +72,12 @@ class DisGeNETParser(BaseParser):
         logger.info("  https://www.disgenet.org/downloads")
         logger.info("  Required files:")
         logger.info("    - curated_gene_disease_associations.tsv")
+        logger.info("    - disease_classifications.tsv")
         logger.info("    - disease_mappings.tsv")
         
         required_files = [
             "curated_gene_disease_associations.tsv",
+            "disease_classifications.tsv",
             "disease_mappings.tsv"
         ]
         
@@ -94,82 +99,172 @@ class DisGeNETParser(BaseParser):
     def _download_via_api(self) -> bool:
         """
         Download DisGeNET data via API.
-        
+
+        First retrieves Alzheimer's disease IDs and metadata, then fetches gene-disease associations.
+
         Returns:
             True if successful, False otherwise.
         """
         logger.info("Downloading DisGeNET data via API...")
-        
+
         try:
-            # Get Alzheimer's disease associations
-            alzheimer_data = self._get_disease_associations_by_id("C0002395")  # Alzheimer's Disease UMLS CUI
-            
-            if alzheimer_data:
-                # Save to file
+            # Step 1: Get Alzheimer's disease IDs and metadata
+            disease_classifications, disease_mappings = self.get_alzheimer_disease_ids()
+
+            if disease_classifications is None or disease_mappings is None:
+                logger.error("Failed to retrieve Alzheimer's disease IDs from API")
+                return False
+
+            # Save disease data frames
+            classifications_path = self.get_file_path("api_disease_classifications.tsv")
+            disease_classifications.to_csv(classifications_path, sep='\t', index=False)
+            logger.info(f"✓ Saved disease classifications: {classifications_path}")
+
+            mappings_path = self.get_file_path("api_disease_mappings.tsv")
+            disease_mappings.to_csv(mappings_path, sep='\t', index=False)
+            logger.info(f"✓ Saved disease mappings: {mappings_path}")
+
+            # Step 2: Get unique disease IDs from disease_mappings
+            unique_disease_ids = disease_mappings['diseaseId'].dropna().unique().tolist()
+            logger.info(f"✓ Found {len(unique_disease_ids)} unique disease IDs")
+
+            if not unique_disease_ids:
+                logger.warning("No disease IDs found to query associations")
+                return False
+
+            # Step 3: Fetch gene-disease associations for each disease ID
+            all_associations = []
+            for disease_id in unique_disease_ids:
+                logger.info(f"Fetching associations for disease ID: {disease_id}")
+                associations = self._get_disease_associations_by_id(disease_id)
+
+                if associations is not None and len(associations) > 0:
+                    all_associations.append(associations)
+                    logger.info(f"  ✓ Retrieved {len(associations)} associations")
+                else:
+                    logger.warning(f"  No associations found for {disease_id}")
+
+                # Rate limiting - be respectful to the API
+                time.sleep(0.5)
+
+            # Step 4: Combine all associations
+            if all_associations:
+                combined_associations = pd.concat(all_associations, ignore_index=True)
+
+                # Remove duplicates if any
+                initial_count = len(combined_associations)
+                combined_associations = combined_associations.drop_duplicates()
+                final_count = len(combined_associations)
+
+                if initial_count != final_count:
+                    logger.info(f"Removed {initial_count - final_count} duplicate associations")
+
+                # Save combined associations
                 output_path = self.get_file_path("api_gene_disease_associations.tsv")
-                alzheimer_data.to_csv(output_path, sep='\t', index=False)
-                logger.info(f"✓ Downloaded {len(alzheimer_data)} associations via API")
+                combined_associations.to_csv(output_path, sep='\t', index=False)
+                logger.info(f"✓ Downloaded {len(combined_associations)} total gene-disease associations via API")
+
                 return True
             else:
-                logger.error("Failed to download data via API")
+                logger.error("No gene-disease associations retrieved")
                 return False
-                
+
         except Exception as e:
             logger.error(f"API download failed: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return False
     
-    def _get_disease_associations(self, disease_term: str, 
-                                   limit: int = 10000) -> Optional[pd.DataFrame]:
+    
+    def get_alzheimer_disease_ids(self) -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame]]:
         """
-        Get disease-gene associations from DisGeNET API.
-        
-        Args:
-            disease_term: Disease search term
-            limit: Maximum number of results
-            
+        Get Alzheimer's disease IDs and related information from DisGeNET API using free text search.
+
         Returns:
-            DataFrame of associations or None if failed
+            Tuple of two DataFrames:
+            - disease_classifications: Contains disease classification information across ontology systems
+            - disease_mappings: Contains disease code mappings across vocabularies
         """
-        logger.info(f"Querying DisGeNET API for: {disease_term}")
-        
-        # First, search for disease ID
-        disease_id = self._search_disease(disease_term)
-        
-        if not disease_id:
-            logger.error(f"Could not find disease ID for: {disease_term}")
-            return None
-        
-        logger.info(f"Found disease ID: {disease_id}")
-        
-        # Get gene-disease associations
-        endpoint = f"{self.API_BASE_URL}/gda/disease/{disease_id}"
+        logger.info("Querying DisGeNET API for Alzheimer's disease entities...")
+
+        # API endpoint for disease entity search
+        endpoint = f"{self.API_BASE_URL}/entity/disease"
         params = {
-            'source': 'ALL',
-            'format': 'json',
-            'limit': limit
+            'disease_free_text_search_string': 'alzheimer',
         }
-        
+
+        # Make the API call 
         try:
-            response = self.session.get(endpoint, params=params, timeout=30)
+            response = self.session.get(
+                endpoint, 
+                params=params, 
+                timeout=30)
             response.raise_for_status()
-            
+
             data = response.json()
-            
-            if not data:
-                logger.warning(f"No associations found for disease: {disease_id}")
-                return None
-            
-            # Convert to DataFrame
-            df = pd.DataFrame(data)
-            
-            logger.info(f"✓ Retrieved {len(df)} gene-disease associations")
-            
-            return df
-            
+
+            if 'payload' not in data:
+                logger.warning("No disease entities found in API response")
+                return None, None
+
+            payload = data['payload']
+            logger.info(f"✓ Retrieved {len(payload)} disease entities from API")
+
+            # Create disease_classifications DataFrame
+            classifications_data = []
+            for item in payload:
+                # Concatenate disease classes with commas
+                disease_classes_msh = ','.join(item.get('diseaseClasses_MSH', []))
+                disease_classes_umls_st = ','.join(item.get('diseaseClasses_UMLS_ST', []))
+                disease_classes_do = ','.join(item.get('diseaseClasses_DO', []))
+                disease_classes_hpo = ','.join(item.get('diseaseClasses_HPO', []))
+
+                classifications_data.append({
+                    'diseaseName': item.get('name', ''),
+                    'diseaseId': item.get('diseaseUMLSCUI', ''),
+                    'diseaseClasses_MSH': disease_classes_msh,
+                    'diseaseClasses_UMLS_ST': disease_classes_umls_st,
+                    'diseaseClasses_DO': disease_classes_do,
+                    'diseaseClasses_HPO': disease_classes_hpo
+                })
+
+            disease_classifications = pd.DataFrame(classifications_data)
+            logger.info(f"✓ Created disease_classifications with {len(disease_classifications)} rows")
+
+            # Create disease_mappings DataFrame
+            mappings_data = []
+            for item in payload:
+                base_data = {
+                    'diseaseName': item.get('name', ''),
+                    'diseaseId': item.get('diseaseUMLSCUI', '')
+                }
+
+                # Extract disease codes and create columns based on vocabulary
+                disease_codes = item.get('diseaseCodes', [])
+                code_dict = {}
+                for code_item in disease_codes:
+                    vocabulary = code_item.get('vocabulary', '')
+                    code = code_item.get('code', '')
+                    if vocabulary:
+                        code_dict[vocabulary] = code
+
+                # Combine base data with code mappings
+                row_data = {**base_data, **code_dict}
+                mappings_data.append(row_data)
+
+            disease_mappings = pd.DataFrame(mappings_data)
+            logger.info(f"✓ Created disease_mappings with {len(disease_mappings)} rows and {len(disease_mappings.columns)} columns")
+
+            return disease_classifications, disease_mappings
+
         except requests.RequestException as e:
             logger.error(f"API request failed: {e}")
-            return None
-    
+            return None, None
+        except Exception as e:
+            logger.error(f"Error processing disease entities: {e}")
+            return None, None
+
+
     def _get_disease_associations_by_id(self, disease_id: str, 
                                          limit: int = 10000) -> Optional[pd.DataFrame]:
         """
@@ -185,11 +280,10 @@ class DisGeNETParser(BaseParser):
         logger.info(f"Querying DisGeNET API for disease ID: {disease_id}")
         
         # Get gene-disease associations
-        endpoint = f"{self.API_BASE_URL}/gda/disease/{disease_id}"
+        endpoint = f"{self.API_BASE_URL}/gda/summary"
         params = {
-            'source': 'ALL',
-            'format': 'json',
-            'limit': limit
+            'disease': f'UMLS_{disease_id}',
+            'source': 'CURATED',
         }
         
         try:
@@ -198,128 +292,173 @@ class DisGeNETParser(BaseParser):
             
             data = response.json()
             
-            if not data:
-                logger.warning(f"No associations found for disease: {disease_id}")
+            if 'payload' not in data:
+                logger.warning("No disease-gene associations found in API response")
                 return None
+
+            payload = data['payload']
+            logger.info(f"✓ Retrieved {len(payload)} disease-gene associations from API")
             
-            # Convert to DataFrame
-            df = pd.DataFrame(data)
-            
-            logger.info(f"✓ Retrieved {len(df)} gene-disease associations")
-            
-            return df
+            # Create a disease-gene association DataFrame
+            gda_data = []
+            for item in payload:
+                gda_data.append({
+                    'geneId': item.get('geneNcbiID', ''),
+                    'geneSymbol': item.get('symbolOfGene', ''),
+                    'geneType': item.get('geneNcbiType', ''),
+                    'diseaseId': item.get('diseaseUMLSCUI', ''),
+                    'diseaseName': item.get('diseaseName', ''),
+                    'diseaseClasses_MSH': ','.join(item.get('diseaseClasses_MSH', [])),
+                    'diseaseClasses_UMLS_ST': ','.join(item.get('diseaseClasses_UMLS_ST', [])),
+                    'diseaseClasses_DO': ','.join(item.get('diseaseClasses_DO', [])),
+                    'diseaseClasses_HPO': ','.join(item.get('diseaseClasses_HPO', [])),
+                    'diseaseMapping': ','.join(item.get('diseaseVocabularies', [])),
+                    'diseaseType': item.get('diseaseType', ''),
+                    'score': item.get('score', ''),
+                })
+
+            gda_df = pd.DataFrame(gda_data)
+            logger.info(f"✓ Retrieved {len(gda_df)} gene-disease associations")
+
+            return gda_df
             
         except requests.RequestException as e:
             logger.error(f"API request failed: {e}")
             return None
     
-    def _search_disease(self, disease_term: str) -> Optional[str]:
-        """
-        Search for disease ID by term.
-        
-        Args:
-            disease_term: Disease search term
-            
-        Returns:
-            Disease ID (UMLS CUI) or None if not found
-        """
-        endpoint = f"{self.API_BASE_URL}/disease/search"
-        params = {
-            'q': disease_term,
-            'format': 'json'
-        }
-        
-        try:
-            response = self.session.get(endpoint, params=params, timeout=30)
-            response.raise_for_status()
-            
-            data = response.json()
-            
-            if data and len(data) > 0:
-                # Return the first match
-                return data[0].get('disease_id')
-            
-            return None
-            
-        except requests.RequestException as e:
-            logger.error(f"Disease search failed: {e}")
-            return None
     
     def parse_data(self) -> Dict[str, pd.DataFrame]:
         """
         Parse DisGeNET data.
-        
+
         Returns:
-            Dictionary with 'associations' and optionally 'disease_mappings' DataFrames.
+            Dictionary with 'associations', 'disease_mappings', and 'disease_classifications' DataFrames.
         """
         logger.info("Parsing DisGeNET data...")
-        
+
         result = {}
-        
-        # Try API file first
-        api_file = self.get_file_path("api_gene_disease_associations.tsv")
-        if os.path.exists(api_file):
-            logger.info("Using API-downloaded data")
-            try:
-                assoc_df = self.read_tsv(api_file)
-                if assoc_df is not None:
-                    result['associations'] = assoc_df
-                    logger.info(f"✓ Parsed {len(assoc_df)} gene-disease associations from API")
-            except Exception as e:
-                logger.error(f"Failed to parse API data: {e}")
-        
+
+        # Try API file first for gene-disease associations
+        api_gda_file = self.get_file_path("api_gene_disease_associations.tsv")
+        logger.info("Using API-downloaded gene-disease associations data")
+        try:
+            assoc_df = self.read_tsv(api_gda_file)
+            if assoc_df is not None:
+                result['associations'] = assoc_df
+                logger.info(f"✓ Parsed {len(assoc_df)} gene-disease associations from API")
+        except FileNotFoundError:
+            logger.error(f"Gene-disease associations file not found: {api_gda_file}")
+        except Exception as e:
+            logger.error(f"Failed to parse API gene-disease associations: {e}")
+
         # Fall back to manual files
         if 'associations' not in result:
-            assoc_file = self.get_file_path("curated_gene_disease_associations.tsv")
-            
-            if os.path.exists(assoc_file):
-                try:
-                    assoc_df = self.read_tsv(assoc_file)
-                    
-                    if assoc_df is not None:
-                        result['associations'] = assoc_df
-                        logger.info(f"✓ Parsed {len(assoc_df)} gene-disease associations")
-                        
-                except Exception as e:
-                    logger.error(f"Failed to parse associations: {e}")
-        
-        # Parse disease mappings if available
-        mappings_file = self.get_file_path("disease_mappings.tsv")
-        
-        if os.path.exists(mappings_file):
+            logger.info("Using manually downloaded gene-disease associations data as fallback")
+            gda_file = self.get_file_path("curated_gene_disease_associations.tsv")
+            try:
+                assoc_df = self.read_tsv(gda_file)
+                if assoc_df is not None:
+                    result['associations'] = assoc_df
+                    logger.info(f"✓ Parsed {len(assoc_df)} gene-disease associations")
+            except FileNotFoundError:
+                logger.error(f"Gene-disease associations file not found: {gda_file}")
+            except Exception as e:
+                logger.error(f"Failed to parse gene-disease associations: {e}")
+
+        # Parse API disease mappings if available
+        api_mappings_file = self.get_file_path("api_disease_mappings.tsv")
+        logger.info("Using API-downloaded disease mappings data")
+        try:
+            mappings_df = self.read_tsv(api_mappings_file)
+
+            if mappings_df is not None:
+                result['disease_mappings'] = mappings_df
+            logger.info(f"✓ Parsed {len(mappings_df)} disease mappings from API")
+
+        except FileNotFoundError:
+            logger.error(f"Disease mappings file not found: {api_mappings_file}")
+        except Exception as e:
+            logger.error(f"Failed to parse API disease mappings: {e}")
+
+        # Fall back to manually downloaded disease mappings file
+        if 'disease_mappings' not in result:
+            logger.info("Using manually downloaded disease mappings data as fallback")
+            mappings_file = self.get_file_path("disease_mappings.tsv")
             try:
                 mappings_df = self.read_tsv(mappings_file)
-                
                 if mappings_df is not None:
                     result['disease_mappings'] = mappings_df
                     logger.info(f"✓ Parsed {len(mappings_df)} disease mappings")
-                    
+            except FileNotFoundError:
+                logger.error(f"Disease mappings file not found: {mappings_file}")
             except Exception as e:
                 logger.error(f"Failed to parse disease mappings: {e}")
         
+        # Parse API disease classifications if available
+        api_classifications_file = self.get_file_path("api_disease_classifications.tsv")
+        logger.info("Using API-downloaded disease classifications data")
+        try:
+            classifications_df = self.read_tsv(api_classifications_file)
+
+            if classifications_df is not None:
+                result['disease_classifications'] = classifications_df
+                logger.info(f"✓ Parsed {len(classifications_df)} disease classifications from API")
+
+        except FileNotFoundError:
+            logger.error(f"Disease classifications file not found: {api_classifications_file}")
+        except Exception as e:
+                logger.error(f"Failed to parse API disease classifications: {e}")
+
+        # Fall back to manually downloaded disease classifications file
+        if 'disease_classifications' not in result:
+            logger.info("Using manually downloaded disease classifications data as fallback")
+            classifications_file = self.get_file_path("disease_classifications.tsv")
+            try:
+                classifications_df = self.read_tsv(classifications_file)
+                if classifications_df is not None:
+                    result['disease_classifications'] = classifications_df
+                    logger.info(f"✓ Parsed {len(classifications_df)} disease classifications")
+            except FileNotFoundError:
+                logger.error(f"Disease classifications file not found: {classifications_file}")
+            except Exception as e:
+                logger.error(f"Failed to parse disease classifications: {e}")
+
         return result
     
     def get_schema(self) -> Dict[str, Dict[str, str]]:
         """
         Get the schema for DisGeNET data.
-        
+
         Returns:
-            Dictionary describing the schema for associations and mappings.
+            Dictionary describing the schema for associations, mappings, and classifications.
         """
         return {
             'associations': {
                 'geneId': 'NCBI Gene ID',
                 'geneSymbol': 'Gene symbol',
+                'geneType': 'Gene NCBI type',
                 'diseaseId': 'Disease identifier (UMLS CUI)',
                 'diseaseName': 'Disease name',
+                'diseaseClasses_MSH': 'MeSH disease classifications (comma-separated)',
+                'diseaseClasses_UMLS_ST': 'UMLS semantic type classifications (comma-separated)',
+                'diseaseClasses_DO': 'Disease Ontology classifications (comma-separated)',
+                'diseaseClasses_HPO': 'Human Phenotype Ontology classifications (comma-separated)',
+                'diseaseMapping': 'Disease codes across various vocabularies (comma-separated)',
+                'diseaseType': 'Disease type',
                 'score': 'Association score',
-                'source': 'Data source'
             },
             'disease_mappings': {
+                'diseaseName': 'Disease name',
                 'diseaseId': 'Disease identifier (UMLS CUI)',
-                'name': 'Disease name',
-                'vocabulary': 'Vocabulary/ontology',
-                'code': 'Disease code in vocabulary'
+                'vocabulary_codes': 'Disease codes across various vocabularies (dynamic columns)'
+            },
+            'disease_classifications': {
+                'diseaseName': 'Disease name',
+                'diseaseId': 'Disease identifier (UMLS CUI)',
+                'diseaseClasses_MSH': 'MeSH disease classifications (comma-separated)',
+                'diseaseClasses_UMLS_ST': 'UMLS semantic type classifications (comma-separated)',
+                'diseaseClasses_DO': 'Disease Ontology classifications (comma-separated)',
+                'diseaseClasses_HPO': 'Human Phenotype Ontology classifications (comma-separated)'
             }
         }
     
@@ -357,28 +496,6 @@ class DisGeNETParser(BaseParser):
         
         return alzheimer_assoc
     
-    def get_alzheimer_disease_ids(self, mappings_df: pd.DataFrame) -> List[str]:
-        """
-        Get disease IDs for Alzheimer's disease from mappings.
-        
-        Args:
-            mappings_df: DataFrame of disease mappings
-        
-        Returns:
-            List of disease IDs (UMLS CUIs) for Alzheimer's disease
-        """
-        logger.info("Finding Alzheimer's disease IDs...")
-        
-        mask = mappings_df['name'].str.contains(
-            'Alzheimer', case=False, na=False
-        )
-        
-        alzheimer_mappings = mappings_df[mask]
-        disease_ids = alzheimer_mappings['diseaseId'].unique().tolist()
-        
-        logger.info(f"✓ Found {len(disease_ids)} Alzheimer's disease IDs")
-        
-        return disease_ids
     
     def export_to_tsv(self, data: Dict[str, pd.DataFrame], output_dir: str) -> List[str]:
         """
