@@ -58,13 +58,12 @@ logger = logging.getLogger(__name__)
 class AlzKBPipeline:
     """Main pipeline for building AlzKB."""
     
-    def __init__(self, base_dir: str, use_ista: bool = True):
+    def __init__(self, base_dir: str):
         """
         Initialize the AlzKB pipeline.
         
         Args:
             base_dir: Base directory for the project
-            use_ista: Whether to use ista for ontology population
         """
         self.base_dir = Path(base_dir)
         self.data_dir = self.base_dir / "data"
@@ -77,7 +76,6 @@ class AlzKBPipeline:
         for dir_path in [self.raw_dir, self.processed_dir, self.ontology_dir, self.output_dir]:
             dir_path.mkdir(parents=True, exist_ok=True)
         
-        self.use_ista = use_ista
         self.ontology_path = self.ontology_dir / "alzkb_v2.rdf"
         
         # Statistics
@@ -97,42 +95,35 @@ class AlzKBPipeline:
         logger.info("=" * 80)
         logger.info(f"Start time: {self.stats['start_time']}")
         logger.info(f"Base directory: {self.base_dir}")
-        logger.info(f"Using ista: {self.use_ista}")
         logger.info("=" * 80)
         
         try:
             # Step 1: Retrieve and parse data from all sources
-            logger.info("\n" + "=" * 80)
+            logger.info("=" * 80)
             logger.info("STEP 1: Data Retrieval and Parsing")
             logger.info("=" * 80)
             parsed_data = self.retrieve_and_parse_data()
             
             # Step 2: Export to TSV/SIF format for ista
-            logger.info("\n" + "=" * 80)
+            logger.info("=" * 80)
             logger.info("STEP 2: Export to TSV/SIF Format")
             logger.info("=" * 80)
             tsv_files = self.export_to_tsv(parsed_data)
             
             # Step 3: Populate ontology using ista
-            if self.use_ista:
-                logger.info("\n" + "=" * 80)
-                logger.info("STEP 3: Ontology Population with ista")
-                logger.info("=" * 80)
-                rdf_files = self.populate_ontology_with_ista(tsv_files)
-            else:
-                logger.info("\n" + "=" * 80)
-                logger.info("STEP 3: Ontology Population (Traditional)")
-                logger.info("=" * 80)
-                rdf_files = self.populate_ontology_traditional(parsed_data)
+            logger.info("=" * 80)
+            logger.info("STEP 3: Ontology Population with ista")
+            logger.info("=" * 80)
+            rdf_files = self.populate_ontology_with_ista(tsv_files)
             
             # Step 4: Build database files
-            logger.info("\n" + "=" * 80)
+            logger.info("=" * 80)
             logger.info("STEP 4: Database Preparation")
             logger.info("=" * 80)
             self.build_database(rdf_files)
             
             # Step 5: Generate release notes
-            logger.info("\n" + "=" * 80)
+            logger.info("=" * 80)
             logger.info("STEP 5: Release Notes Generation")
             logger.info("=" * 80)
             self.generate_release_notes()
@@ -140,7 +131,7 @@ class AlzKBPipeline:
             self.stats['end_time'] = datetime.now()
             duration = self.stats['end_time'] - self.stats['start_time']
             
-            logger.info("\n" + "=" * 80)
+            logger.info("=" * 80)
             logger.info("Pipeline Completed Successfully!")
             logger.info("=" * 80)
             logger.info(f"Duration: {duration}")
@@ -149,7 +140,7 @@ class AlzKBPipeline:
             logger.info("=" * 80)
             
         except Exception as e:
-            logger.error(f"\n{'=' * 80}")
+            logger.error(f"{'=' * 80}")
             logger.error(f"Pipeline Failed: {e}")
             logger.error(f"{'=' * 80}")
             import traceback
@@ -283,7 +274,7 @@ class AlzKBPipeline:
         tsv_files = {}
         
         for source_name, data in parsed_data.items():
-            logger.info(f"\nExporting {source_name} to TSV...")
+            logger.info(f"Exporting {source_name} to TSV...")
             
             output_dir = self.processed_dir / source_name
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -334,7 +325,7 @@ class AlzKBPipeline:
                 logger.warning(f"No ista config for {source_name}, skipping")
                 continue
 
-            logger.info(f"\nPopulating ontology from {source_name}...")
+            logger.info(f"Populating ontology from {source_name}...")
 
             config = configs[source_name]
             node_type = config.get('class_name', source_name)
@@ -376,24 +367,6 @@ class AlzKBPipeline:
             logger.error(f"Failed to save ontology: {e}")
             return []
     
-    def populate_ontology_traditional(self, parsed_data: Dict[str, Dict]) -> List[str]:
-        """
-        Populate ontology using traditional method (without ista).
-        
-        Args:
-            parsed_data: Dictionary of parsed data
-        
-        Returns:
-            List of generated RDF file paths
-        """
-        logger.info("Using traditional ontology population method...")
-        
-        # This would use the existing OntologyPopulator
-        # For now, just log that it's not fully implemented
-        logger.warning("Traditional population not fully implemented in this version")
-        logger.info("Please use ista integration (--use-ista flag)")
-        
-        return []
     
     def build_database(self, rdf_files: List[str]):
         """
@@ -541,10 +514,8 @@ def main():
     
     args = parser.parse_args()
     
-    use_ista = True  # Always use ista for ontology population
-    
     # Create and run pipeline
-    pipeline = AlzKBPipeline(args.base_dir, use_ista=use_ista)
+    pipeline = AlzKBPipeline(args.base_dir)
     pipeline.run_full_pipeline()
 
 
