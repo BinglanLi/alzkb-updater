@@ -479,14 +479,10 @@ def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(description='AlzKB v2.1 Pipeline')
     parser.add_argument('--base-dir', default='.', help='Base directory for the project')
-    parser.add_argument('--use-ista', action='store_true', default=True,
-                       help='Use ista for ontology population (default: True)')
-    parser.add_argument('--no-ista', action='store_true',
-                       help='Do not use ista (use traditional method)')
     
     args = parser.parse_args()
     
-    use_ista = args.use_ista and not args.no_ista
+    use_ista = True  # Always use ista for ontology population
     
     # Create and run pipeline
     pipeline = AlzKBPipeline(args.base_dir, use_ista=use_ista)
