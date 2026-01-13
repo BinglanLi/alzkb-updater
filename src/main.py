@@ -20,8 +20,7 @@ from typing import Dict, List
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from ontology.ontology_manager import OntologyManager
-from ontology.ista_integrator import IstaIntegrator, get_default_configs
+from ontology.alzkb_populator import AlzKBOntologyPopulator, get_default_configs
 from parsers import (
     AOPDBParser,
     DisGeNETParser,
@@ -29,8 +28,6 @@ from parsers import (
     NCBIGeneParser,
     HetionetBuilder
 )
-from integrators.data_integrator import DataIntegrator
-from csv_exporter import CSVExporter
 
 # Configure logging
 logging.basicConfig(
@@ -263,64 +260,74 @@ class AlzKBPipeline:
     
     def populate_ontology_with_ista(self, tsv_files: Dict[str, List[str]]) -> List[str]:
         """
-        Populate ontology using ista.
-        
+        Populate ontology using ista via AlzKBOntologyPopulator.
+
         Args:
             tsv_files: Dictionary mapping source names to TSV file paths
-        
+
         Returns:
             List of generated RDF file paths
         """
         if not self.ontology_path.exists():
             logger.error(f"Base ontology not found: {self.ontology_path}")
             return []
-        
-        # Initialize ista integrator
-        venv_path = self.base_dir / ".venv"
-        ista = IstaIntegrator(
+
+        # Initialize AlzKB ontology populator
+        populator = AlzKBOntologyPopulator(
             ontology_path=str(self.ontology_path),
-            output_dir=str(self.output_dir / "rdf"),
-            venv_path=str(venv_path) if venv_path.exists() else None
+            data_dir=str(self.processed_dir)
         )
-        
+
         # Get default configurations
         configs = get_default_configs()
-        
-        rdf_files = []
-        
+
         # Process each source
         for source_name, files in tsv_files.items():
             if source_name not in configs:
                 logger.warning(f"No ista config for {source_name}, skipping")
                 continue
-            
+
             logger.info(f"\nPopulating ontology from {source_name}...")
-            
+
             config = configs[source_name]
-            
+            node_type = config.get('class_name', source_name)
+
             for tsv_file in files:
                 try:
                     logger.info(f"  Processing {Path(tsv_file).name}...")
-                    rdf_file = ista.populate_from_tsv(
+
+                    # Populate nodes from TSV file
+                    success = populator.populate_nodes(
                         source_name=source_name,
-                        tsv_file=tsv_file,
-                        config=config
+                        node_type=node_type,
+                        source_filename=Path(tsv_file).name,
+                        fmt="tsv",
+                        parse_config=config
                     )
-                    rdf_files.append(rdf_file)
-                    logger.info(f"  ✓ Created RDF: {rdf_file}")
-                    
+
+                    if success:
+                        logger.info(f"  ✓ Populated nodes from: {tsv_file}")
+                    else:
+                        logger.warning(f"  ⚠ No nodes populated from: {tsv_file}")
+
                 except Exception as e:
                     logger.error(f"  ✗ Failed to populate from {tsv_file}: {e}")
-        
-        # Merge all RDF files
-        if rdf_files:
-            logger.info(f"\nMerging {len(rdf_files)} RDF files...")
-            merged_rdf = self.output_dir / "alzkb_v2.1_populated.rdf"
-            ista.merge_rdf_files(rdf_files, str(merged_rdf))
-            logger.info(f"✓ Created merged RDF: {merged_rdf}")
-            return [str(merged_rdf)]
-        
-        return []
+
+        # Save the populated ontology
+        output_rdf = self.output_dir / "alzkb_v2.1_populated.rdf"
+        output_rdf.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            populator.save_ontology(str(output_rdf))
+            logger.info(f"✓ Saved populated ontology: {output_rdf}")
+
+            # Print statistics
+            populator.print_stats()
+
+            return [str(output_rdf)]
+        except Exception as e:
+            logger.error(f"Failed to save ontology: {e}")
+            return []
     
     def populate_ontology_traditional(self, parsed_data: Dict[str, Dict]) -> List[str]:
         """

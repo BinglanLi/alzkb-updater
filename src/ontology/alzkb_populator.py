@@ -283,3 +283,72 @@ class AlzKBOntologyPopulator:
         logger.info("Ontology Statistics:")
         for key, value in stats.items():
             logger.info(f"  {key}: {value}")
+
+
+def get_default_configs() -> Dict[str, Dict[str, Any]]:
+    """
+    Get default ista configurations for AlzKB data sources.
+
+    Returns:
+        Dictionary mapping source names to their ista configurations
+    """
+    return {
+        'disgenet': {
+            'class_name': 'GeneDisease Association',
+            'base_uri': 'http://alzkb.org/resource/disgenet/',
+            'property_base': 'http://alzkb.org/property/',
+            'identity_columns': [0, 1],  # gene and disease
+            'label_columns': [0],
+            'property_mappings': {
+                '0': 'hasGene',
+                '1': 'hasDisease',
+                '2': 'hasScore',
+                '3': 'hasEvidence'
+            }
+        },
+        'drugbank': {
+            'class_name': 'Drug',
+            'base_uri': 'http://alzkb.org/resource/drugbank/',
+            'property_base': 'http://alzkb.org/property/',
+            'identity_columns': [0],  # drugbank_id
+            'label_columns': [1],  # name
+            'property_mappings': {
+                '0': 'drugbankId',
+                '1': 'drugName',
+                '2': 'drugType',
+                '3': 'description'
+            }
+        },
+        'aopdb': {
+            'class_name': 'Pathway',
+            'base_uri': 'http://alzkb.org/resource/aopdb/',
+            'property_base': 'http://alzkb.org/property/',
+            'identity_columns': [0],  # pathway_id
+            'label_columns': [1],  # pathway_name
+            'property_mappings': {
+                '0': 'pathwayId',
+                '1': 'pathwayName',
+                '2': 'pathwayDescription'
+            }
+        },
+        'ncbigene': {
+            'class_name': 'Gene',
+            'base_uri': 'http://alzkb.org/resource/gene/',
+            'property_base': 'http://alzkb.org/property/',
+            'identity_columns': [0],  # gene_id
+            'label_columns': [1],  # symbol
+            'property_mappings': {
+                '0': 'geneId',
+                '1': 'geneSymbol',
+                '2': 'geneName',
+                '3': 'organism'
+            }
+        },
+        'hetionet': {
+            'class_name': 'BioEntity',
+            'base_uri': 'http://alzkb.org/resource/hetionet/',
+            'property_base': 'http://alzkb.org/property/',
+            'identity_columns': [0],  # entity_id
+            'label_columns': [1],  # entity_name
+        }
+    }
