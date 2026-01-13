@@ -6,6 +6,7 @@ __pycache__/
 .Python
 env/
 venv/
+.venv/
 ENV/
 build/
 develop-eggs/
@@ -31,6 +32,8 @@ data/output/rdf/
 
 # Test files
 test/
+.ista/
+.venv/
 
 # IDE
 .vscode/
