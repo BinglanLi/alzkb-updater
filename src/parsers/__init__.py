@@ -7,7 +7,6 @@ a specific source.
 """
 
 from .base_parser import BaseParser
-from .hetionet_parser import HetionetParser
 from .hetionet_builder import HetionetBuilder
 from .ncbigene_parser import NCBIGeneParser
 from .drugbank_parser import DrugBankParser
@@ -16,7 +15,6 @@ from .aopdb_parser import AOPDBParser
 
 __all__ = [
     'BaseParser',
-    'HetionetParser',
     'HetionetBuilder',
     'NCBIGeneParser',
     'DrugBankParser',
