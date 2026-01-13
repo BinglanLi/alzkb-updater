@@ -26,7 +26,20 @@ from parsers import (
     DisGeNETParser,
     DrugBankParser,
     NCBIGeneParser,
-    HetionetBuilder
+)
+from parsers.hetionet_components import (
+    DiseaseOntologyParser,
+    GeneOntologyParser,
+    UberonParser,
+    MeSHParser,
+    GWASParser,
+    DrugCentralParser,
+    BindingDBParser,
+    BgeeParser,
+    CTDParser,
+    HetionetPrecomputedParser,
+    PubTatorParser,
+    DoRothEAParser,
 )
 
 # Configure logging
@@ -156,7 +169,7 @@ class AlzKBPipeline:
         from dotenv import load_dotenv
         load_dotenv()
         
-        # Define parsers
+        # Define parsers - Core data sources
         parsers = {
             'aopdb': AOPDBParser(
                 data_dir=str(self.raw_dir / "aopdb"),
@@ -179,14 +192,48 @@ class AlzKBPipeline:
             'ncbigene': NCBIGeneParser(
                 data_dir=str(self.raw_dir / "ncbigene")
             ),
-            'hetionet': HetionetBuilder(
-                data_dir=str(self.raw_dir / "hetionet")
-            )
+            # Hetionet component parsers (replacing HetionetBuilder)
+            'disease_ontology': DiseaseOntologyParser(
+                data_dir=str(self.raw_dir / "hetionet" / "disease_ontology")
+            ),
+            'gene_ontology': GeneOntologyParser(
+                data_dir=str(self.raw_dir / "hetionet" / "gene_ontology")
+            ),
+            'uberon': UberonParser(
+                data_dir=str(self.raw_dir / "hetionet" / "uberon")
+            ),
+            'mesh': MeSHParser(
+                data_dir=str(self.raw_dir / "hetionet" / "mesh")
+            ),
+            'gwas': GWASParser(
+                data_dir=str(self.raw_dir / "hetionet" / "gwas")
+            ),
+            'drugcentral': DrugCentralParser(
+                data_dir=str(self.raw_dir / "hetionet" / "drugcentral")
+            ),
+            'bindingdb': BindingDBParser(
+                data_dir=str(self.raw_dir / "hetionet" / "bindingdb")
+            ),
+            'bgee': BgeeParser(
+                data_dir=str(self.raw_dir / "hetionet" / "bgee")
+            ),
+            'ctd': CTDParser(
+                data_dir=str(self.raw_dir / "hetionet" / "ctd")
+            ),
+            'hetionet_precomputed': HetionetPrecomputedParser(
+                data_dir=str(self.raw_dir / "hetionet" / "precomputed")
+            ),
+            'pubtator': PubTatorParser(
+                data_dir=str(self.raw_dir / "hetionet" / "pubtator")
+            ),
+            'dorothea': DoRothEAParser(
+                data_dir=str(self.raw_dir / "hetionet" / "dorothea")
+            ),
         }
         
         # Process each parser
         for source_name, parser in parsers.items():
-            logger.info(f"\n{'=' * 60}")
+            logger.info(f"{'=' * 60}")
             logger.info(f"Processing {source_name.upper()}")
             logger.info(f"{'=' * 60}")
             
@@ -430,14 +477,19 @@ class AlzKBPipeline:
 - **DisGeNET**: Gene-disease associations (API)
 - **DrugBank**: Drug information (Web authentication)
 - **NCBI Gene**: Gene information
-- **Hetionet**: Integrated biomedical knowledge graph
-  - Disease Ontology
-  - Gene Ontology
-  - Uberon (Anatomy)
-  - GWAS Catalog
-  - DrugCentral
-  - BindingDB
-  - Bgee (Gene expression)
+- **Hetionet Component Sources**:
+  - Disease Ontology (Disease nodes)
+  - Gene Ontology (BP, MF, CC nodes and gene associations)
+  - Uberon (BodyPart/Anatomy nodes)
+  - MeSH (Symptom nodes)
+  - GWAS Catalog (geneAssociatesWithDisease)
+  - DrugCentral (drugTreatsDisease, drugPalliatesDisease)
+  - BindingDB (chemicalBindsGene)
+  - Bgee (bodyPartOverexpressesGene, bodyPartUnderexpressesGene)
+  - CTD (chemicalIncreasesExpression, chemicalDecreasesExpression)
+  - Hetionet Precomputed (geneCovaries, geneRegulates, geneInteracts)
+  - PubTator/MEDLINE (diseaseAssociatesWithDisease, literature mining)
+  - DoRothEA (TranscriptionFactor nodes, TF-gene interactions)
 
 ## Statistics
 - **Sources Processed**: {self.stats['sources_processed']}
