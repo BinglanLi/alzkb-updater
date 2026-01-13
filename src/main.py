@@ -1,5 +1,5 @@
 """
-AlzKB v2.1 - Main Pipeline
+AlzKB v2 - Main Pipeline
 
 This script orchestrates the complete AlzKB knowledge base construction pipeline:
 1. Data retrieval from all sources
@@ -93,7 +93,7 @@ class AlzKBPipeline:
     def run_full_pipeline(self):
         """Run the complete AlzKB construction pipeline."""
         logger.info("=" * 80)
-        logger.info("AlzKB v2.1 - Complete Pipeline")
+        logger.info("AlzKB v2 - Complete Pipeline")
         logger.info("=" * 80)
         logger.info(f"Start time: {self.stats['start_time']}")
         logger.info(f"Base directory: {self.base_dir}")
@@ -361,7 +361,7 @@ class AlzKBPipeline:
                     logger.error(f"  ✗ Failed to populate from {tsv_file}: {e}")
 
         # Save the populated ontology
-        output_rdf = self.output_dir / "alzkb_v2.1_populated.rdf"
+        output_rdf = self.output_dir / "alzkb_v2_populated.rdf"
         output_rdf.parent.mkdir(parents=True, exist_ok=True)
 
         try:
@@ -465,10 +465,10 @@ class AlzKBPipeline:
         """Generate release notes for this version."""
         logger.info("Generating release notes...")
         
-        release_notes = f"""# AlzKB v2.1 Release Notes
+        release_notes = f"""# AlzKB v2 Release Notes
 
 ## Release Information
-- **Version**: 2.1
+- **Version**: 2
 - **Release Date**: {datetime.now().strftime('%Y-%m-%d')}
 - **Build Duration**: {self.stats['end_time'] - self.stats['start_time'] if self.stats['end_time'] else 'N/A'}
 
@@ -497,7 +497,7 @@ class AlzKBPipeline:
 - **Total Nodes**: {self.stats['total_nodes']:,}
 - **Total Edges**: {self.stats['total_edges']:,}
 
-## Improvements in v2.1
+## Improvements
 - Integrated ista for ontology population
 - Rebuilt Hetionet from scratch with updated sources
 - Improved data retrieval with better error handling
@@ -511,7 +511,7 @@ class AlzKBPipeline:
 
 ## Usage
 The knowledge graph is available in the following formats:
-- RDF/XML: `data/output/alzkb_v2.1_populated.rdf`
+- RDF/XML: `data/output/alzkb_v2_populated.rdf`
 - CSV (nodes): `data/output/alzkb_nodes.csv`
 - CSV (edges): `data/output/alzkb_edges.csv`
 
@@ -524,7 +524,7 @@ For questions or issues, please open an issue on GitHub.
 """
         
         # Write release notes
-        release_file = self.output_dir / "RELEASE_NOTES_v2.1.md"
+        release_file = self.output_dir / "RELEASE_NOTES_v2.md"
         with open(release_file, 'w') as f:
             f.write(release_notes)
         
@@ -536,7 +536,7 @@ For questions or issues, please open an issue on GitHub.
 
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(description='AlzKB v2.1 Pipeline')
+    parser = argparse.ArgumentParser(description='AlzKB v2 Pipeline')
     parser.add_argument('--base-dir', default='.', help='Base directory for the project')
     
     args = parser.parse_args()
