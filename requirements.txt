@@ -10,6 +10,13 @@ python-dateutil>=2.8.2
 owlready2>=0.43
 rdflib>=6.3.0
 
+# OBO ontology parsing (for Disease Ontology, Gene Ontology, Uberon)
+obonet>=0.3.0
+pronto>=2.5.0
+
+# Caching for API requests
+requests-cache>=1.0.0
+
 # Database connections
 mysql-connector-python>=8.0.33
 

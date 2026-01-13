@@ -7,17 +7,44 @@ a specific source.
 """
 
 from .base_parser import BaseParser
-from .hetionet_builder import HetionetBuilder
 from .ncbigene_parser import NCBIGeneParser
 from .drugbank_parser import DrugBankParser
 from .disgenet_parser import DisGeNETParser
 from .aopdb_parser import AOPDBParser
 
+# Hetionet component parsers (replacing HetionetBuilder)
+from .hetionet_components import (
+    DiseaseOntologyParser,
+    GeneOntologyParser,
+    UberonParser,
+    MeSHParser,
+    GWASParser,
+    DrugCentralParser,
+    BindingDBParser,
+    BgeeParser,
+    CTDParser,
+    HetionetPrecomputedParser,
+    PubTatorParser,
+    DoRothEAParser,
+)
+
 __all__ = [
     'BaseParser',
-    'HetionetBuilder',
     'NCBIGeneParser',
     'DrugBankParser',
     'DisGeNETParser',
-    'AOPDBParser'
+    'AOPDBParser',
+    # Hetionet component parsers
+    'DiseaseOntologyParser',
+    'GeneOntologyParser',
+    'UberonParser',
+    'MeSHParser',
+    'GWASParser',
+    'DrugCentralParser',
+    'BindingDBParser',
+    'BgeeParser',
+    'CTDParser',
+    'HetionetPrecomputedParser',
+    'PubTatorParser',
+    'DoRothEAParser',
 ]

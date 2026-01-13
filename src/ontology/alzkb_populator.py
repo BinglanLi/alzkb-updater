@@ -293,6 +293,7 @@ def get_default_configs() -> Dict[str, Dict[str, Any]]:
         Dictionary mapping source names to their ista configurations
     """
     return {
+        # === Core Data Sources ===
         'disgenet': {
             'class_name': 'GeneDisease Association',
             'base_uri': 'http://alzkb.org/resource/disgenet/',
@@ -344,11 +345,177 @@ def get_default_configs() -> Dict[str, Dict[str, Any]]:
                 '3': 'organism'
             }
         },
-        'hetionet': {
-            'class_name': 'BioEntity',
+
+        # === Hetionet Component Parsers - Node Types ===
+        'disease_ontology': {
+            'class_name': 'Disease',
+            'base_uri': 'http://alzkb.org/resource/doid/',
+            'property_base': 'http://alzkb.org/property/',
+            'identity_columns': ['doid'],
+            'label_columns': ['name'],
+            'property_mappings': {
+                'doid': 'diseaseId',
+                'name': 'diseaseName',
+                'definition': 'definition',
+                'xrefs': 'crossReferences'
+            }
+        },
+        'gene_ontology': {
+            'class_name': 'GeneOntologyTerm',
+            'base_uri': 'http://alzkb.org/resource/go/',
+            'property_base': 'http://alzkb.org/property/',
+            'identity_columns': ['go_id'],
+            'label_columns': ['name'],
+            'property_mappings': {
+                'go_id': 'goId',
+                'name': 'termName',
+                'namespace': 'namespace',
+                'definition': 'definition'
+            }
+        },
+        'uberon': {
+            'class_name': 'BodyPart',
+            'base_uri': 'http://alzkb.org/resource/uberon/',
+            'property_base': 'http://alzkb.org/property/',
+            'identity_columns': ['uberon_id'],
+            'label_columns': ['name'],
+            'property_mappings': {
+                'uberon_id': 'uberonId',
+                'name': 'anatomyName',
+                'definition': 'definition'
+            }
+        },
+        'mesh': {
+            'class_name': 'Symptom',
+            'base_uri': 'http://alzkb.org/resource/mesh/symptom/',
+            'property_base': 'http://alzkb.org/property/',
+            'identity_columns': ['mesh_id'],
+            'label_columns': ['name'],
+            'property_mappings': {
+                'mesh_id': 'meshId',
+                'name': 'symptomName',
+                'tree_numbers': 'treeNumbers'
+            }
+        },
+        'dorothea': {
+            'class_name': 'TranscriptionFactor',
+            'base_uri': 'http://alzkb.org/resource/tf/',
+            'property_base': 'http://alzkb.org/property/',
+            'identity_columns': ['tf_symbol'],
+            'label_columns': ['tf_symbol'],
+            'property_mappings': {
+                'tf_symbol': 'tfSymbol',
+                'node_type': 'nodeType'
+            }
+        },
+
+        # === Hetionet Component Parsers - Relationship Types ===
+        'gwas': {
+            'class_name': 'GeneAssociatesWithDisease',
+            'base_uri': 'http://alzkb.org/resource/gwas/',
+            'property_base': 'http://alzkb.org/property/',
+            'identity_columns': ['gene_symbol', 'disease_id'],
+            'label_columns': ['gene_symbol'],
+            'property_mappings': {
+                'gene_symbol': 'geneSymbol',
+                'disease_id': 'diseaseId',
+                'p_value': 'pValue',
+                'odds_ratio': 'oddsRatio',
+                'pubmed_id': 'pubmedId',
+                'relationship': 'relationshipType',
+                'source': 'dataSource'
+            }
+        },
+        'drugcentral': {
+            'class_name': 'DrugDiseaseRelationship',
+            'base_uri': 'http://alzkb.org/resource/drugcentral/',
+            'property_base': 'http://alzkb.org/property/',
+            'identity_columns': ['drug_id', 'disease_id'],
+            'label_columns': ['drug_name'],
+            'property_mappings': {
+                'drug_id': 'drugId',
+                'drug_name': 'drugName',
+                'disease_id': 'diseaseId',
+                'disease_name': 'diseaseName',
+                'relationship': 'relationshipType',
+                'source': 'dataSource'
+            }
+        },
+        'bindingdb': {
+            'class_name': 'ChemicalBindsGene',
+            'base_uri': 'http://alzkb.org/resource/bindingdb/',
+            'property_base': 'http://alzkb.org/property/',
+            'identity_columns': ['drug_id', 'gene_symbol'],
+            'label_columns': ['drug_name'],
+            'property_mappings': {
+                'drug_id': 'drugId',
+                'drug_name': 'drugName',
+                'gene_symbol': 'geneSymbol',
+                'uniprot_id': 'uniprotId',
+                'affinity_nm': 'affinityNm',
+                'affinity_type': 'affinityType',
+                'relationship': 'relationshipType',
+                'source': 'dataSource'
+            }
+        },
+        'bgee': {
+            'class_name': 'GeneExpression',
+            'base_uri': 'http://alzkb.org/resource/bgee/',
+            'property_base': 'http://alzkb.org/property/',
+            'identity_columns': ['gene_id', 'anatomy_id'],
+            'label_columns': ['gene_symbol'],
+            'property_mappings': {
+                'gene_id': 'geneId',
+                'gene_symbol': 'geneSymbol',
+                'anatomy_id': 'anatomyId',
+                'anatomy_name': 'anatomyName',
+                'expression_level': 'expressionLevel',
+                'relationship': 'relationshipType',
+                'source': 'dataSource'
+            }
+        },
+        'ctd': {
+            'class_name': 'ChemicalGeneExpression',
+            'base_uri': 'http://alzkb.org/resource/ctd/',
+            'property_base': 'http://alzkb.org/property/',
+            'identity_columns': ['chemical_id', 'gene_id'],
+            'label_columns': ['chemical_name'],
+            'property_mappings': {
+                'chemical_id': 'chemicalId',
+                'chemical_name': 'chemicalName',
+                'gene_id': 'geneId',
+                'gene_symbol': 'geneSymbol',
+                'interaction_type': 'interactionType',
+                'pubmed_ids': 'pubmedIds',
+                'relationship': 'relationshipType',
+                'source': 'dataSource'
+            }
+        },
+        'hetionet_precomputed': {
+            'class_name': 'GeneGeneRelationship',
             'base_uri': 'http://alzkb.org/resource/hetionet/',
             'property_base': 'http://alzkb.org/property/',
-            'identity_columns': [0],  # entity_id
-            'label_columns': [1],  # entity_name
-        }
+            'identity_columns': ['gene1_symbol', 'gene2_symbol'],
+            'label_columns': ['gene1_symbol'],
+            'property_mappings': {
+                'gene1_symbol': 'gene1Symbol',
+                'gene2_symbol': 'gene2Symbol',
+                'relationship': 'relationshipType',
+                'source': 'dataSource'
+            }
+        },
+        'pubtator': {
+            'class_name': 'LiteratureCooccurrence',
+            'base_uri': 'http://alzkb.org/resource/pubtator/',
+            'property_base': 'http://alzkb.org/property/',
+            'identity_columns': ['disease1_id', 'disease2_id'],
+            'label_columns': ['disease1_id'],
+            'property_mappings': {
+                'disease1_id': 'disease1Id',
+                'disease2_id': 'disease2Id',
+                'pmid_count': 'pmidCount',
+                'relationship': 'relationshipType',
+                'source': 'dataSource'
+            }
+        },
     }
