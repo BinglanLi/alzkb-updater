@@ -98,7 +98,7 @@ AlzKB v2.1 is a knowledge graph that integrates data from multiple biomedical so
 source .venv/bin/activate
 
 # Run the pipeline
-python src/main.py --use-ista
+python src/main.py
 ```
 
 ### Pipeline Steps
@@ -119,8 +119,6 @@ python src/main.py [options]
 
 Options:
   --base-dir DIR      Base directory for the project (default: current directory)
-  --use-ista          Use ista for ontology population (default: True)
-  --no-ista           Use traditional ontology population method
 ```
 
 ### Running Individual Components
@@ -154,14 +152,8 @@ alzkb-updater/
 │   │   ├── ncbigene_parser.py
 │   │   ├── hetionet_builder.py
 │   │   └── base_parser.py
-│   ├── ontology/             # Ontology management
-│   │   ├── ontology_manager.py
-│   │   ├── ontology_populator.py
-│   │   └── ista_integrator.py
-│   ├── integrators/          # Data integration
-│   │   ├── data_integrator.py
-│   │   └── data_cleaner.py
-│   ├── csv_exporter.py       # Database export
+│   ├── ontology/             # Ontology populator
+│   │   └── alzkb_populator.py  
 │   └── main.py               # Main pipeline
 ├── data/
 │   ├── raw/                  # Raw downloaded data
@@ -246,18 +238,18 @@ Each component is downloaded and integrated:
 1. Create a new parser in `src/parsers/`:
    ```python
    from .base_parser import BaseParser
-   
+
    class NewSourceParser(BaseParser):
        def download_data(self):
            # Implement download logic
            pass
-       
+
        def parse_data(self):
            # Implement parsing logic
            pass
    ```
 
-2. Add ista configuration in `src/ontology/ista_integrator.py`
+2. Add ista configuration in `src/ontology/alzkb_populator.py` (in `get_default_configs()`)
 
 3. Update `src/main.py` to include the new parser
 
@@ -265,7 +257,7 @@ Each component is downloaded and integrated:
 
 Run the pipeline with verbose logging:
 ```bash
-python src/main.py --use-ista 2>&1 | tee build.log
+python src/main.py 2>&1 | tee build.log
 ```
 
 ## References
@@ -303,6 +295,6 @@ This project builds upon:
 
 ---
 
-**Version**: 2.1  
-**Last Updated**: 2024-01-20  
+**Version**: 2.3
+**Last Updated**: 2026-01-12
 **Status**: Active Development
