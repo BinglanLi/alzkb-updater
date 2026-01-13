@@ -245,15 +245,6 @@ Validate the built knowledge graph:
 python -m src.validation.validate_kg --input output/alzkb_v2.3.rdf
 ```
 
-## Version Information
-
-Check AlzKB version:
-```python
-from src.version_manager import VersionManager
-vm = VersionManager()
-print(vm.get_version())  # 2.3.0
-```
-
 ## Support
 
 For issues and questions:
