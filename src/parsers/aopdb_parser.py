@@ -150,9 +150,8 @@ class AOPDBParser(BaseParser):
         # Specify query languages
         query = dict()
         # General query
-        for result_key, possible_names in table_mappings.items():
-            for possible_name in possible_names:
-                query[possible_name] = f"SELECT * FROM {possible_name}"
+        for result_key in table_mappings:
+            query[result_key] = f"SELECT * FROM {result_key}"
         # Specalized queries
         query['pathway'] = """
             SELECT path_name, 
@@ -162,7 +161,7 @@ class AOPDBParser(BaseParser):
                 SELECT DISTINCT path_id, 
                 TRIM(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(path_name, '<sub>', ''), '</sub>', ''), '<i>', ''), '</i>', ''), ' - Homo sapiens (human)', '')) as path_name, 
                 ext_source 
-                FROM aopdb.pathway_gene
+                FROM pathway_gene
                 WHERE tax_id = 9606)data
             GROUP BY path_name;
         """
@@ -170,7 +169,7 @@ class AOPDBParser(BaseParser):
             SELECT DISTINCT entrez, 
                 path_id, 
                 TRIM(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(path_name, '<sub>', ''), '</sub>', ''), '<i>', ''), '</i>', ''), ' - Homo sapiens (human)', '')) as path_name
-            FROM aopdb.pathway_gene
+            FROM pathway_gene
             WHERE tax_id = 9606;
         """
         
@@ -179,7 +178,7 @@ class AOPDBParser(BaseParser):
             for table_name in possible_names:
                 if table_name in available_tables:
                     try:
-                        df = pd.read_sql(query[table_name], self.connection)
+                        df = pd.read_sql(query[result_key], self.connection)
                         result[result_key] = df
                         logger.info(f"✓ Parsed {len(df)} rows from {table_name} (as {result_key})")
                         break
@@ -203,25 +202,21 @@ class AOPDBParser(BaseParser):
                 'aop_name': 'AOP name',
                 'description': 'AOP description'
             },
-            'key_events': {
-                'ke_id': 'Key event identifier',
-                'ke_name': 'Key event name',
-                'biological_level': 'Biological organization level'
-            },
-            'stressors': {
-                'stressor_id': 'Stressor identifier',
-                'stressor_name': 'Stressor name',
-                'cas_number': 'CAS Registry Number'
-            },
-            'genes': {
-                'gene_id': 'Gene identifier',
-                'gene_symbol': 'Gene symbol',
-                'ncbi_gene_id': 'NCBI Gene ID'
+            'pathways': {
+                'path_id': 'Pathway identifier',
+                'path_name': 'Pathway name',
+                'ext_source': 'External source'
             },
             'relationships': {
-                'relationship_id': 'Relationship identifier',
-                'upstream_ke': 'Upstream key event',
-                'downstream_ke': 'Downstream key event'
+                'entrez': 'Entrez identifier',
+                'path_id': 'Pathway identifier',
+                'path_name': 'Pathway name'
+            },
+            'drug': {
+                'chemical_id': 'Chemical identifier',
+                'chemical_name': 'Chemical name',
+                'chemical_type': 'Chemical type',
+                'chemical_description': 'Chemical description'
             }
         }
     
