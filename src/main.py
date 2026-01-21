@@ -26,6 +26,7 @@ from parsers import (
     DisGeNETParser,
     DrugBankParser,
     NCBIGeneParser,
+    DoRothEAParser,
 )
 from parsers.hetionet_components import (
     DiseaseOntologyParser,
@@ -39,7 +40,6 @@ from parsers.hetionet_components import (
     CTDParser,
     HetionetPrecomputedParser,
     PubTatorParser,
-    DoRothEAParser,
 )
 
 # Configure logging
@@ -163,7 +163,7 @@ class AlzKBPipeline:
         # Define parsers - Core data sources
         parsers = {
             'aopdb': AOPDBParser(
-                data_dir=str(self.raw_dir / "aopdb"),
+                data_dir=str(self.raw_dir),
                 mysql_config={
                     'host': 'localhost',
                     'user': os.getenv('MYSQL_USERNAME'),
@@ -172,53 +172,53 @@ class AlzKBPipeline:
                 }
             ),
             'disgenet': DisGeNETParser(
-                data_dir=str(self.raw_dir / "disgenet"),
+                data_dir=str(self.raw_dir),
                 api_key=os.getenv('DISGENET_API_KEY')
             ),
             'drugbank': DrugBankParser(
-                data_dir=str(self.raw_dir / "drugbank"),
+                data_dir=str(self.raw_dir),
                 username=os.getenv('DRUGBANK_USERNAME'),
                 password=os.getenv('DRUGBANK_PASSWORD')
             ),
             'ncbigene': NCBIGeneParser(
-                data_dir=str(self.raw_dir / "ncbigene")
+                data_dir=str(self.raw_dir),
+            ),
+            'dorothea': DoRothEAParser(
+                data_dir=str(self.raw_dir),
             ),
             # Hetionet component parsers (replacing HetionetBuilder)
             'disease_ontology': DiseaseOntologyParser(
-                data_dir=str(self.raw_dir / "hetionet" / "disease_ontology")
+                data_dir=str(self.raw_dir / "hetionet")
             ),
             'gene_ontology': GeneOntologyParser(
-                data_dir=str(self.raw_dir / "hetionet" / "gene_ontology")
+                data_dir=str(self.raw_dir / "hetionet")
             ),
             'uberon': UberonParser(
-                data_dir=str(self.raw_dir / "hetionet" / "uberon")
+                data_dir=str(self.raw_dir / "hetionet")
             ),
             'mesh': MeSHParser(
-                data_dir=str(self.raw_dir / "hetionet" / "mesh")
+                data_dir=str(self.raw_dir / "hetionet")
             ),
             'gwas': GWASParser(
-                data_dir=str(self.raw_dir / "hetionet" / "gwas")
+                data_dir=str(self.raw_dir / "hetionet")
             ),
             'drugcentral': DrugCentralParser(
-                data_dir=str(self.raw_dir / "hetionet" / "drugcentral")
+                data_dir=str(self.raw_dir / "hetionet")
             ),
             'bindingdb': BindingDBParser(
-                data_dir=str(self.raw_dir / "hetionet" / "bindingdb")
+                data_dir=str(self.raw_dir / "hetionet")
             ),
             'bgee': BgeeParser(
-                data_dir=str(self.raw_dir / "hetionet" / "bgee")
+                data_dir=str(self.raw_dir / "hetionet")
             ),
             'ctd': CTDParser(
-                data_dir=str(self.raw_dir / "hetionet" / "ctd")
+                data_dir=str(self.raw_dir / "hetionet")
             ),
             'hetionet_precomputed': HetionetPrecomputedParser(
-                data_dir=str(self.raw_dir / "hetionet" / "precomputed")
+                data_dir=str(self.raw_dir / "hetionet")
             ),
             'pubtator': PubTatorParser(
-                data_dir=str(self.raw_dir / "hetionet" / "pubtator")
-            ),
-            'dorothea': DoRothEAParser(
-                data_dir=str(self.raw_dir / "hetionet" / "dorothea")
+                data_dir=str(self.raw_dir / "hetionet")
             ),
         }
         
