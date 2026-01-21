@@ -27,8 +27,8 @@ wheels/
 # Data files (except processed results)
 data/raw/*
 !data/raw/.gitkeep
-data/processed/
-data/output/rdf/
+data/processed/*
+data/output/*
 
 # Test files
 test/
