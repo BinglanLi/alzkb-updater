@@ -21,7 +21,6 @@ Available Parsers:
 - CTDParser: Chemical-gene expression changes
 - HetionetPrecomputedParser: Pre-computed gene-gene relationships
 - PubTatorParser: Literature-mined co-occurrences
-- DoRothEAParser: Transcription factor-gene interactions
 """
 
 from .disease_ontology_parser import DiseaseOntologyParser
@@ -35,7 +34,6 @@ from .bgee_parser import BgeeParser
 from .ctd_parser import CTDParser
 from .hetionet_precomputed_parser import HetionetPrecomputedParser
 from .pubtator_parser import PubTatorParser
-from .dorothea_parser import DoRothEAParser
 
 __all__ = [
     'DiseaseOntologyParser',
@@ -49,5 +47,4 @@ __all__ = [
     'CTDParser',
     'HetionetPrecomputedParser',
     'PubTatorParser',
-    'DoRothEAParser',
 ]

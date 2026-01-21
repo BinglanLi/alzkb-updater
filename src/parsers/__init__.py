@@ -11,6 +11,7 @@ from .ncbigene_parser import NCBIGeneParser
 from .drugbank_parser import DrugBankParser
 from .disgenet_parser import DisGeNETParser
 from .aopdb_parser import AOPDBParser
+from .dorothea_parser import DoRothEAParser
 
 # Hetionet component parsers (replacing HetionetBuilder)
 from .hetionet_components import (
@@ -25,7 +26,6 @@ from .hetionet_components import (
     CTDParser,
     HetionetPrecomputedParser,
     PubTatorParser,
-    DoRothEAParser,
 )
 
 __all__ = [
@@ -34,6 +34,7 @@ __all__ = [
     'DrugBankParser',
     'DisGeNETParser',
     'AOPDBParser',
+    'DoRothEAParser',
     # Hetionet component parsers
     'DiseaseOntologyParser',
     'GeneOntologyParser',
@@ -46,5 +47,4 @@ __all__ = [
     'CTDParser',
     'HetionetPrecomputedParser',
     'PubTatorParser',
-    'DoRothEAParser',
 ]
