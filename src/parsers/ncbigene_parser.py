@@ -12,6 +12,7 @@ import pandas as pd
 from typing import Dict, Optional
 from pathlib import Path
 from .base_parser import BaseParser
+from ontology_configs import NCBI_GENES
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +120,10 @@ class NCBIGeneParser(BaseParser):
             if self.tissue_filter:
                 genes_df = self.filter_genes_by_tissue(genes_df, self.tissue_filter)
 
-            result['genes'] = genes_df
+            # Add source database column
+            genes_df['source_database'] = 'NCBI Gene'
+
+            result[NCBI_GENES] = genes_df
 
         return result
     
@@ -131,7 +135,7 @@ class NCBIGeneParser(BaseParser):
             Dictionary describing the schema for genes.
         """
         return {
-            'genes': {
+            f'{NCBI_GENES}': {
                 'GeneID': 'NCBI Gene ID',
                 'Symbol': 'Gene symbol',
                 'description': 'Gene description',
@@ -142,7 +146,8 @@ class NCBIGeneParser(BaseParser):
                 'xref_HGNC': 'HGNC identifier',
                 'xref_Ensembl': 'Ensembl gene identifier',
                 'Synonyms': 'Alternative gene symbols',
-                'Full_name_from_nomenclature_authority': 'Official full name'
+                'Full_name_from_nomenclature_authority': 'Official full name',
+                'source_database': 'Source database (NCBI Gene)',
             }
         }
     

@@ -22,14 +22,12 @@ References:
 """
 
 import logging
-from pathlib import Path
 from typing import Dict, List, Optional
 import pandas as pd
 import requests
 
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from parsers.base_parser import BaseParser
+from .base_parser import BaseParser
+from ontology_configs import DOROTHEA_TRANSCRIPTION_FACTORS, DOROTHEA_TF_GENE_INTERACTIONS
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +67,6 @@ class DoRothEAParser(BaseParser):
                              Default is ['A', 'B', 'C', 'D']
         """
         super().__init__(data_dir)
-        self.source_name = "dorothea"
         self.confidence_levels = confidence_levels or self.DEFAULT_CONFIDENCE_LEVELS
 
     def download_data(self) -> bool:
@@ -85,7 +82,7 @@ class DoRothEAParser(BaseParser):
             response = requests.get(self.OMNIPATH_DOROTHEA_URL, timeout=120)
             response.raise_for_status()
 
-            dorothea_path = self.source_dir / "dorothea_omnipath.tsv"
+            dorothea_path = self.get_file_path(f"{DOROTHEA_TF_GENE_INTERACTIONS}.tsv")
             with open(dorothea_path, 'w') as f:
                 f.write(response.text)
 
@@ -109,7 +106,7 @@ class DoRothEAParser(BaseParser):
               - 'transcription_factor_nodes': TF nodes
               - 'tf_gene_interactions': TF-gene regulatory relationships
         """
-        dorothea_path = self.source_dir / "dorothea_omnipath.tsv"
+        dorothea_path = self.get_file_path(f"{DOROTHEA_TF_GENE_INTERACTIONS}.tsv")
 
         if not dorothea_path.exists():
             logger.error(f"DoRothEA file not found: {dorothea_path}")
@@ -141,7 +138,11 @@ class DoRothEAParser(BaseParser):
 
             # Extract unique TFs as nodes
             tfs = df['source_genesymbol'].dropna().unique()
-            tf_nodes = [{"tf_symbol": tf, "node_type": "TranscriptionFactor"} for tf in tfs]
+            tf_nodes = [{
+                "tf_symbol": tf,
+                "node_type": "TranscriptionFactor",
+                "source_database": "DoRothEA"
+            } for tf in tfs]
             logger.info(f"Found {len(tf_nodes)} unique transcription factors")
 
             # Format TF-gene interactions
@@ -181,7 +182,7 @@ class DoRothEAParser(BaseParser):
                     "mor_score": mor_score,
                     "is_directed": row.get('is_directed', 1),
                     "relationship": "transcriptionFactorInteractsWithGene",
-                    "source": "DoRothEA"
+                    "source_database": "DoRothEA"
                 }
                 interactions.append(interaction)
 
@@ -202,8 +203,8 @@ class DoRothEAParser(BaseParser):
             logger.info(f"Interactions by mode: {mor_counts}")
 
             return {
-                "transcription_factor_nodes": pd.DataFrame(tf_nodes),
-                "tf_gene_interactions": pd.DataFrame(interactions)
+                f'{DOROTHEA_TRANSCRIPTION_FACTORS}': pd.DataFrame(tf_nodes),
+                f'{DOROTHEA_TF_GENE_INTERACTIONS}': pd.DataFrame(interactions)
             }
 
         except Exception as e:
@@ -220,11 +221,12 @@ class DoRothEAParser(BaseParser):
             Dictionary defining the schema for TF nodes and interactions
         """
         return {
-            "transcription_factor_nodes": {
+            f'{DOROTHEA_TRANSCRIPTION_FACTORS}': {
                 "tf_symbol": "Transcription factor gene symbol",
-                "node_type": "Node type (TranscriptionFactor)"
+                "node_type": "Node type (TranscriptionFactor)",
+                "source_database": "Data source (DoRothEA)"
             },
-            "tf_gene_interactions": {
+            f'{DOROTHEA_TF_GENE_INTERACTIONS}': {
                 "tf_symbol": "Transcription factor gene symbol",
                 "target_gene": "Target gene symbol",
                 "tf_uniprot": "TF UniProt accession",
@@ -235,6 +237,6 @@ class DoRothEAParser(BaseParser):
                 "mor_score": "Mode of regulation score (1=activation, -1=repression, 0=unknown/dual)",
                 "is_directed": "Whether the interaction is directed (1=yes)",
                 "relationship": "Relationship type (transcriptionFactorInteractsWithGene)",
-                "source": "Data source (DoRothEA)"
+                "source_database": "Data source (DoRothEA)"
             }
         }

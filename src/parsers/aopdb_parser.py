@@ -13,6 +13,13 @@ import logging
 from typing import Dict, Optional, Any, List
 import pandas as pd
 from .base_parser import BaseParser
+from ontology_configs import (
+    AOPDB_TABLE_MAPPING,
+    AOPDB_AOPS,
+    AOPDB_PATHWAYS,
+    AOPDB_GENE_PATHWAY_RELATIONSHIPS,
+    AOPDB_DRUGS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,12 +27,12 @@ logger = logging.getLogger(__name__)
 class AOPDBParser(BaseParser):
     """
     Parser for AOP-DB MySQL database.
-    
+
     This parser connects to a MySQL database and extracts relevant
     adverse outcome pathway data.
     """
-    
-    def __init__(self, data_dir: Optional[str] = None, 
+
+    def __init__(self, data_dir: Optional[str] = None,
                  mysql_config: Optional[Dict[str, str]] = None):
         """
         Initialize the AOP-DB parser.
@@ -125,7 +132,7 @@ class AOPDBParser(BaseParser):
         Uses dynamic table name detection to handle schema variations.
         
         Returns:
-            Dictionary with DataFrames for different AOP entities.
+            Dictionary where KEY = source filename stem; VALUE = pandas DataFrame for different AOP entities.
         """
         logger.info("Parsing AOP-DB data...")
         
@@ -138,22 +145,14 @@ class AOPDBParser(BaseParser):
         # Get available tables
         available_tables = self._get_table_names()
         logger.info(f"Available tables: {available_tables}")
-        
-        # Define table name mappings (handle variations in schema)
-        table_mappings = {
-            'aops': ['aop_info'],
-            'pathway': ['pathway_gene'],
-            'relationships': ['pathway_gene'],
-            'drug': ['chemical_info']
-        }
 
         # Specify query languages
         query = dict()
         # General query
-        for result_key in table_mappings:
-            query[result_key] = f"SELECT * FROM {result_key}"
+        for result_key, table_name in AOPDB_TABLE_MAPPING.items():
+            query[result_key] = f"SELECT * FROM {table_name}"
         # Specalized queries
-        query['pathway'] = """
+        query[AOPDB_PATHWAYS] = """
             SELECT path_name, 
                 GROUP_CONCAT(DISTINCT path_id) as path_id, 
                 CONCAT('AOPDB - ', GROUP_CONCAT(DISTINCT ext_source)) as ext_source
@@ -165,27 +164,24 @@ class AOPDBParser(BaseParser):
                 WHERE tax_id = 9606)data
             GROUP BY path_name;
         """
-        query['relationships'] = """
-            SELECT DISTINCT entrez, 
-                path_id, 
+        query[AOPDB_GENE_PATHWAY_RELATIONSHIPS] = """
+            SELECT DISTINCT entrez,
+                path_id,
                 TRIM(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(path_name, '<sub>', ''), '</sub>', ''), '<i>', ''), '</i>', ''), ' - Homo sapiens (human)', '')) as path_name
             FROM pathway_gene
             WHERE tax_id = 9606;
         """
         
         # Query each table type
-        for result_key, possible_names in table_mappings.items():
-            for table_name in possible_names:
-                if table_name in available_tables:
-                    try:
-                        df = pd.read_sql(query[result_key], self.connection)
-                        result[result_key] = df
-                        logger.info(f"✓ Parsed {len(df)} rows from {table_name} (as {result_key})")
-                        break
-                    except Exception as e:
-                        logger.warning(f"Failed to query {table_name}: {e}")
-                else:
-                    logger.warning(f"Could not find table for {result_key}. Tried: {possible_names}")
+        for result_key, table_name in AOPDB_TABLE_MAPPING.items():
+            if table_name in available_tables:
+                try:
+                    df = pd.read_sql(query[result_key], self.connection)
+                    df['source_database'] = 'AOPDB'
+                    result[result_key] = df
+                    logger.info(f"✓ Parsed {len(df)} rows from {table_name} (as {result_key})")
+                except Exception as e:
+                    logger.warning(f"Failed to query {table_name}: {e}")
         
         return result
     
@@ -197,26 +193,30 @@ class AOPDBParser(BaseParser):
             Dictionary describing the schema for AOP entities.
         """
         return {
-            'aops': {
+            AOPDB_AOPS: {
                 'aop_id': 'AOP identifier',
                 'aop_name': 'AOP name',
-                'description': 'AOP description'
+                'description': 'AOP description',
+                'source_database': 'Source database'
             },
-            'pathways': {
+            AOPDB_PATHWAYS: {
                 'path_id': 'Pathway identifier',
                 'path_name': 'Pathway name',
-                'ext_source': 'External source'
+                'ext_source': 'External source',
+                'source_database': 'Source database'
             },
-            'relationships': {
+            AOPDB_GENE_PATHWAY_RELATIONSHIPS: {
                 'entrez': 'Entrez identifier',
                 'path_id': 'Pathway identifier',
-                'path_name': 'Pathway name'
+                'path_name': 'Pathway name',
+                'source_database': 'Source database'
             },
-            'drug': {
+            AOPDB_DRUGS: {
                 'chemical_id': 'Chemical identifier',
                 'chemical_name': 'Chemical name',
                 'chemical_type': 'Chemical type',
-                'chemical_description': 'Chemical description'
+                'chemical_description': 'Chemical description',
+                'source_database': 'Source database'
             }
         }
     

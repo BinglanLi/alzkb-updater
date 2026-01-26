@@ -20,6 +20,7 @@ import requests
 import zipfile
 import io
 from .base_parser import BaseParser
+from ontology_configs import DRUGBANK_DRUGS
 
 logger = logging.getLogger(__name__)
 
@@ -77,18 +78,18 @@ class DrugBankParser(BaseParser):
         """Check for manually downloaded DrugBank files."""
         logger.info("Checking for DrugBank data files...")
         logger.info("Note: DrugBank data must be downloaded manually using curl:")
-        logger.info(f"  curl -Lfv -o drug_links.zip -u username:password \\")
+        logger.info(f"  curl -Lfv -o {DRUGBANK_DRUGS}.zip -u username:password \\")
         logger.info(f"    {self.BASE_URL}/releases/latest/downloads/all-drug-links")
-        logger.info("  Required file: drug_links.csv (extract from zip)")
+        logger.info(f"  Required file: {DRUGBANK_DRUGS}.csv (extract from zip)")
 
         # Check for drug_links file
-        drug_links_path = self.get_file_path("drug_links.csv")
+        drug_links_path = self.get_file_path(f"{DRUGBANK_DRUGS}.csv")
 
         if os.path.exists(drug_links_path):
-            logger.info(f"✓ Found drug_links.csv")
+            logger.info(f"✓ Found {DRUGBANK_DRUGS}.csv")
             return True
         else:
-            logger.error(f"✗ drug_links.csv not found at: {drug_links_path}")
+            logger.error(f"✗ {DRUGBANK_DRUGS}.csv not found at: {drug_links_path}")
             logger.error("Please download manually or provide credentials")
             return False
 
@@ -122,7 +123,7 @@ class DrugBankParser(BaseParser):
             logger.info(f"✓ Download successful (Content-Type: {response.headers.get('content-type', 'unknown')})")
 
             # Save to file
-            output_path = self.get_file_path("drug_links.csv")
+            output_path = self.get_file_path(f"{DRUGBANK_DRUGS}.csv")
 
             # Check if response is a zip file
             content_type = response.headers.get('content-type', '')
@@ -182,7 +183,7 @@ class DrugBankParser(BaseParser):
         result = {}
         
         # Parse drug links file
-        drug_links_file = self.get_file_path("drug_links.csv")
+        drug_links_file = self.get_file_path(f"{DRUGBANK_DRUGS}.csv")
         
         if not os.path.exists(drug_links_file):
             logger.error(f"Drug links file not found: {drug_links_file}")
@@ -214,6 +215,9 @@ class DrugBankParser(BaseParser):
                 existing_cols = {k: v for k, v in column_mapping.items() if k in drugs_df.columns}
                 drugs_df = drugs_df.rename(columns=existing_cols)
                 
+                # Add source database column
+                drugs_df['source_database'] = 'DrugBank'
+                
                 result['drugs'] = drugs_df
                 logger.info(f"✓ Parsed {len(drugs_df)} drugs")
                 
@@ -230,7 +234,7 @@ class DrugBankParser(BaseParser):
             Dictionary describing the schema for drugs.
         """
         return {
-            'drugs': {
+            f'{DRUGBANK_DRUGS}': {
                 'drugbank_id': 'DrugBank identifier',
                 'drug_name': 'Drug name',
                 'cas_number': 'CAS Registry Number',
@@ -244,7 +248,8 @@ class DrugBankParser(BaseParser):
                 'pharmgkb_id': 'PharmGKB ID',
                 'uniprot_title': 'Uniprot Title',
                 'uniprot_id': 'UniProt ID',
-                'genbank_id': 'GenBank ID'
+                'genbank_id': 'GenBank ID',
+                'source_database': 'Source database (DrugBank)',
             }
         }
     
@@ -279,41 +284,3 @@ class DrugBankParser(BaseParser):
                 logger.info(f"  - {drug.get('drug_name', 'Unknown')}")
         
         return alzheimer_drugs
-    
-    def export_to_tsv(self, data: Dict[str, pd.DataFrame], output_dir: str) -> List[str]:
-        """
-        Export parsed data to TSV files for ista.
-        
-        Args:
-            data: Dictionary of DataFrames
-            output_dir: Output directory path
-            
-        Returns:
-            List of created file paths
-        """
-        logger.info("Exporting DrugBank data to TSV for ista...")
-        
-        os.makedirs(output_dir, exist_ok=True)
-        created_files = []
-        
-        # Export drugs
-        if 'drugs' in data:
-            drugs_df = data['drugs']
-            
-            # Filter for Alzheimer's drugs
-            alzheimer_drugs = self.filter_alzheimer_drugs(drugs_df)
-            
-            # Export all drugs
-            output_path = os.path.join(output_dir, 'drugbank_drugs.tsv')
-            drugs_df.to_csv(output_path, sep='\t', index=False)
-            created_files.append(output_path)
-            logger.info(f"✓ Exported {len(drugs_df)} drugs to {output_path}")
-            
-            # Export Alzheimer's drugs separately
-            if len(alzheimer_drugs) > 0:
-                ad_output_path = os.path.join(output_dir, 'drugbank_alzheimer_drugs.tsv')
-                alzheimer_drugs.to_csv(ad_output_path, sep='\t', index=False)
-                created_files.append(ad_output_path)
-                logger.info(f"✓ Exported {len(alzheimer_drugs)} Alzheimer's drugs to {ad_output_path}")
-        
-        return created_files
