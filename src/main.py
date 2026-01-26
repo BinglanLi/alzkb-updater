@@ -20,7 +20,8 @@ from typing import Dict, List
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from ontology.alzkb_populator import AlzKBOntologyPopulator, get_default_configs
+from ontology_configs import ONTOLOGY_CONFIGS
+from ontology.alzkb_populator import AlzKBOntologyPopulator
 from parsers import (
     AOPDBParser,
     DisGeNETParser,
@@ -114,7 +115,7 @@ class AlzKBPipeline:
             logger.info("=" * 80)
             logger.info("STEP 3: Ontology Population with ista")
             logger.info("=" * 80)
-            rdf_files = self.populate_ontology_with_ista(tsv_files)
+            rdf_files = self.populate_ontology_with_ista(parsed_data)
             
             # Step 4: Build database files
             logger.info("=" * 80)
@@ -261,17 +262,14 @@ class AlzKBPipeline:
         
         return parsed_data
     
-    def export_to_tsv(self, parsed_data: Dict[str, Dict]) -> Dict[str, List[str]]:
+    def export_to_tsv(self, parsed_data: Dict[str, Dict]):
         """
         Export parsed data to TSV files for ista.
         
         Args:
             parsed_data: Dictionary of parsed data from all sources
-        
-        Returns:
-            Dictionary mapping source names to lists of TSV file paths
+                KEY = data source name; VALUE = dictionary where KEY = filename stem; VALUE = pandas DataFrame.
         """
-        tsv_files = {}
         
         for source_name, data in parsed_data.items():
             logger.info(f"Exporting {source_name} to TSV...")
@@ -280,28 +278,20 @@ class AlzKBPipeline:
             output_dir.mkdir(parents=True, exist_ok=True)
             
             try:
-                # Export each DataFrame to TSV
-                source_files = []
+                # Export each pandas DataFrame to TSV
                 for data_name, df in data.items():
-                    if hasattr(df, 'to_csv'):
-                        tsv_file = output_dir / f"{data_name}.tsv"
-                        df.to_csv(tsv_file, sep='\t', index=False)
-                        source_files.append(str(tsv_file))
-                        logger.info(f"  ✓ Exported {data_name} ({len(df)} records)")
-                
-                tsv_files[source_name] = source_files
-                
+                    tsv_file = output_dir / f"{data_name}.tsv"
+                    df.to_csv(tsv_file, sep='\t', index=False)
+                    logger.info(f"  ✓ Exported {data_name} ({len(df)} records)")
             except Exception as e:
                 logger.error(f"  ✗ Failed to export {source_name}: {e}")
-        
-        return tsv_files
     
-    def populate_ontology_with_ista(self, tsv_files: Dict[str, List[str]]) -> List[str]:
+    def populate_ontology_with_ista(self, parsed_data: Dict[str, Dict]) -> List[str]:
         """
         Populate ontology using ista via AlzKBOntologyPopulator.
 
-        Args:
-            tsv_files: Dictionary mapping source names to TSV file paths
+        Iterates through configs defined in ontology_configs.py and
+        populates nodes/relationships based on the data_type field.
 
         Returns:
             List of generated RDF file paths
@@ -316,40 +306,50 @@ class AlzKBPipeline:
             data_dir=str(self.processed_dir)
         )
 
-        # Get default configurations
-        configs = get_default_configs()
+        # Track statisticsf
+        nodes_populated = 0
+        relationships_populated = 0
+        skipped = 0
+        failed = 0
 
-        # Process each source
-        for source_name, files in tsv_files.items():
-            if source_name not in configs:
-                logger.warning(f"No ista config for {source_name}, skipping")
+        # Iterate through configs
+        for config_key in ONTOLOGY_CONFIGS:
+            source_name = config_key.split('.')[0]
+            if source_name not in parsed_data:
+                logger.info(f"No data parsed for {source_name}, skipping {config_key}")
                 continue
+            logger.info(f"Processing {config_key}...")
 
-            logger.info(f"Populating ontology from {source_name}...")
+            try:
+                success, data_type = populator.populate_from_config(config_key)
 
-            config = configs[source_name]
-            node_type = config.get('class_name', source_name)
+                if success is None:
+                    # No config found (shouldn't happen when iterating ONTOLOGY_CONFIGS)
+                    skipped += 1
+                    logger.warning(f"  ⚠ Skipped: {config_key}")
+                elif success:
+                    if data_type == 'node':
+                        nodes_populated += 1
+                        logger.info(f"  ✓ Populated nodes: {config_key}")
+                    elif data_type == 'relationship':
+                        relationships_populated += 1
+                        logger.info(f"  ✓ Populated relationships: {config_key}")
+                else:
+                    failed += 1
+                    logger.warning(f"  ⚠ Failed to populate: {config_key}")
 
-            for tsv_file in files:
-                try:
-                    logger.info(f"  Processing {Path(tsv_file).name}...")
+            except Exception as e:
+                failed += 1
+                logger.error(f"  ✗ Error processing {config_key}: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
 
-                    # Populate nodes from TSV file
-                    success = populator.populate_nodes(
-                        source_name=source_name,
-                        node_type=node_type,
-                        source_filename=Path(tsv_file).name,
-                        fmt="tsv",
-                        parse_config=config
-                    )
-
-                    if success:
-                        logger.info(f"  ✓ Populated nodes from: {tsv_file}")
-                    else:
-                        logger.warning(f"  ⚠ No nodes populated from: {tsv_file}")
-
-                except Exception as e:
-                    logger.error(f"  ✗ Failed to populate from {tsv_file}: {e}")
+        # Log summary
+        logger.info(f"Population summary:")
+        logger.info(f"  - Node types populated: {nodes_populated}")
+        logger.info(f"  - Relationship types populated: {relationships_populated}")
+        logger.info(f"  - Skipped: {skipped}")
+        logger.info(f"  - Failed: {failed}")
 
         # Save the populated ontology
         output_rdf = self.output_dir / "alzkb_v2_populated.rdf"

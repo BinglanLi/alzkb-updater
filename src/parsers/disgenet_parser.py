@@ -16,6 +16,11 @@ import requests
 import time
 from .base_parser import BaseParser
 from pathlib import Path
+from ontology_configs import (
+    DISGENET_DISEASE_CLASSIFICATIONS,
+    DISGENET_DISEASE_MAPPINGS,
+    DISGENET_GENE_DISEASE_ASSOCIATIONS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +28,10 @@ logger = logging.getLogger(__name__)
 class DisGeNETParser(BaseParser):
     """
     Parser for DisGeNET gene-disease association data with API support.
-    
+
     Supports both API-based retrieval and manual file-based parsing.
     """
-    
+
     API_BASE_URL = "https://api.disgenet.com/api/v1"
     
     def __init__(self, data_dir: str, api_key: Optional[str] = None):
@@ -76,9 +81,9 @@ class DisGeNETParser(BaseParser):
         logger.info("    - disease_mappings.tsv")
         
         required_files = [
-            "curated_gene_disease_associations.tsv",
-            "disease_classifications.tsv",
-            "disease_mappings.tsv"
+            f"{DISGENET_GENE_DISEASE_ASSOCIATIONS}.tsv",
+            f"{DISGENET_DISEASE_CLASSIFICATIONS}.tsv",
+            f"{DISGENET_DISEASE_MAPPINGS}.tsv"
         ]
         
         all_exist = True
@@ -116,11 +121,11 @@ class DisGeNETParser(BaseParser):
                 return False
 
             # Save disease data frames
-            classifications_path = self.get_file_path("api_disease_classifications.tsv")
+            classifications_path = self.get_file_path(f"api_{DISGENET_DISEASE_CLASSIFICATIONS}.tsv")
             disease_classifications.to_csv(classifications_path, sep='\t', index=False)
             logger.info(f"✓ Saved disease classifications: {classifications_path}")
 
-            mappings_path = self.get_file_path("api_disease_mappings.tsv")
+            mappings_path = self.get_file_path(f"api_{DISGENET_DISEASE_MAPPINGS}.tsv")
             disease_mappings.to_csv(mappings_path, sep='\t', index=False)
             logger.info(f"✓ Saved disease mappings: {mappings_path}")
 
@@ -160,7 +165,7 @@ class DisGeNETParser(BaseParser):
                     logger.info(f"Removed {initial_count - final_count} duplicate associations")
 
                 # Save combined associations
-                output_path = self.get_file_path("api_gene_disease_associations.tsv")
+                output_path = self.get_file_path(f"api_{DISGENET_GENE_DISEASE_ASSOCIATIONS}.tsv")
                 combined_associations.to_csv(output_path, sep='\t', index=False)
                 logger.info(f"✓ Downloaded {len(combined_associations)} total gene-disease associations via API")
 
@@ -182,8 +187,8 @@ class DisGeNETParser(BaseParser):
 
         Returns:
             Tuple of two DataFrames:
-            - disease_classifications: Contains disease classification information across ontology systems
-            - disease_mappings: Contains disease code mappings across vocabularies
+            - {{DISGENET_DISEASE_CLASSIFICATIONS}}: Contains disease classification information across ontology systems
+            - {{DISGENET_DISEASE_MAPPINGS}}: Contains disease code mappings across vocabularies
         """
         logger.info("Querying DisGeNET API for Alzheimer's disease entities...")
 
@@ -225,11 +230,12 @@ class DisGeNETParser(BaseParser):
                     'diseaseClasses_MSH': disease_classes_msh,
                     'diseaseClasses_UMLS_ST': disease_classes_umls_st,
                     'diseaseClasses_DO': disease_classes_do,
-                    'diseaseClasses_HPO': disease_classes_hpo
+                    'diseaseClasses_HPO': disease_classes_hpo,
                 })
 
             disease_classifications = pd.DataFrame(classifications_data)
-            logger.info(f"✓ Created disease_classifications with {len(disease_classifications)} rows")
+            disease_classifications['sourceDatabase'] = 'DisGeNET'
+            logger.info(f"✓ Created {DISGENET_DISEASE_CLASSIFICATIONS} with {len(disease_classifications)} rows")
 
             # Create disease_mappings DataFrame
             mappings_data = []
@@ -253,7 +259,8 @@ class DisGeNETParser(BaseParser):
                 mappings_data.append(row_data)
 
             disease_mappings = pd.DataFrame(mappings_data)
-            logger.info(f"✓ Created disease_mappings with {len(disease_mappings)} rows and {len(disease_mappings.columns)} columns")
+            disease_mappings['sourceDatabase'] = 'DisGeNET'
+            logger.info(f"✓ Created {DISGENET_DISEASE_MAPPINGS} with {len(disease_mappings)} rows and {len(disease_mappings.columns)} columns")
 
             return disease_classifications, disease_mappings
 
@@ -318,6 +325,7 @@ class DisGeNETParser(BaseParser):
                 })
 
             gda_df = pd.DataFrame(gda_data)
+            gda_df['sourceDatabase'] = 'DisGeNET'
             logger.info(f"✓ Retrieved {len(gda_df)} gene-disease associations")
 
             return gda_df
@@ -332,19 +340,20 @@ class DisGeNETParser(BaseParser):
         Parse DisGeNET data.
 
         Returns:
-            Dictionary with 'associations', 'disease_mappings', and 'disease_classifications' DataFrames.
+            Dictionary with 'gene_disease_associations', 'disease_mappings', and 'disease_classifications' DataFrames.
         """
         logger.info("Parsing DisGeNET data...")
 
         result = {}
 
         # Try API file first for gene-disease associations
-        api_gda_file = self.get_file_path("api_gene_disease_associations.tsv")
+        api_gda_file = self.get_file_path(f"api_{DISGENET_GENE_DISEASE_ASSOCIATIONS}.tsv")
         logger.info("Using API-downloaded gene-disease associations data")
         try:
             assoc_df = self.read_tsv(api_gda_file)
             if assoc_df is not None:
-                result['associations'] = assoc_df
+                assoc_df['sourceDatabase'] = 'DisGeNET'
+                result['gene_disease_associations'] = assoc_df
                 logger.info(f"✓ Parsed {len(assoc_df)} gene-disease associations from API")
         except FileNotFoundError:
             logger.error(f"Gene-disease associations file not found: {api_gda_file}")
@@ -352,13 +361,14 @@ class DisGeNETParser(BaseParser):
             logger.error(f"Failed to parse API gene-disease associations: {e}")
 
         # Fall back to manual files
-        if 'associations' not in result:
+        if 'gene_disease_associations' not in result:
             logger.info("Using manually downloaded gene-disease associations data as fallback")
-            gda_file = self.get_file_path("curated_gene_disease_associations.tsv")
+            gda_file = self.get_file_path(f"{DISGENET_GENE_DISEASE_ASSOCIATIONS}.tsv")
             try:
                 assoc_df = self.read_tsv(gda_file)
                 if assoc_df is not None:
-                    result['associations'] = assoc_df
+                    assoc_df['sourceDatabase'] = 'DisGeNET'
+                    result['gene_disease_associations'] = assoc_df
                     logger.info(f"✓ Parsed {len(assoc_df)} gene-disease associations")
             except FileNotFoundError:
                 logger.error(f"Gene-disease associations file not found: {gda_file}")
@@ -366,12 +376,13 @@ class DisGeNETParser(BaseParser):
                 logger.error(f"Failed to parse gene-disease associations: {e}")
 
         # Parse API disease mappings if available
-        api_mappings_file = self.get_file_path("api_disease_mappings.tsv")
+        api_mappings_file = self.get_file_path(f"api_{DISGENET_DISEASE_MAPPINGS}.tsv")
         logger.info("Using API-downloaded disease mappings data")
         try:
             mappings_df = self.read_tsv(api_mappings_file)
 
             if mappings_df is not None:
+                mappings_df['sourceDatabase'] = 'DisGeNET'
                 result['disease_mappings'] = mappings_df
             logger.info(f"✓ Parsed {len(mappings_df)} disease mappings from API")
 
@@ -383,10 +394,11 @@ class DisGeNETParser(BaseParser):
         # Fall back to manually downloaded disease mappings file
         if 'disease_mappings' not in result:
             logger.info("Using manually downloaded disease mappings data as fallback")
-            mappings_file = self.get_file_path("disease_mappings.tsv")
+            mappings_file = self.get_file_path(f"{DISGENET_DISEASE_MAPPINGS}.tsv")
             try:
                 mappings_df = self.read_tsv(mappings_file)
                 if mappings_df is not None:
+                    mappings_df['sourceDatabase'] = 'DisGeNET'
                     result['disease_mappings'] = mappings_df
                     logger.info(f"✓ Parsed {len(mappings_df)} disease mappings")
             except FileNotFoundError:
@@ -395,12 +407,13 @@ class DisGeNETParser(BaseParser):
                 logger.error(f"Failed to parse disease mappings: {e}")
         
         # Parse API disease classifications if available
-        api_classifications_file = self.get_file_path("api_disease_classifications.tsv")
+        api_classifications_file = self.get_file_path(f"api_{DISGENET_DISEASE_CLASSIFICATIONS}.tsv")
         logger.info("Using API-downloaded disease classifications data")
         try:
             classifications_df = self.read_tsv(api_classifications_file)
 
             if classifications_df is not None:
+                classifications_df['sourceDatabase'] = 'DisGeNET'
                 result['disease_classifications'] = classifications_df
                 logger.info(f"✓ Parsed {len(classifications_df)} disease classifications from API")
 
@@ -412,10 +425,11 @@ class DisGeNETParser(BaseParser):
         # Fall back to manually downloaded disease classifications file
         if 'disease_classifications' not in result:
             logger.info("Using manually downloaded disease classifications data as fallback")
-            classifications_file = self.get_file_path("disease_classifications.tsv")
+            classifications_file = self.get_file_path(f"{DISGENET_DISEASE_CLASSIFICATIONS}.tsv")
             try:
                 classifications_df = self.read_tsv(classifications_file)
                 if classifications_df is not None:
+                    classifications_df['sourceDatabase'] = 'DisGeNET'
                     result['disease_classifications'] = classifications_df
                     logger.info(f"✓ Parsed {len(classifications_df)} disease classifications")
             except FileNotFoundError:
@@ -433,7 +447,7 @@ class DisGeNETParser(BaseParser):
             Dictionary describing the schema for associations, mappings, and classifications.
         """
         return {
-            'associations': {
+            f'{DISGENET_GENE_DISEASE_ASSOCIATIONS}': {
                 'geneId': 'NCBI Gene ID',
                 'geneSymbol': 'Gene symbol',
                 'geneType': 'Gene NCBI type',
@@ -446,19 +460,32 @@ class DisGeNETParser(BaseParser):
                 'diseaseMapping': 'Disease codes across various vocabularies (comma-separated)',
                 'diseaseType': 'Disease type',
                 'score': 'Association score',
+                'sourceDatabase': 'Source database',
             },
-            'disease_mappings': {
+            f'{DISGENET_DISEASE_MAPPINGS}': {
                 'diseaseName': 'Disease name',
                 'diseaseId': 'Disease identifier (UMLS CUI)',
-                'vocabulary_codes': 'Disease codes across various vocabularies (dynamic columns)'
+                'MSH': 'MeSH disease code',
+                'ICD10': 'ICD-10 code',
+                'NCI': 'NCI Thesaurus code',
+                'OMIM': 'OMIM code',
+                'ICD9CM': 'ICD-9-CM code',
+                'HPO': 'Human Phenotype Ontology code',
+                'DO': 'Disease Ontology code',
+                'MONDO': 'MONDO code',
+                'UMLS': 'UMLS semantic type code',
+                'ORDO': 'Orphanet code',
+                'EFO': 'Experimental Factor Ontology code',
+                'sourceDatabase': 'Source database',
             },
-            'disease_classifications': {
+            f'{DISGENET_DISEASE_CLASSIFICATIONS}': {
                 'diseaseName': 'Disease name',
                 'diseaseId': 'Disease identifier (UMLS CUI)',
                 'diseaseClasses_MSH': 'MeSH disease classifications (comma-separated)',
                 'diseaseClasses_UMLS_ST': 'UMLS semantic type classifications (comma-separated)',
                 'diseaseClasses_DO': 'Disease Ontology classifications (comma-separated)',
-                'diseaseClasses_HPO': 'Human Phenotype Ontology classifications (comma-separated)'
+                'diseaseClasses_HPO': 'Human Phenotype Ontology classifications (comma-separated)',
+                'sourceDatabase': 'Source database',
             }
         }
     
