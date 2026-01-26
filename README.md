@@ -1,10 +1,10 @@
-# AlzKB Updater v2.1
+# AlzKB Updater v2
 
 Comprehensive pipeline for building and updating the Alzheimer's Knowledge Base (AlzKB).
 
 ## Overview
 
-AlzKB v2.1 is a knowledge graph that integrates data from multiple biomedical sources to support Alzheimer's disease research. This repository provides tools to:
+AlzKB v2 is a knowledge graph that integrates data from multiple biomedical sources to support Alzheimer's disease research. This repository provides tools to:
 
 1. Retrieve data from various sources (APIs, databases, web)
 2. Parse and transform data into standardized formats
@@ -15,29 +15,84 @@ AlzKB v2.1 is a knowledge graph that integrates data from multiple biomedical so
 
 ### Data Sources
 
+#### Core AlzKB Sources
 - **AOP-DB**: Adverse Outcome Pathway Database (via MySQL)
 - **DisGeNET**: Gene-disease associations (via API)
 - **DrugBank**: Drug information (via web authentication)
 - **NCBI Gene**: Gene annotations
-- **Hetionet**: Integrated biomedical knowledge graph built from:
-  - Disease Ontology
-  - Gene Ontology
-  - Uberon (Anatomy Ontology)
-  - GWAS Catalog
-  - MeSH
-  - DrugCentral
-  - BindingDB
-  - Bgee (Gene Expression)
-  - MEDLINE (planned)
+- **DoRothEA**: Transcription Factor regulatory network (via OmniPath API)
+  - TranscriptionFactor nodes
+  - TF-gene interactions (transcriptionFactorRegulatesGene)
 
-### Key Improvements in v2.1
+#### Hetionet Component Sources
+The Hetionet knowledge graph is rebuilt from scratch using these component parsers:
 
-- ✅ Integrated **ista** for ontology population from tabular data
-- ✅ Rebuilt Hetionet from scratch with updated data sources
-- ✅ Improved error handling and logging
-- ✅ Modular parser architecture
-- ✅ Memgraph-compatible CSV export
-- ✅ Comprehensive release notes generation
+| Parser | Data Source | Nodes | Edges |
+|--------|-------------|-------|-------|
+| Disease Ontology | disease-ontology.org | Disease | - |
+| Gene Ontology | geneontology.org | BiologicalProcess, CellularComponent, MolecularFunction | Gene-GO associations |
+| Uberon | obophenotype.org | Anatomy | - |
+| MeSH | nlm.nih.gov | Symptom | - |
+| GWAS Catalog | ebi.ac.uk | - | GaD (Gene-associates-Disease) |
+| DrugCentral | drugcentral.org | PharmacologicClass | CtD (Compound-treats-Disease), CpD (Compound-palliates-Disease) |
+| BindingDB | bindingdb.org | - | CbG (Compound-binds-Gene) |
+| Bgee | bgee.org | - | AeG (Anatomy-expresses-Gene), AuG (Anatomy-underexpresses-Gene) |
+| CTD | ctdbase.org | - | CuG (Compound-upregulates-Gene), CdG (Compound-downregulates-Gene) |
+| SIDER | sideeffects.embl.de | SideEffect | CcSE (Compound-causes-SideEffect) |
+| LINCS L1000 | clue.io | - | CuG, CdG, Gr>G (Gene-regulates-Gene) |
+| MEDLINE Cooccurrence | hetio/medline | - | DpS (Disease-presents-Symptom), DlA (Disease-localizes-Anatomy), DrD (Disease-resembles-Disease) |
+| Hetionet Precomputed | het.io | - | GcG (Gene-covaries-Gene), GiG (Gene-interacts-Gene) |
+| PubTator | ncbi.nlm.nih.gov/research/pubtator | - | Literature-mined associations |
+
+### Node Types
+
+| Node Type | Source(s) |
+|-----------|-----------|
+| Gene | NCBI Gene |
+| Disease | Disease Ontology, DisGeNET |
+| Compound/Drug | DrugBank, DrugCentral |
+| BiologicalProcess | Gene Ontology |
+| CellularComponent | Gene Ontology |
+| MolecularFunction | Gene Ontology |
+| Anatomy | Uberon |
+| Symptom | MeSH |
+| SideEffect | SIDER |
+| PharmacologicClass | DrugCentral |
+| TranscriptionFactor | DoRothEA |
+
+### Edge Types
+
+| Edge Abbreviation | Relationship | Source(s) |
+|-------------------|--------------|-----------|
+| GaD | Gene-associates-Disease | DisGeNET, GWAS |
+| CtD | Compound-treats-Disease | DrugCentral |
+| CpD | Compound-palliates-Disease | DrugCentral |
+| CbG | Compound-binds-Gene | BindingDB |
+| CuG | Compound-upregulates-Gene | CTD, LINCS |
+| CdG | Compound-downregulates-Gene | CTD, LINCS |
+| CcSE | Compound-causes-SideEffect | SIDER |
+| AeG | Anatomy-expresses-Gene | Bgee |
+| AuG | Anatomy-underexpresses-Gene | Bgee |
+| GcG | Gene-covaries-Gene | Hetionet Precomputed |
+| GiG | Gene-interacts-Gene | Hetionet Precomputed |
+| Gr>G | Gene-regulates-Gene | LINCS |
+| DpS | Disease-presents-Symptom | MEDLINE |
+| DlA | Disease-localizes-Anatomy | MEDLINE |
+| DrD | Disease-resembles-Disease | MEDLINE |
+| TFrG | TranscriptionFactor-regulates-Gene | DoRothEA |
+
+### Key Improvements in v2
+
+- Integrated **ista** for ontology population from tabular data
+- Rebuilt Hetionet from scratch with updated data sources
+- Added DoRothEA for transcription factor regulatory networks
+- Added SIDER for drug side effects
+- Added LINCS L1000 for gene expression perturbation data
+- Added MEDLINE cooccurrence for literature-mined edges
+- Improved error handling and logging
+- Modular parser architecture
+- Memgraph-compatible CSV export
+- Comprehensive release notes generation
 
 ## Installation
 
@@ -118,7 +173,9 @@ The pipeline executes the following steps:
 python src/main.py [options]
 
 Options:
-  --base-dir DIR      Base directory for the project (default: current directory)
+  --base-dir DIR        Base directory for the project (default: current directory)
+  --log-level LEVEL     Set logging verbosity (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+                        Default: INFO. Can also be set via ALZKB_LOG_LEVEL environment variable.
 ```
 
 ### Running Individual Components
@@ -145,23 +202,43 @@ data = parser.parse_data()
 ```
 alzkb-updater/
 ├── src/
-│   ├── parsers/              # Data source parsers
-│   │   ├── aopdb_parser.py
-│   │   ├── disgenet_parser.py
-│   │   ├── drugbank_parser.py
-│   │   ├── ncbigene_parser.py
-│   │   ├── hetionet_builder.py
-│   │   └── base_parser.py
-│   ├── ontology/             # Ontology populator
-│   │   └── alzkb_populator.py  
-│   └── main.py               # Main pipeline
+│   ├── parsers/                          # Data source parsers
+│   │   ├── __init__.py
+│   │   ├── base_parser.py                # Base class for all parsers
+│   │   ├── aopdb_parser.py               # AOP-DB parser
+│   │   ├── disgenet_parser.py            # DisGeNET parser
+│   │   ├── drugbank_parser.py            # DrugBank parser
+│   │   ├── ncbigene_parser.py            # NCBI Gene parser
+│   │   ├── dorothea_parser.py            # DoRothEA TF parser
+│   │   └── hetionet_components/          # Hetionet component parsers
+│   │       ├── __init__.py
+│   │       ├── disease_ontology_parser.py
+│   │       ├── gene_ontology_parser.py
+│   │       ├── uberon_parser.py
+│   │       ├── mesh_parser.py
+│   │       ├── gwas_parser.py
+│   │       ├── drugcentral_parser.py
+│   │       ├── bindingdb_parser.py
+│   │       ├── bgee_parser.py
+│   │       ├── ctd_parser.py
+│   │       ├── sider_parser.py
+│   │       ├── lincs_parser.py
+│   │       ├── medline_cooccurrence_parser.py
+│   │       ├── hetionet_precomputed_parser.py
+│   │       └── pubtator_parser.py
+│   ├── ontology/                         # Ontology populator
+│   │   ├── __init__.py
+│   │   └── alzkb_populator.py
+│   ├── ontology_configs.py               # ista configuration definitions
+│   ├── __init__.py
+│   └── main.py                           # Main pipeline
 ├── data/
-│   ├── raw/                  # Raw downloaded data
-│   ├── processed/            # Processed TSV files
-│   ├── ontology/             # Ontology files
+│   ├── raw/                              # Raw downloaded data
+│   ├── processed/                        # Processed TSV files
+│   ├── ontology/                         # Ontology files
 │   │   └── alzkb_v2.rdf
-│   └── output/               # Final outputs
-├── .env                      # Environment variables (create this)
+│   └── output/                           # Final outputs
+├── .env                                  # Environment variables (create this)
 ├── requirements.txt
 └── README.md
 ```
@@ -170,11 +247,11 @@ alzkb-updater/
 
 After running the pipeline, you'll find:
 
-- **RDF Files**: `data/output/alzkb_v2.1_populated.rdf`
+- **RDF Files**: `data/output/alzkb_v2_populated.rdf`
 - **CSV Files** (for Memgraph):
   - `data/output/alzkb_nodes.csv`
   - `data/output/alzkb_edges.csv`
-- **Release Notes**: `data/output/RELEASE_NOTES_v2.1.md`
+- **Release Notes**: `data/output/RELEASE_NOTES_v2.md`
 - **Logs**: `alzkb_build.log`
 
 ## Data Source Details
@@ -199,12 +276,23 @@ After running the pipeline, you'll find:
 - **Access**: Public
 - **Content**: Gene annotations
 
+### DoRothEA
+- **Source**: OmniPath API (https://omnipathdb.org)
+- **Access**: Public
+- **Content**: Transcription factor-gene regulatory interactions
+- **Confidence Levels**: A (highest), B, C, D, E (lowest)
+
 ### Hetionet Components
 Each component is downloaded and integrated:
 - **Disease Ontology**: Human disease concepts
-- **Gene Ontology**: Gene functions
+- **Gene Ontology**: Gene functions (BP, CC, MF)
 - **GWAS Catalog**: Genetic associations
 - **Bgee**: Gene expression data
+- **SIDER**: Drug side effects
+- **LINCS L1000**: Gene expression perturbations
+- **MEDLINE**: Literature-mined co-occurrences
+- **CTD**: Chemical-gene expression interactions
+- **DrugCentral**: Drug-disease relationships
 - And more...
 
 ## Troubleshooting
@@ -249,15 +337,27 @@ Each component is downloaded and integrated:
            pass
    ```
 
-2. Add ista configuration in `src/ontology/alzkb_populator.py` (in `get_default_configs()`)
+2. Add ista configuration in `src/ontology_configs.py`:
+   ```python
+   ONTOLOGY_CONFIGS = {
+       # ... existing configs ...
+       'newsource.nodes': {
+           'data_type': 'node',
+           'node_type': 'NewNodeType',
+           'source_file': 'newsource/nodes.tsv',
+           'id_column': 'id',
+           'label_column': 'name',
+       },
+   }
+   ```
 
-3. Update `src/main.py` to include the new parser
+3. Update `src/main.py` to include the new parser in the pipeline
 
 ### Testing
 
 Run the pipeline with verbose logging:
 ```bash
-python src/main.py 2>&1 | tee build.log
+python src/main.py --log-level DEBUG 2>&1 | tee build.log
 ```
 
 ## References
@@ -266,6 +366,7 @@ python src/main.py 2>&1 | tee build.log
 - [AlzKB Updates](https://github.com/EpistasisLab/AlzKB-updates)
 - [ista](https://github.com/RomanoLab/ista)
 - [Hetionet](https://het.io/)
+- [OmniPath](https://omnipathdb.org/)
 
 ## Citation
 
@@ -291,10 +392,11 @@ This project builds upon:
 - The original AlzKB by the Epistasis Lab
 - ista by the Romano Lab
 - Hetionet by the Himmelstein Lab
+- OmniPath/DoRothEA for TF regulatory data
 - And all the data source providers
 
 ---
 
-**Version**: 2.3
-**Last Updated**: 2026-01-12
+**Version**: 2
+**Last Updated**: 2026-01-26
 **Status**: Active Development
