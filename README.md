@@ -6,100 +6,27 @@ Comprehensive pipeline for building and updating the Alzheimer's Knowledge Base 
 
 AlzKB v2 is a knowledge graph that integrates data from multiple biomedical sources to support Alzheimer's disease research. This repository provides tools to:
 
-1. Retrieve data from various sources (APIs, databases, web)
+1. Retrieve data from **20+ data sources** through APIs, SQL databases, and web.
 2. Parse and transform data into standardized formats
 3. Populate an OWL ontology using ista
 4. Export to graph database formats (Memgraph/Neo4j)
+5. Generate **11 node types** and **20+ edge types**
 
-## Features
-
-### Data Sources
-
-#### Core AlzKB Sources
-- **AOP-DB**: Adverse Outcome Pathway Database (via MySQL)
-- **DisGeNET**: Gene-disease associations (via API)
-- **DrugBank**: Drug information (via web authentication)
-- **NCBI Gene**: Gene annotations
-- **DoRothEA**: Transcription Factor regulatory network (via OmniPath API)
-  - TranscriptionFactor nodes
-  - TF-gene interactions (transcriptionFactorRegulatesGene)
-
-#### Hetionet Component Sources
-The Hetionet knowledge graph is rebuilt from scratch using these component parsers:
-
-| Parser | Data Source | Nodes | Edges |
-|--------|-------------|-------|-------|
-| Disease Ontology | disease-ontology.org | Disease | - |
-| Gene Ontology | geneontology.org | BiologicalProcess, CellularComponent, MolecularFunction | Gene-GO associations |
-| Uberon | obophenotype.org | Anatomy | - |
-| MeSH | nlm.nih.gov | Symptom | - |
-| GWAS Catalog | ebi.ac.uk | - | GaD (Gene-associates-Disease) |
-| DrugCentral | drugcentral.org | PharmacologicClass | CtD (Compound-treats-Disease), CpD (Compound-palliates-Disease) |
-| BindingDB | bindingdb.org | - | CbG (Compound-binds-Gene) |
-| Bgee | bgee.org | - | AeG (Anatomy-expresses-Gene), AuG (Anatomy-underexpresses-Gene) |
-| CTD | ctdbase.org | - | CuG (Compound-upregulates-Gene), CdG (Compound-downregulates-Gene) |
-| SIDER | sideeffects.embl.de | SideEffect | CcSE (Compound-causes-SideEffect) |
-| LINCS L1000 | clue.io | - | CuG, CdG, Gr>G (Gene-regulates-Gene) |
-| MEDLINE Cooccurrence | hetio/medline | - | DpS (Disease-presents-Symptom), DlA (Disease-localizes-Anatomy), DrD (Disease-resembles-Disease) |
-| Hetionet Precomputed | het.io | - | GcG (Gene-covaries-Gene), GiG (Gene-interacts-Gene) |
-| PubTator | ncbi.nlm.nih.gov/research/pubtator | - | Literature-mined associations |
-
-### Node Types
-
-| Node Type | Source(s) |
-|-----------|-----------|
-| Gene | NCBI Gene |
-| Disease | Disease Ontology, DisGeNET |
-| Compound/Drug | DrugBank, DrugCentral |
-| BiologicalProcess | Gene Ontology |
-| CellularComponent | Gene Ontology |
-| MolecularFunction | Gene Ontology |
-| Anatomy | Uberon |
-| Symptom | MeSH |
-| SideEffect | SIDER |
-| PharmacologicClass | DrugCentral |
-| TranscriptionFactor | DoRothEA |
-
-### Edge Types
-
-| Edge Abbreviation | Relationship | Source(s) |
-|-------------------|--------------|-----------|
-| GaD | Gene-associates-Disease | DisGeNET, GWAS |
-| CtD | Compound-treats-Disease | DrugCentral |
-| CpD | Compound-palliates-Disease | DrugCentral |
-| CbG | Compound-binds-Gene | BindingDB |
-| CuG | Compound-upregulates-Gene | CTD, LINCS |
-| CdG | Compound-downregulates-Gene | CTD, LINCS |
-| CcSE | Compound-causes-SideEffect | SIDER |
-| AeG | Anatomy-expresses-Gene | Bgee |
-| AuG | Anatomy-underexpresses-Gene | Bgee |
-| GcG | Gene-covaries-Gene | Hetionet Precomputed |
-| GiG | Gene-interacts-Gene | Hetionet Precomputed |
-| Gr>G | Gene-regulates-Gene | LINCS |
-| DpS | Disease-presents-Symptom | MEDLINE |
-| DlA | Disease-localizes-Anatomy | MEDLINE |
-| DrD | Disease-resembles-Disease | MEDLINE |
-| TFrG | TranscriptionFactor-regulates-Gene | DoRothEA |
 
 ### Key Improvements in v2
 
 - Integrated **ista** for ontology population from tabular data
 - Rebuilt Hetionet from scratch with updated data sources
-- Added DoRothEA for transcription factor regulatory networks
-- Added SIDER for drug side effects
-- Added LINCS L1000 for gene expression perturbation data
-- Added MEDLINE cooccurrence for literature-mined edges
 - Improved error handling and logging
 - Modular parser architecture
 - Memgraph-compatible CSV export
-- Comprehensive release notes generation
 
 ## Installation
 
 ### Prerequisites
 
 - Python 3.8+
-- MySQL (for AOP-DB)
+- MySQL
 - Git
 
 ### Setup
@@ -156,17 +83,6 @@ source .venv/bin/activate
 python src/main.py
 ```
 
-### Pipeline Steps
-
-The pipeline executes the following steps:
-
-1. **Data Retrieval**: Downloads/retrieves data from all sources
-2. **Data Parsing**: Parses and transforms data into standard formats
-3. **TSV Export**: Exports data to TSV files for ista processing
-4. **Ontology Population**: Uses ista to populate the ontology
-5. **Database Building**: Creates Memgraph-compatible CSV files
-6. **Release Notes**: Generates comprehensive release documentation
-
 ### Command-Line Options
 
 ```bash
@@ -196,6 +112,61 @@ parser = DisGeNETParser(
 parser.download_data()
 data = parser.parse_data()
 ```
+
+### Pipeline Steps
+
+The pipeline executes the following steps:
+
+1. **Data Retrieval**: Downloads/retrieves data from all sources
+2. **Data Parsing**: Parses and transforms data into standard formats
+3. **TSV Export**: Exports data to TSV files for ista processing
+4. **Ontology Population**: Uses ista to populate the ontology
+5. **Database Building**: Creates Memgraph-compatible CSV files
+6. **Release Notes**: Generates comprehensive release documentation
+
+The following diagram demonstrates the pipeline as a workflow:
+
+```
+┌───────────────────────────────────────────────────────────────────────────┐
+│                         ALZKB PIPELINE EXECUTION                          │
+├───────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  STEP 1: Data Retrieval                                                   │
+│  ─────────────────────────────────                                        │
+│    Data Source (URL/API/DB)                                               │
+│         │                                                                 │
+│         ▼                                                                 │
+│    BaseParser.download() ──▶ data/raw/{source}/                           │
+│                                                                           │
+│  STEP 2: Data Parsing                                                     │
+│  ─────────────────────────────────                                        │
+│    Parser.parse_data() ──▶ Dict[str, pd.DataFrame]                        │
+│                                                                           │
+│  STEP 3: Export to TSV                                                    │
+│  ────────────────────                                                     │
+│    main.export_to_tsv() ──▶ data/processed/{source}/*.tsv                 │
+│                                                                           │
+│  STEP 4: Ontology Population (ista)                                       │
+│  ──────────────────────────────────                                       │
+│    ONTOLOGY_CONFIGS (ontology_configs.py)                                 │
+│         │                                                                 │
+│         ▼                                                                 │
+│    AlzKBOntologyPopulator ──▶ data/output/                                │
+│    (via ista library)        • alzkb_v2_populated.rdf                     │
+│                              • alzkb_nodes.csv                            │
+│                              • alzkb_edges.csv                            │
+│                                                                           │
+│  STEP 5: Database Building                                                │
+│  ──────────────────────────────────                                       │
+│    AlzKBPipeline.build_database(alzkb_v2_populated.rdf)                   │
+│                           ──▶ data/output/                                │
+│                              • alzkb_nodes.csv                            │
+│                              • alzkb_edges.csv                            │
+│                                                                           │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+
 
 ## Project Structure
 
@@ -255,6 +226,191 @@ After running the pipeline, you'll find:
 - **Logs**: `alzkb_build.log`
 
 ## Data Source Details
+
+### Detailed Data Flow
+
+```
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║                                                                                  ║
+║  ████████████████████████  HETIONET CORE COMPONENTS  ████████████████████████   ║
+║  (Update the original Hetionet knowledge graph - 10 node types, 18 edges)    ║
+║                                                                                  ║
+╠══════════════════════════════════════════════════════════════════════════════════╣
+║                                                                                  ║
+║  ┌─────────────────────────────────────────────────────────────────────────┐    ║
+║  │  DATA SOURCE              PARSER                    OUTPUT              │    ║
+║  └─────────────────────────────────────────────────────────────────────────┘    ║
+║                                                                                  ║
+║  ┌────────────────┐      ┌─────────────────────┐      ┌──────────────────┐      ║
+║  │ Disease        │      │ DiseaseOntology     │      │ NODES:           │      ║
+║  │ Ontology       │─────▶│ Parser              │─────▶│  • Disease       │      ║
+║  │ (doid.obo)     │      │                     │      │                  │      ║
+║  └────────────────┘      └─────────────────────┘      └──────────────────┘      ║
+║                                                                                  ║
+║  ┌────────────────┐      ┌─────────────────────┐      ┌──────────────────┐      ║
+║  │ Gene Ontology  │      │ GeneOntology        │      │ NODES:           │      ║
+║  │ (go.obo +      │─────▶│ Parser              │─────▶│  • BiologicalPrc │      ║
+║  │  gene2go)      │      │                     │      │  • CellularComp  │      ║
+║  └────────────────┘      └─────────────────────┘      │  • MolecularFunc │      ║
+║                                                       │ EDGES:           │      ║
+║                                                       │  • GpBP/GpCC/GpMF│      ║
+║                                                       └──────────────────┘      ║
+║                                                                                  ║
+║  ┌────────────────┐      ┌─────────────────────┐      ┌──────────────────┐      ║
+║  │ Uberon         │      │ UberonParser        │      │ NODES:           │      ║
+║  │ (uberon.obo)   │─────▶│                     │─────▶│  • Anatomy       │      ║
+║  └────────────────┘      └─────────────────────┘      └──────────────────┘      ║
+║                                                                                  ║
+║  ┌────────────────┐      ┌─────────────────────┐      ┌──────────────────┐      ║
+║  │ MeSH           │      │ MeSHParser          │      │ NODES:           │      ║
+║  │ (mesh.nt.gz)   │─────▶│                     │─────▶│  • Symptom       │      ║
+║  └────────────────┘      └─────────────────────┘      └──────────────────┘      ║
+║                                                                                  ║
+║  ┌────────────────┐      ┌─────────────────────┐      ┌──────────────────┐      ║
+║  │ GWAS Catalog   │      │ GWASParser          │      │ EDGES:           │      ║
+║  │ (gwas-catalog) │─────▶│                     │─────▶│  • GaD           │      ║
+║  └────────────────┘      └─────────────────────┘      └──────────────────┘      ║
+║                                                                                  ║
+║  ┌────────────────┐      ┌─────────────────────┐      ┌──────────────────┐      ║
+║  │ DrugCentral    │      │ DrugCentralParser   │      │ NODES:           │      ║
+║  │ (SQL dump)     │─────▶│                     │─────▶│  • PharmClass    │      ║
+║  └────────────────┘      └─────────────────────┘      │ EDGES:           │      ║
+║                                                       │  • CtD, CpD, PCiC│      ║
+║                                                       └──────────────────┘      ║
+║                                                                                  ║
+║  ┌────────────────┐      ┌─────────────────────┐      ┌──────────────────┐      ║
+║  │ BindingDB      │      │ BindingDBParser     │      │ EDGES:           │      ║
+║  │ (tsv download) │─────▶│                     │─────▶│  • CbG           │      ║
+║  └────────────────┘      └─────────────────────┘      └──────────────────┘      ║
+║                                                                                  ║
+║  ┌────────────────┐      ┌─────────────────────┐      ┌──────────────────┐      ║
+║  │ Bgee           │      │ BgeeParser          │      │ EDGES:           │      ║
+║  │ (expr calls)   │─────▶│                     │─────▶│  • AuG, AdG      │      ║
+║  └────────────────┘      └─────────────────────┘      └──────────────────┘      ║
+║                                                                                  ║
+║  ┌────────────────┐      ┌─────────────────────┐      ┌──────────────────┐      ║
+║  │ CTD            │      │ CTDParser           │      │ EDGES:           │      ║
+║  │ (chem-gene)    │─────▶│                     │─────▶│  • CiE, CdE      │      ║
+║  └────────────────┘      └─────────────────────┘      └──────────────────┘      ║
+║                                                                                  ║
+║  ┌────────────────┐      ┌─────────────────────┐      ┌──────────────────┐      ║
+║  │ SIDER 4.1      │      │ SIDERParser         │      │ NODES:           │      ║
+║  │ (dhimmel/      │─────▶│                     │─────▶│  • SideEffect    │      ║
+║  │  SIDER4)       │      │                     │      │ EDGES: • CcSE    │      ║
+║  └────────────────┘      └─────────────────────┘      └──────────────────┘      ║
+║                                                                                  ║
+║  ┌────────────────┐      ┌─────────────────────┐      ┌──────────────────┐      ║
+║  │ LINCS L1000    │      │ LINCS1000Parser     │      │ EDGES:           │      ║
+║  │ (dhimmel/lincs)│─────▶│                     │─────▶│  • CuG, CdG, Gr>G│      ║
+║  └────────────────┘      └─────────────────────┘      └──────────────────┘      ║
+║                                                                                  ║
+║  ┌────────────────┐      ┌─────────────────────┐      ┌──────────────────┐      ║
+║  │ MEDLINE        │      │ MEDLINE             │      │ EDGES:           │      ║
+║  │ Cooccurrence   │─────▶│ CooccurrenceParser  │─────▶│  • DpS, DlA, DrD │      ║
+║  └────────────────┘      └─────────────────────┘      └──────────────────┘      ║
+║                                                                                  ║
+║  ┌────────────────┐      ┌─────────────────────┐      ┌──────────────────┐      ║
+║  │ Hetionet       │      │ Hetionet            │      │ EDGES:           │      ║
+║  │ Precomputed    │─────▶│ PrecomputedParser   │─────▶│  • GcG, GiG, Gr>G│      ║
+║  └────────────────┘      └─────────────────────┘      └──────────────────┘      ║
+║                                                                                  ║
+║  ┌────────────────┐      ┌─────────────────────┐      ┌──────────────────┐      ║
+║  │ PubTator       │      │ PubTatorParser      │      │ EDGES:           │      ║
+║  │ (literature)   │─────▶│                     │─────▶│  • DaD           │      ║
+║  └────────────────┘      └─────────────────────┘      └──────────────────┘      ║
+║                                                                                  ║
+╠══════════════════════════════════════════════════════════════════════════════════╣
+║                                                                                  ║
+║  ░░░░░░░░░░░░░░░░░░░░░░░░░  EXTENSION COMPONENTS  ░░░░░░░░░░░░░░░░░░░░░░░░░░   ║
+║  (Additional sources specific to AlzKB beyond Hetionet)                         ║
+║                                                                                  ║
+╠══════════════════════════════════════════════════════════════════════════════════╣
+║                                                                                  ║
+║  ┌────────────────┐      ┌─────────────────────┐      ┌──────────────────┐      ║
+║  │ AOP-DB         │      │ AOPDBParser         │      │ NODES: • Pathway │      ║
+║  │ (MySQL)        │─────▶│                     │─────▶│ EDGES:           │      ║
+║  └────────────────┘      └─────────────────────┘      │  • geneInPathway │      ║
+║                                                       └──────────────────┘      ║
+║                                                                                  ║
+║  ┌────────────────┐      ┌─────────────────────┐      ┌──────────────────┐      ║
+║  │ DisGeNET       │      │ DisGeNETParser      │      │ NODES: • Disease │      ║
+║  │ (API)          │─────▶│                     │─────▶│ EDGES: • GaD     │      ║
+║  └────────────────┘      └─────────────────────┘      └──────────────────┘      ║
+║                                                                                  ║
+║  ┌────────────────┐      ┌─────────────────────┐      ┌──────────────────┐      ║
+║  │ DrugBank       │      │ DrugBankParser      │      │ NODES:           │      ║
+║  │ (web auth)     │─────▶│                     │─────▶│  • Drug/Compound │      ║
+║  └────────────────┘      └─────────────────────┘      └──────────────────┘      ║
+║                                                                                  ║
+║  ┌────────────────┐      ┌─────────────────────┐      ┌──────────────────┐      ║
+║  │ NCBI Gene      │      │ NCBIGeneParser      │      │ NODES:           │      ║
+║  │ (FTP)          │─────▶│                     │─────▶│  • Gene          │      ║
+║  └────────────────┘      └─────────────────────┘      └──────────────────┘      ║
+║                                                                                  ║
+║  ┌────────────────┐      ┌─────────────────────┐      ┌──────────────────┐      ║
+║  │ DoRothEA       │      │ DoRothEAParser      │      │ NODES:           │      ║
+║  │ (OmniPath API) │─────▶│                     │─────▶│  • Transcription │      ║
+║  └────────────────┘      └─────────────────────┘      │    Factor        │      ║
+║                                                       │ EDGES:           │      ║
+║                                                       │  • TFinteracts   │      ║
+║                                                       │    WithGene      │      ║
+║                                                       └──────────────────┘      ║
+║                                                                                  ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+```
+
+### Tabular Data Flow
+
+| Data Source | Parser | Output Nodes | Output Edges |
+|-------------|--------|--------------|--------------|
+| AOP-DB | `AOPDBParser` | Pathway | geneInPathway |
+| DisGeNET | `DisGeNETParser` | Disease | GaD |
+| DrugBank | `DrugBankParser` | Drug/Compound | - |
+| NCBI Gene | `NCBIGeneParser` | Gene | - |
+| DoRothEA | `DoRothEAParser` | TranscriptionFactor | TFinteractsWithGene |
+| Disease Ontology | `DiseaseOntologyParser` | Disease | - |
+| Gene Ontology | `GeneOntologyParser` | BiologicalProcess, CellularComponent, MolecularFunction | GpBP, GpCC, GpMF |
+| Uberon | `UberonParser` | Anatomy | - |
+| MeSH | `MeSHParser` | Symptom | - |
+| GWAS Catalog | `GWASParser` | - | GaD (Gene-associates-Disease) |
+| DrugCentral | `DrugCentralParser` | PharmacologicClass | CtD, CpD, PCiC |
+| BindingDB | `BindingDBParser` | - | CbG (Compound-binds-Gene) |
+| Bgee | `BgeeParser` | - | AuG, AdG |
+| CTD | `CTDParser` | - | CiE, CdE |
+| SIDER 4.1 | `SIDERParser` | SideEffect | CcSE |
+| LINCS L1000 | `LINCS1000Parser` | - | CuG, CdG, Gr>G |
+| MEDLINE | `MEDLINECooccurrenceParser` | - | DpS, DlA, DrD |
+| Hetionet Precomputed | `HetionetPrecomputedParser` | - | GcG, GiG, Gr>G |
+| PubTator | `PubTatorParser` | - | DaD |
+
+
+
+### Edge Type Abbreviation Legend
+
+| Abbrev | Full Name | Description |
+|--------|-----------|-------------|
+| GpBP | Gene-participates-BiologicalProcess | Gene annotated with GO BP term |
+| GpCC | Gene-participates-CellularComponent | Gene annotated with GO CC term |
+| GpMF | Gene-participates-MolecularFunction | Gene annotated with GO MF term |
+| GcG | Gene-covaries-Gene | Expression covariation |
+| GiG | Gene-interacts-Gene | Protein-protein interaction |
+| Gr>G | Gene-regulates-Gene | Regulatory relationship |
+| CbG | Compound-binds-Gene | Drug-target binding |
+| CuG | Compound-upregulates-Gene | Drug increases gene expression |
+| CdG | Compound-downregulates-Gene | Drug decreases gene expression |
+| CtD | Compound-treats-Disease | Therapeutic indication |
+| CpD | Compound-palliates-Disease | Symptomatic treatment |
+| CcSE | Compound-causes-SideEffect | Adverse drug reaction |
+| PCiC | PharmClass-includes-Compound | Drug classification |
+| AuG | Anatomy-upregulates-Gene | Tissue overexpresses gene |
+| AdG | Anatomy-downregulates-Gene | Tissue underexpresses gene |
+| DpS | Disease-presents-Symptom | Clinical manifestation |
+| DlA | Disease-localizes-Anatomy | Anatomical site |
+| DrD | Disease-resembles-Disease | Phenotypic similarity |
+| GaD | Gene-associates-Disease | Genetic association |
+| DaD | Disease-associates-Disease | Disease association |
+
+
 
 ### AOP-DB
 - **Source**: Local MySQL database
