@@ -248,6 +248,10 @@ ONTOLOGY_CONFIGS = {
     },
 
     # =========================================================================
+    # Hetionet Components
+    # =========================================================================
+
+    # =========================================================================
     # Disease Ontology - Disease Nodes (commented out - not yet implemented)
     # =========================================================================
     # 'disease_ontology.disease_nodes': {
@@ -494,4 +498,182 @@ ONTOLOGY_CONFIGS = {
     #     'merge': False,
     #     'skip': False,
     # },
+
+    # =========================================================================
+    # SIDER - Side Effect Nodes and Compound-causes-SideEffect Edges
+    # =========================================================================
+    'sider.side_effect_nodes': {
+        'data_type': 'node',
+        'node_type': 'SideEffect',
+        'source_filename': 'side_effect_nodes.tsv',
+        'parse_config': {
+            'headers': True,
+            'iri_column_name': 'umls_cui',
+            'data_property_map': {
+                'umls_cui': 'xrefUmlsCUI',
+                'name': 'commonName',
+                'source': 'sourceDatabase',
+            },
+        },
+        'merge': False,
+        'skip': False,
+    },
+    'sider.compound_causes_side_effect': {
+        'data_type': 'relationship',
+        'relationship_type': 'compoundCausesSideEffect',
+        'source_filename': 'compound_causes_side_effect.tsv',
+        'parse_config': {
+            'headers': True,
+            'subject_node_type': 'Drug',
+            'subject_column_name': 'drugbank_id',
+            'subject_match_property': 'xrefDrugbank',
+            'object_node_type': 'SideEffect',
+            'object_column_name': 'umls_cui',
+            'object_match_property': 'xrefUmlsCUI',
+        },
+        'merge': False,
+        'skip': False,
+    },
+
+    # =========================================================================
+    # LINCS L1000 - Expression Edges
+    # =========================================================================
+    'lincs.compound_upregulates_gene': {
+        'data_type': 'relationship',
+        'relationship_type': 'compoundUpregulatesGene',
+        'source_filename': 'compound_upregulates_gene.tsv',
+        'parse_config': {
+            'headers': True,
+            'subject_node_type': 'Drug',
+            'subject_column_name': 'drugbank_id',
+            'subject_match_property': 'xrefDrugbank',
+            'object_node_type': 'Gene',
+            'object_column_name': 'entrez_gene_id',
+            'object_match_property': 'xrefNcbiGene',
+        },
+        'merge': False,
+        'skip': False,
+    },
+    'lincs.compound_downregulates_gene': {
+        'data_type': 'relationship',
+        'relationship_type': 'compoundDownregulatesGene',
+        'source_filename': 'compound_downregulates_gene.tsv',
+        'parse_config': {
+            'headers': True,
+            'subject_node_type': 'Drug',
+            'subject_column_name': 'drugbank_id',
+            'subject_match_property': 'xrefDrugbank',
+            'object_node_type': 'Gene',
+            'object_column_name': 'entrez_gene_id',
+            'object_match_property': 'xrefNcbiGene',
+        },
+        'merge': False,
+        'skip': False,
+    },
+    'lincs.gene_regulates_gene': {
+        'data_type': 'relationship',
+        'relationship_type': 'geneRegulatesGene',
+        'source_filename': 'gene_regulates_gene.tsv',
+        'parse_config': {
+            'headers': True,
+            'subject_node_type': 'Gene',
+            'subject_column_name': 'source_gene',
+            'subject_match_property': 'xrefNcbiGene',
+            'object_node_type': 'Gene',
+            'object_column_name': 'target_gene',
+            'object_match_property': 'xrefNcbiGene',
+        },
+        'merge': False,
+        'skip': False,
+    },
+
+    # =========================================================================
+    # MEDLINE Co-occurrence - Literature-mined Edges
+    # =========================================================================
+    'medline.disease_symptom_cooccurrence': {
+        'data_type': 'relationship',
+        'relationship_type': 'diseasePresentsSymptom',
+        'source_filename': 'disease_symptom_cooccurrence.tsv',
+        'parse_config': {
+            'headers': True,
+            'subject_node_type': 'Disease',
+            'subject_column_name': 'doid_code',
+            'subject_match_property': 'xrefDiseaseOntology',
+            'object_node_type': 'Symptom',
+            'object_column_name': 'mesh_id',
+            'object_match_property': 'xrefMeSH',
+        },
+        'merge': False,
+        'skip': False,
+    },
+    'medline.disease_anatomy_cooccurrence': {
+        'data_type': 'relationship',
+        'relationship_type': 'diseaseLocalizesToAnatomy',
+        'source_filename': 'disease_anatomy_cooccurrence.tsv',
+        'parse_config': {
+            'headers': True,
+            'subject_node_type': 'Disease',
+            'subject_column_name': 'doid_code',
+            'subject_match_property': 'xrefDiseaseOntology',
+            'object_node_type': 'BodyPart',
+            'object_column_name': 'uberon_id',
+            'object_match_property': 'xrefUberon',
+        },
+        'merge': False,
+        'skip': False,
+    },
+    'medline.disease_disease_cooccurrence': {
+        'data_type': 'relationship',
+        'relationship_type': 'diseaseResemblesDisease',
+        'source_filename': 'disease_disease_cooccurrence.tsv',
+        'parse_config': {
+            'headers': True,
+            'subject_node_type': 'Disease',
+            'subject_column_name': 'doid_code_0',
+            'subject_match_property': 'xrefDiseaseOntology',
+            'object_node_type': 'Disease',
+            'object_column_name': 'doid_code_1',
+            'object_match_property': 'xrefDiseaseOntology',
+        },
+        'merge': False,
+        'skip': False,
+    },
+
+    # =========================================================================
+    # DrugCentral - Pharmacologic Classes (added)
+    # =========================================================================
+    'drugcentral.pharmacologic_classes': {
+        'data_type': 'node',
+        'node_type': 'PharmacologicClass',
+        'source_filename': 'pharmacologic_classes.tsv',
+        'parse_config': {
+            'headers': True,
+            'iri_column_name': 'class_id',
+            'data_property_map': {
+                'class_id': 'classId',
+                'class_name': 'commonName',
+                'class_type': 'classType',
+                'source': 'sourceDatabase',
+            },
+        },
+        'merge': False,
+        'skip': False,
+    },
+    'drugcentral.pharmacologic_class_includes_compound': {
+        'data_type': 'relationship',
+        'relationship_type': 'pharmacologicClassIncludesCompound',
+        'inverse_relationship_type': 'compoundInPharmacologicClass',
+        'source_filename': 'pharmacologic_class_includes_compound.tsv',
+        'parse_config': {
+            'headers': True,
+            'subject_node_type': 'PharmacologicClass',
+            'subject_column_name': 'class_id',
+            'subject_match_property': 'classId',
+            'object_node_type': 'Drug',
+            'object_column_name': 'drugbank_id',
+            'object_match_property': 'xrefDrugbank',
+        },
+        'merge': False,
+        'skip': False,
+    },
 }

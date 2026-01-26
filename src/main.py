@@ -41,6 +41,9 @@ from parsers.hetionet_components import (
     CTDParser,
     HetionetPrecomputedParser,
     PubTatorParser,
+    SIDERParser,
+    LINCS1000Parser,
+    MEDLINECooccurrenceParser,
 )
 
 # Note: Logger is configured by setup_logging() called in main()
@@ -245,6 +248,16 @@ class AlzKBPipeline:
             #     data_dir=str(self.raw_dir / "hetionet")
             # ),
             # 'pubtator': PubTatorParser(
+            #     data_dir=str(self.raw_dir / "hetionet")
+            # ),
+            # New parsers for Hetionet completeness
+            # 'sider': SIDERParser(
+            #     data_dir=str(self.raw_dir / "hetionet")
+            # ),
+            # 'lincs': LINCS1000Parser(
+            #     data_dir=str(self.raw_dir / "hetionet")
+            # ),
+            # 'medline_cooccurrence': MEDLINECooccurrenceParser(
             #     data_dir=str(self.raw_dir / "hetionet")
             # ),
         }
