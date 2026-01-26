@@ -21,6 +21,9 @@ Available Parsers:
 - CTDParser: Chemical-gene expression changes
 - HetionetPrecomputedParser: Pre-computed gene-gene relationships
 - PubTatorParser: Literature-mined co-occurrences
+- SIDERParser: Side Effect nodes and Compound-causes-Side Effect edges
+- LINCS1000Parser: LINCS L1000 expression edges (CuG, CdG, Gr>G)
+- MEDLINECooccurrenceParser: MEDLINE co-occurrence edges (DpS, DlA, DrD)
 """
 
 from .disease_ontology_parser import DiseaseOntologyParser
@@ -34,6 +37,9 @@ from .bgee_parser import BgeeParser
 from .ctd_parser import CTDParser
 from .hetionet_precomputed_parser import HetionetPrecomputedParser
 from .pubtator_parser import PubTatorParser
+from .sider_parser import SIDERParser
+from .lincs_parser import LINCS1000Parser
+from .medline_cooccurrence_parser import MEDLINECooccurrenceParser
 
 __all__ = [
     'DiseaseOntologyParser',
@@ -47,4 +53,7 @@ __all__ = [
     'CTDParser',
     'HetionetPrecomputedParser',
     'PubTatorParser',
+    'SIDERParser',
+    'LINCS1000Parser',
+    'MEDLINECooccurrenceParser',
 ]

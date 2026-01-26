@@ -26,6 +26,9 @@ from .hetionet_components import (
     CTDParser,
     HetionetPrecomputedParser,
     PubTatorParser,
+    SIDERParser,
+    LINCS1000Parser,
+    MEDLINECooccurrenceParser,
 )
 
 __all__ = [
@@ -47,4 +50,7 @@ __all__ = [
     'CTDParser',
     'HetionetPrecomputedParser',
     'PubTatorParser',
+    'SIDERParser',
+    'LINCS1000Parser',
+    'MEDLINECooccurrenceParser',
 ]
