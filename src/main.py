@@ -43,17 +43,43 @@ from parsers.hetionet_components import (
     PubTatorParser,
 )
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('alzkb_build.log'),
-        logging.StreamHandler()
-    ]
-)
-
+# Note: Logger is configured by setup_logging() called in main()
+# If using this module as a library, call setup_logging() explicitly
 logger = logging.getLogger(__name__)
+
+
+def setup_logging(log_level: str = None):
+    """
+    Configure project-wide logging.
+    
+    This function configures the root logger, affecting all modules in the project.
+    It is automatically called by main() with command-line arguments.
+    
+    If importing this module as a library, call this function explicitly:
+        from main import setup_logging
+        setup_logging('DEBUG')
+    
+    Args:
+        log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+                   If None, checks ALZKB_LOG_LEVEL env var, defaults to INFO.
+    """
+    # Priority: argument > environment variable > default
+    if log_level is None:
+        log_level = os.environ.get('ALZKB_LOG_LEVEL', 'INFO')
+    
+    level = getattr(logging, log_level.upper(), logging.INFO)
+    
+    logging.basicConfig(
+        level=level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler('alzkb_build.log'),
+            logging.StreamHandler()
+        ],
+        force=True  # Override any existing configuration
+    )
+    
+    logger.info(f"Logging level set to: {log_level.upper()}")
 
 
 class AlzKBPipeline:
@@ -109,7 +135,7 @@ class AlzKBPipeline:
             logger.info("=" * 80)
             logger.info("STEP 2: Export to TSV/SIF Format")
             logger.info("=" * 80)
-            tsv_files = self.export_to_tsv(parsed_data)
+            self.export_to_tsv(parsed_data)
             
             # Step 3: Populate ontology using ista
             logger.info("=" * 80)
@@ -176,51 +202,51 @@ class AlzKBPipeline:
                 data_dir=str(self.raw_dir),
                 api_key=os.getenv('DISGENET_API_KEY')
             ),
-            'drugbank': DrugBankParser(
-                data_dir=str(self.raw_dir),
-                username=os.getenv('DRUGBANK_USERNAME'),
-                password=os.getenv('DRUGBANK_PASSWORD')
-            ),
-            'ncbigene': NCBIGeneParser(
-                data_dir=str(self.raw_dir),
-            ),
-            'dorothea': DoRothEAParser(
-                data_dir=str(self.raw_dir),
-            ),
-            # Hetionet component parsers (replacing HetionetBuilder)
-            'disease_ontology': DiseaseOntologyParser(
-                data_dir=str(self.raw_dir / "hetionet")
-            ),
-            'gene_ontology': GeneOntologyParser(
-                data_dir=str(self.raw_dir / "hetionet")
-            ),
-            'uberon': UberonParser(
-                data_dir=str(self.raw_dir / "hetionet")
-            ),
-            'mesh': MeSHParser(
-                data_dir=str(self.raw_dir / "hetionet")
-            ),
-            'gwas': GWASParser(
-                data_dir=str(self.raw_dir / "hetionet")
-            ),
-            'drugcentral': DrugCentralParser(
-                data_dir=str(self.raw_dir / "hetionet")
-            ),
-            'bindingdb': BindingDBParser(
-                data_dir=str(self.raw_dir / "hetionet")
-            ),
-            'bgee': BgeeParser(
-                data_dir=str(self.raw_dir / "hetionet")
-            ),
-            'ctd': CTDParser(
-                data_dir=str(self.raw_dir / "hetionet")
-            ),
-            'hetionet_precomputed': HetionetPrecomputedParser(
-                data_dir=str(self.raw_dir / "hetionet")
-            ),
-            'pubtator': PubTatorParser(
-                data_dir=str(self.raw_dir / "hetionet")
-            ),
+            # 'drugbank': DrugBankParser(
+            #     data_dir=str(self.raw_dir),
+            #     username=os.getenv('DRUGBANK_USERNAME'),
+            #     password=os.getenv('DRUGBANK_PASSWORD')
+            # ),
+            # 'ncbigene': NCBIGeneParser(
+            #     data_dir=str(self.raw_dir),
+            # ),
+            # 'dorothea': DoRothEAParser(
+            #     data_dir=str(self.raw_dir),
+            # ),
+            # # Hetionet component parsers (replacing HetionetBuilder)
+            # 'disease_ontology': DiseaseOntologyParser(
+            #     data_dir=str(self.raw_dir / "hetionet")
+            # ),
+            # 'gene_ontology': GeneOntologyParser(
+            #     data_dir=str(self.raw_dir / "hetionet")
+            # ),
+            # 'uberon': UberonParser(
+            #     data_dir=str(self.raw_dir / "hetionet")
+            # ),
+            # 'mesh': MeSHParser(
+            #     data_dir=str(self.raw_dir / "hetionet")
+            # ),
+            # 'gwas': GWASParser(
+            #     data_dir=str(self.raw_dir / "hetionet")
+            # ),
+            # 'drugcentral': DrugCentralParser(
+            #     data_dir=str(self.raw_dir / "hetionet")
+            # ),
+            # 'bindingdb': BindingDBParser(
+            #     data_dir=str(self.raw_dir / "hetionet")
+            # ),
+            # 'bgee': BgeeParser(
+            #     data_dir=str(self.raw_dir / "hetionet")
+            # ),
+            # 'ctd': CTDParser(
+            #     data_dir=str(self.raw_dir / "hetionet")
+            # ),
+            # 'hetionet_precomputed': HetionetPrecomputedParser(
+            #     data_dir=str(self.raw_dir / "hetionet")
+            # ),
+            # 'pubtator': PubTatorParser(
+            #     data_dir=str(self.raw_dir / "hetionet")
+            # ),
         }
         
         # Process each parser
@@ -511,8 +537,15 @@ def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(description='AlzKB v2 Pipeline')
     parser.add_argument('--base-dir', default='.', help='Base directory for the project')
+    parser.add_argument('--log-level', 
+                        default='INFO',
+                        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                        help='Set logging verbosity level (default: INFO)')
     
     args = parser.parse_args()
+    
+    # Setup logging with specified level
+    setup_logging(args.log_level)
     
     # Create and run pipeline
     pipeline = AlzKBPipeline(args.base_dir)
