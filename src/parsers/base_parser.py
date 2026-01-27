@@ -37,7 +37,7 @@ class BaseParser(ABC):
         if data_dir is None:
             # Use default data directory
             current_dir = os.path.dirname(os.path.abspath(__file__))
-            data_dir = os.path.join(current_dir, "..", "..", "data", "raw")
+            data_dir = os.path.join(current_dir, "data")
         
         self.data_dir = Path(data_dir)
         self.source_name = self.__class__.__name__.replace('Parser', '').lower()
