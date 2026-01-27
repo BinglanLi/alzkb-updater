@@ -27,9 +27,7 @@ try:
 except ImportError:
     ET = None
 
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from parsers.base_parser import BaseParser
+from ..base_parser import BaseParser
 
 logger = logging.getLogger(__name__)
 

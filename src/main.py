@@ -250,7 +250,6 @@ class AlzKBPipeline:
             # 'pubtator': PubTatorParser(
             #     data_dir=str(self.raw_dir / "hetionet")
             # ),
-            # New parsers for Hetionet completeness
             # 'sider': SIDERParser(
             #     data_dir=str(self.raw_dir / "hetionet")
             # ),
