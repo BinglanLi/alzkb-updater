@@ -14,11 +14,13 @@ Download Example:
 
 import logging
 import os
-from typing import Dict, Optional, List
 import pandas as pd
 import requests
 import zipfile
 import io
+
+from pathlib import Path
+from typing import Dict, Optional, List
 from .base_parser import BaseParser
 from ontology_configs import DRUGBANK_DRUGS
 
@@ -185,7 +187,7 @@ class DrugBankParser(BaseParser):
         # Parse drug links file
         drug_links_file = self.get_file_path(f"{DRUGBANK_DRUGS}.csv")
         
-        if not os.path.exists(drug_links_file):
+        if not Path(drug_links_file).exists():
             logger.error(f"Drug links file not found: {drug_links_file}")
             return result
         
