@@ -22,10 +22,11 @@ References:
 """
 
 import logging
-from typing import Dict, List, Optional
 import pandas as pd
 import requests
 
+from pathlib import Path
+from typing import Dict, List, Optional
 from .base_parser import BaseParser
 from ontology_configs import DOROTHEA_TRANSCRIPTION_FACTORS, DOROTHEA_TF_GENE_INTERACTIONS
 
@@ -108,7 +109,7 @@ class DoRothEAParser(BaseParser):
         """
         dorothea_path = self.get_file_path(f"{DOROTHEA_TF_GENE_INTERACTIONS}.tsv")
 
-        if not dorothea_path.exists():
+        if not Path(dorothea_path).exists():
             logger.error(f"DoRothEA file not found: {dorothea_path}")
             return {}
 

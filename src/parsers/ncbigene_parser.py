@@ -9,6 +9,7 @@ Source: https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/
 
 import logging
 import pandas as pd
+
 from typing import Dict, Optional
 from pathlib import Path
 from .base_parser import BaseParser
@@ -89,6 +90,10 @@ class NCBIGeneParser(BaseParser):
 
         # Parse gene info file
         gene_info_file = self.get_file_path(self.GENE_INFO_FILE)
+
+        if not Path(gene_info_file).exists():
+            logger.error(f"NCBI gene info file not found: {gene_info_file}")
+            return {}
 
         # Column names for NCBI gene_info file
         columns = [

@@ -15,7 +15,7 @@ import pandas as pd
 import requests
 import time
 from .base_parser import BaseParser
-from pathlib import Path
+
 from ontology_configs import (
     DISGENET_DISEASE_CLASSIFICATIONS,
     DISGENET_DISEASE_MAPPINGS,
