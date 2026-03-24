@@ -1,0 +1,40 @@
+Source Database,Update Frequency,Biomedical Entities (Node types),Biomedical Relationships (Edge types),Latest Version,Availability,Access Approach
+AOP-DB (Adverse Outcome Pathway Database),semi-annual,"Drug, Pathway","geneInPathway, pathwayContainsGene",V2 (2021-04-23),Yes,web-based downloads
+Bgee,Annual check,,"bodyPartOverexpressesGene, bodyPartUnderexpressesGene",V15.1.1 (2023-11-14),Yes,web-based downloads
+Disease Ontology,N/A,Disease,diseaseLocalizesToAnatomy,V2024-03,Yes,web-based downloads
+DisGeNET,semi-annual,Disease,geneAssociatesWithDisease,V7.0 (2020-05),Yes,Restful API
+DrugBank,semi-annual,Drug,,V5.1.12 (2024-03-14),Yes,web-based downloads
+EPA Computational Toxicology databases (DSSTox/AcTOR),N/A,,,N/A,Yes,web-based downloads
+Gene Ontology,Annual check,"BiologicalProcess, MolecularFunction, CellularComponent","geneParticipatesInBiologicalProcess, geneHasMolecularFunction, geneAssociatedWithCellularComponent",V2024-04-24,Yes,web-based downloads / public FTP
+GWAS Catalog,N/A,,geneAssociatesWithDisease,V2024-02-11,Yes,web-based downloads
+Human Reference Protein Interactome Mapping Project,N/A,,geneInteractsWithGene,HI-III-19,Yes,web-based downloads
+hetio-dag,Annual check,,geneInteractsWithGene,V1.0(2017-02-03),Yes,web-based downloads
+Incomplete Interactome,Annual check,,geneInteractsWithGene,V1.0(2017-02-03),Yes,web-based downloads
+LINCS L1000,N/A,,"compoundUpregulatesGene, compoundDownregulatesGene, geneRegulatesGene",V2020,Yes,web-based downloads
+NCBI MeSH,semi-annual,Symptom,,V2023-12,Yes,web-based downloads
+NCBI Gene (Entrez Gene),Update daily,Gene,,"Update daily (May 13, 2024)",Yes,public FTP
+Pathway Interaction Database,N/A,Pathway,geneInPathway,N/A,No,N/A
+PharmacotherapyDB,N/A,,drugTreatsDisease,V2016-03-15,Yes,web-based downloads
+PubChem,after release,,,N/A,Yes,web-based downloads
+Reactome,N/A,Pathway,geneInPathway,N/A,No,N/A
+SIDER,Low,SideEffect,compoundCausesSideEffect,V4.1(2015-10-21),Yes,web-based downloads
+TISSUES,N/A,,anatomyExpressesGene,N/A,No,N/A
+Uberon,Annual check,BodyPart,,V2024-03-22,Yes,web-based downloads
+WikiPathways,N/A,Pathway,geneInPathway,N/A,No,N/A
+DrugCentral,semi-annual,PharmacologicClass,"drugTreatsDisease, drugPalliatesDisease, drugInClass",V (2023-11-01),Yes,web-based downloads
+BindingDB,semi-annual,,chemicalBindsGene,V (2024-05),Yes,web-based downloads
+MEDLINE,Annual check,,"symptomManifestationOfDisease, diseaseLocalizesToAnatomy, diseaseAssociatesWithDisease",V (2024-02-05),Yes,web-based downloads
+Evolutionary Rate Covariation,Low,,geneCovariesWithGene,V (2015),Yes,web-based downloads
+LabeledIn,N/A,,drugTreatsDisease,V (2014-09-04),No,N/A
+MEDI,N/A,,drugTreatsDisease,MEDI-2 (2020),No,N/A
+PREDICT,N/A,,drugTreatsDisease,V (2011-01),No,N/A
+ehrlink,N/A,,drugTreatsDisease,V (2012-09),No,N/A
+DISEASES (Jensen Lab),N/A,,diseaseAssociatesWithGene,N/A,No,N/A
+DOAF,N/A,,diseaseAssociatesWithGene,N/A,No,N/A
+STARGEO,N/A,,diseaseRegulatesGene,N/A,No,N/A
+ClinicalTrials.gov,N/A,ClinicalTrial,"STUDIES_CONDITION, TESTS_INTERVENTION",N/A,Yes,Restful API
+ClinPGx,N/A,"Variant, DrugLabel","AFFECTS_RESPONSE_TO, VARIANT_IN",N/A,Yes,Restful API
+DoRothEA (OmniPath),N/A,TranscriptionFactor,transcriptionFactorInteractsWithGene,N/A,Yes,web-based downloads
+PubTator Central,N/A,,"diseaseAssociatesWithDisease, geneAssociatesWithDisease",N/A,Yes,web-based downloads
+CTD (Comparative Toxicogenomics),N/A,,"chemicalIncreasesExpression, chemicalDecreasesExpression",N/A,Yes,web-based downloads
+OMIM,N/A,"Disease, Gene",geneAssociatesWithDisease,N/A,Yes,Restful API
