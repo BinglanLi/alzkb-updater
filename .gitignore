@@ -34,6 +34,7 @@ data/output/*
 test/
 .ista/
 .venv/
+.claude/
 
 # IDE
 .vscode/
