@@ -676,4 +676,236 @@ ONTOLOGY_CONFIGS = {
         'merge': False,
         'skip': False,
     },
+
+    # =========================================================================
+    # PharmacotherapyDB - Drug Indications (CtD, CpD)
+    # =========================================================================
+    'pharmacotherapydb.compound_treats_disease': {
+        'data_type': 'relationship',
+        'relationship_type': 'compoundTreatsDisease',
+        'source_filename': 'compound_treats_disease.tsv',
+        'parse_config': {
+            'headers': True,
+            'subject_node_type': 'Drug',
+            'subject_column_name': 'drugbank_id',
+            'subject_match_property': 'xrefDrugbank',
+            'object_node_type': 'Disease',
+            'object_column_name': 'doid_id',
+            'object_match_property': 'xrefDiseaseOntology',
+        },
+        'merge': False,
+        'skip': False,
+    },
+    'pharmacotherapydb.compound_palliates_disease': {
+        'data_type': 'relationship',
+        'relationship_type': 'compoundPalliatesDisease',
+        'source_filename': 'compound_palliates_disease.tsv',
+        'parse_config': {
+            'headers': True,
+            'subject_node_type': 'Drug',
+            'subject_column_name': 'drugbank_id',
+            'subject_match_property': 'xrefDrugbank',
+            'object_node_type': 'Disease',
+            'object_column_name': 'doid_id',
+            'object_match_property': 'xrefDiseaseOntology',
+        },
+        'merge': False,
+        'skip': False,
+    },
+
+    # =========================================================================
+    # Disease Ontology - Slim Terms (137 curated diseases for Hetionet)
+    # =========================================================================
+    'disease_ontology.slim_terms': {
+        'data_type': 'node',
+        'node_type': 'Disease',
+        'source_filename': 'slim_terms.tsv',
+        'parse_config': {
+            'headers': True,
+            'iri_column_name': 'doid',
+            'data_property_map': {
+                'doid': 'xrefDiseaseOntology',
+                'name': 'commonName',
+                'pathophysiology': 'pathophysiology',
+                'sourceDatabase': 'sourceDatabase',
+            },
+        },
+        'merge': False,
+        'skip': False,
+    },
+
+    # =========================================================================
+    # Bgee - Differential Gene Expression by Anatomy (AuG, AdG)
+    # =========================================================================
+    'bgee.anatomy_upregulates_gene': {
+        'data_type': 'relationship',
+        'relationship_type': 'anatomyUpregulatesGene',
+        'source_filename': 'anatomy_upregulates_gene.tsv',
+        'parse_config': {
+            'headers': True,
+            'subject_node_type': 'BodyPart',
+            'subject_column_name': 'uberon_id',
+            'subject_match_property': 'xrefUberon',
+            'object_node_type': 'Gene',
+            'object_column_name': 'entrez_gene_id',
+            'object_match_property': 'xrefNcbiGene',
+        },
+        'merge': False,
+        'skip': False,
+    },
+    'bgee.anatomy_downregulates_gene': {
+        'data_type': 'relationship',
+        'relationship_type': 'anatomyDownregulatesGene',
+        'source_filename': 'anatomy_downregulates_gene.tsv',
+        'parse_config': {
+            'headers': True,
+            'subject_node_type': 'BodyPart',
+            'subject_column_name': 'uberon_id',
+            'subject_match_property': 'xrefUberon',
+            'object_node_type': 'Gene',
+            'object_column_name': 'entrez_gene_id',
+            'object_match_property': 'xrefNcbiGene',
+        },
+        'merge': False,
+        'skip': False,
+    },
+
+    # =========================================================================
+    # Hetionet Precomputed - Gene-Gene Relationships (GiG, GcG)
+    # =========================================================================
+    'hetionet_precomputed.gene_interacts': {
+        'data_type': 'relationship',
+        'relationship_type': 'geneInteractsWithGene',
+        'source_filename': 'gene_interacts.tsv',
+        'parse_config': {
+            'headers': True,
+            'subject_node_type': 'Gene',
+            'subject_column_name': 'gene_0',
+            'subject_match_property': 'xrefNcbiGene',
+            'object_node_type': 'Gene',
+            'object_column_name': 'gene_1',
+            'object_match_property': 'xrefNcbiGene',
+        },
+        'merge': False,
+        'skip': False,
+    },
+    'hetionet_precomputed.gene_covaries': {
+        'data_type': 'relationship',
+        'relationship_type': 'geneCovariesWithGene',
+        'source_filename': 'gene_covaries.tsv',
+        'parse_config': {
+            'headers': True,
+            'subject_node_type': 'Gene',
+            'subject_column_name': 'gene_0',
+            'subject_match_property': 'xrefNcbiGene',
+            'object_node_type': 'Gene',
+            'object_column_name': 'gene_1',
+            'object_match_property': 'xrefNcbiGene',
+        },
+        'merge': False,
+        'skip': False,
+    },
+
+    # =========================================================================
+    # Uberon - Hetio Slim (652 anatomies with MeSH cross-references)
+    # =========================================================================
+    'uberon.hetio_slim': {
+        'data_type': 'node',
+        'node_type': 'BodyPart',
+        'source_filename': 'hetio_slim.tsv',
+        'parse_config': {
+            'headers': True,
+            'iri_column_name': 'uberon_id',
+            'data_property_map': {
+                'uberon_id': 'xrefUberon',
+                'uberon_name': 'commonName',
+                'mesh_id': 'xrefMeSH',
+                'bto_id': 'xrefBTO',
+                'sourceDatabase': 'sourceDatabase',
+            },
+        },
+        'merge': False,
+        'skip': False,
+    },
+
+    # =========================================================================
+    # MeSH - Hetio Symptoms (505 symptoms with HSDN flag)
+    # =========================================================================
+    'mesh.hetio_symptoms': {
+        'data_type': 'node',
+        'node_type': 'Symptom',
+        'source_filename': 'hetio_symptoms.tsv',
+        'parse_config': {
+            'headers': True,
+            'iri_column_name': 'mesh_id',
+            'data_property_map': {
+                'mesh_id': 'xrefMeSH',
+                'mesh_name': 'commonName',
+                'in_hsdn': 'inHSDN',
+                'sourceDatabase': 'sourceDatabase',
+            },
+        },
+        'merge': False,
+        'skip': False,
+    },
+
+    # =========================================================================
+    # Gene Ontology - Aggregated GO Annotations (GpBP, GpMF, GpCC)
+    # =========================================================================
+    'gene_ontology.go_annotations': {
+        'data_type': 'relationship',
+        'relationship_type': 'geneParticipatesInGOTerm',
+        'source_filename': 'go_annotations.tsv',
+        'parse_config': {
+            'headers': True,
+            # This requires special handling - aggregated format with pipe-separated gene_ids
+            'subject_node_type': 'Gene',
+            'subject_column_name': 'gene_ids',
+            'subject_match_property': 'xrefNcbiGene',
+            'object_node_type': 'BiologicalProcess',  # Or MolecularFunction, CellularComponent
+            'object_column_name': 'go_id',
+            'object_match_property': 'xrefGeneOntology',
+            'aggregated_format': True,  # Flag for special parsing
+        },
+        'merge': False,
+        'skip': True,  # Skip for now - requires special aggregated parsing
+    },
+
+    # =========================================================================
+    # DrugBank - Compound Nodes
+    # =========================================================================
+    'drugbank.compound_nodes': {
+        'data_type': 'node',
+        'node_type': 'Drug',
+        'source_filename': 'compound_nodes.tsv',
+        'parse_config': {
+            'headers': True,
+            'iri_column_name': 'drugbank_id',
+            'data_property_map': {
+                'drugbank_id': 'xrefDrugbank',
+                'name': 'commonName',
+                'type': 'drugType',
+                'inchikey': 'inchiKey',
+                'sourceDatabase': 'sourceDatabase',
+            },
+        },
+        'merge': False,
+        'skip': False,
+    },
+    'drugbank.drug_binds_gene': {
+        'data_type': 'relationship',
+        'relationship_type': 'compoundBindsGene',
+        'source_filename': 'drug_binds_gene.tsv',
+        'parse_config': {
+            'headers': True,
+            'subject_node_type': 'Drug',
+            'subject_column_name': 'drugbank_id',
+            'subject_match_property': 'xrefDrugbank',
+            'object_node_type': 'Gene',
+            'object_column_name': 'entrez_gene_id',
+            'object_match_property': 'xrefNcbiGene',
+        },
+        'merge': False,
+        'skip': False,
+    },
 }

@@ -12,24 +12,17 @@ from .drugbank_parser import DrugBankParser
 from .disgenet_parser import DisGeNETParser
 from .aopdb_parser import AOPDBParser
 from .dorothea_parser import DoRothEAParser
-
-# Hetionet component parsers (replacing HetionetBuilder)
-from .hetionet_components import (
-    DiseaseOntologyParser,
-    GeneOntologyParser,
-    UberonParser,
-    MeSHParser,
-    GWASParser,
-    DrugCentralParser,
-    BindingDBParser,
-    BgeeParser,
-    CTDParser,
-    HetionetPrecomputedParser,
-    PubTatorParser,
-    SIDERParser,
-    LINCS1000Parser,
-    MEDLINECooccurrenceParser,
-)
+from .disease_ontology_parser import DiseaseOntologyParser
+from .gene_ontology_parser import GeneOntologyParser
+from .uberon_parser import UberonParser
+from .mesh_parser import MeSHParser
+from .gwas_parser import GWASParser
+from .drugcentral_parser import DrugCentralParser
+from .bindingdb_parser import BindingDBParser
+from .bgee_parser import BgeeParser
+from .ctd_parser import CTDParser
+from .pubtator_parser import PubTatorParser
+from .medline_cooccurrence_parser import MEDLINECooccurrenceParser
 
 __all__ = [
     'BaseParser',
@@ -38,7 +31,6 @@ __all__ = [
     'DisGeNETParser',
     'AOPDBParser',
     'DoRothEAParser',
-    # Hetionet component parsers
     'DiseaseOntologyParser',
     'GeneOntologyParser',
     'UberonParser',
@@ -48,9 +40,6 @@ __all__ = [
     'BindingDBParser',
     'BgeeParser',
     'CTDParser',
-    'HetionetPrecomputedParser',
     'PubTatorParser',
-    'SIDERParser',
-    'LINCS1000Parser',
     'MEDLINECooccurrenceParser',
 ]

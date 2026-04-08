@@ -27,7 +27,7 @@ from typing import Dict, List, Optional
 from collections import defaultdict
 import pandas as pd
 
-from ..base_parser import BaseParser
+from .base_parser import BaseParser
 
 logger = logging.getLogger(__name__)
 

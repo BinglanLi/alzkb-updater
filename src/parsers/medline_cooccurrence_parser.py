@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Dict, Optional
 import pandas as pd
 
-from ..base_parser import BaseParser
+from .base_parser import BaseParser
 
 logger = logging.getLogger(__name__)
 

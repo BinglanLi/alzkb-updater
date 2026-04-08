@@ -4,10 +4,13 @@ Disease Ontology Parser for AlzKB.
 This module parses the Disease Ontology (DO) to extract disease nodes
 and disease-anatomy relationships for AlzKB.
 
-Data Source: https://github.com/DiseaseOntology/HumanDiseaseOntology
+Data Sources:
+  - Full DO: https://github.com/DiseaseOntology/HumanDiseaseOntology
+  - DO Slim: https://github.com/dhimmel/disease-ontology (137 curated diseases for Hetionet)
+
 Output:
-  - disease_nodes.tsv: DOID, name, definition, xrefs
-  - disease_anatomy.tsv: disease_id, anatomy_id (diseaseLocalizesToAnatomy)
+  - disease_nodes.tsv: DOID, name, definition, xrefs (full DO)
+  - slim_terms.tsv: DOID, name, source, pathophysiology (137 Hetionet diseases)
 """
 
 import logging
@@ -25,7 +28,7 @@ try:
 except ImportError:
     pronto = None
 
-from ..base_parser import BaseParser
+from .base_parser import BaseParser
 
 logger = logging.getLogger(__name__)
 
@@ -34,12 +37,16 @@ class DiseaseOntologyParser(BaseParser):
     """
     Parser for the Disease Ontology (DO).
 
-    Extracts disease concepts and their relationships to anatomy
-    from the Disease Ontology OBO file.
+    Extracts disease concepts from the Disease Ontology OBO file.
     """
 
-    # Disease Ontology OBO URL
+    # Disease Ontology OBO URL (full ontology)
     DO_URL = "https://raw.githubusercontent.com/DiseaseOntology/HumanDiseaseOntology/main/src/ontology/doid.obo"
+
+    # DO Slim terms from dhimmel/disease-ontology (137 curated diseases for Hetionet)
+    # This is the curated subset used by Hetionet
+    DO_SLIM_COMMIT = "72614ade9f1cc5a5317b8f6836e1e464b31d5587"
+    DO_SLIM_URL = f"https://raw.githubusercontent.com/dhimmel/disease-ontology/{DO_SLIM_COMMIT}/data/slim-terms.tsv"
 
     def __init__(self, data_dir: str):
         """
@@ -53,58 +60,114 @@ class DiseaseOntologyParser(BaseParser):
 
     def download_data(self) -> bool:
         """
-        Download the Disease Ontology OBO file.
+        Download Disease Ontology files.
+
+        Downloads both the full OBO file and the curated slim terms file
+        used by Hetionet.
 
         Returns:
             True if successful, False otherwise
         """
-        logger.info("Downloading Disease Ontology...")
+        logger.info("Downloading Disease Ontology files...")
 
-        result = self.download_file(self.DO_URL, "doid.obo")
-
-        if result:
-            logger.info(f"Successfully downloaded Disease Ontology to {result}")
-            return True
-        else:
-            logger.error("Failed to download Disease Ontology")
+        # Download full OBO file
+        obo_result = self.download_file(self.DO_URL, "doid.obo")
+        if not obo_result:
+            logger.error("Failed to download Disease Ontology OBO file")
             return False
+        logger.info(f"Successfully downloaded full Disease Ontology to {obo_result}")
+
+        # Download slim terms (137 curated diseases for Hetionet)
+        slim_result = self.download_file(self.DO_SLIM_URL, "slim-terms.tsv")
+        if not slim_result:
+            logger.warning("Failed to download DO slim terms - continuing without slim data")
+        else:
+            logger.info(f"Successfully downloaded DO slim terms to {slim_result}")
+
+        return True
 
     def parse_data(self) -> Dict[str, pd.DataFrame]:
         """
-        Parse the Disease Ontology OBO file.
+        Parse Disease Ontology files.
 
         Returns:
             Dictionary with:
-              - 'disease_nodes': DataFrame of disease concepts
+              - 'disease_nodes': DataFrame of all disease concepts (full DO)
+              - 'slim_terms': DataFrame of 137 curated diseases (Hetionet subset)
               - 'disease_anatomy': DataFrame of disease-anatomy relationships
         """
-        obo_path = self.source_dir / "doid.obo"
+        result = {}
 
-        if not obo_path.exists():
-            logger.error(f"Disease Ontology file not found: {obo_path}")
-            return {}
-
-        logger.info(f"Parsing Disease Ontology from {obo_path}")
-
-        # Try obonet first, then pronto
-        if obonet:
-            return self._parse_with_obonet(obo_path)
-        elif pronto:
-            return self._parse_with_pronto(obo_path)
+        # Parse slim terms first (this is what Hetionet uses)
+        slim_path = self.source_dir / "slim-terms.tsv"
+        if slim_path.exists():
+            slim_df = self._parse_slim_terms(slim_path)
+            if slim_df is not None:
+                result["slim_terms"] = slim_df
         else:
-            logger.error("Neither obonet nor pronto is installed. Cannot parse OBO file.")
-            return {}
+            logger.warning(f"DO slim terms file not found: {slim_path}")
+
+        # Parse full OBO file
+        obo_path = self.source_dir / "doid.obo"
+        if obo_path.exists():
+            logger.info(f"Parsing Disease Ontology from {obo_path}")
+
+            # Try obonet first, then pronto
+            if obonet:
+                obo_result = self._parse_with_obonet(obo_path)
+            elif pronto:
+                obo_result = self._parse_with_pronto(obo_path)
+            else:
+                logger.error("Neither obonet nor pronto is installed. Cannot parse OBO file.")
+                obo_result = {}
+
+            result.update(obo_result)
+        else:
+            logger.error(f"Disease Ontology file not found: {obo_path}")
+
+        return result
+
+    def _parse_slim_terms(self, slim_path: Path) -> Optional[pd.DataFrame]:
+        """
+        Parse DO slim terms file.
+
+        Args:
+            slim_path: Path to slim-terms.tsv
+
+        Returns:
+            DataFrame with slim disease terms
+        """
+        logger.info(f"Parsing DO slim terms from {slim_path}")
+
+        try:
+            df = pd.read_csv(slim_path, sep='\t')
+
+            # Expected columns: doid, name, source, pathophysiology
+            logger.info(f"Parsed {len(df)} slim disease terms")
+
+            # Add metadata columns
+            df['license'] = 'CC BY 3.0'
+            df['sourceDatabase'] = 'Disease Ontology'
+
+            return df
+
+        except Exception as e:
+            logger.error(f"Error parsing DO slim terms: {e}")
+            return None
 
     def _parse_with_obonet(self, obo_path: Path) -> Dict[str, pd.DataFrame]:
         """Parse using obonet library."""
         logger.info("Parsing with obonet...")
+
+        if not Path(obo_path).exists():
+            logger.error(f"Disease Ontology file not found: {obo_path}")
+            return {}
 
         try:
             graph = obonet.read_obo(str(obo_path))
 
             # Extract disease nodes
             diseases = []
-            disease_anatomy = []
             disease_xrefs = []
 
             for node_id, node_data in graph.nodes(data=True):
@@ -131,30 +194,11 @@ class DiseaseOntologyParser(BaseParser):
                         "xref": xref
                     })
 
-                # Extract anatomy relationships (diseaseLocalizesToAnatomy)
-                # Look for relationships to UBERON terms
-                for rel_type, targets in node_data.items():
-                    if rel_type in ["relationship", "intersection_of"]:
-                        if isinstance(targets, list):
-                            for target in targets:
-                                if "UBERON:" in str(target):
-                                    uberon_id = self._extract_uberon_id(target)
-                                    if uberon_id:
-                                        disease_anatomy.append({
-                                            "disease_id": node_id,
-                                            "anatomy_id": uberon_id,
-                                            "relationship": "diseaseLocalizesToAnatomy"
-                                        })
-
             logger.info(f"Parsed {len(diseases)} disease terms")
-            logger.info(f"Found {len(disease_anatomy)} disease-anatomy relationships")
 
             result = {
                 "disease_nodes": pd.DataFrame(diseases),
             }
-
-            if disease_anatomy:
-                result["disease_anatomy"] = pd.DataFrame(disease_anatomy)
 
             if disease_xrefs:
                 result["disease_xrefs"] = pd.DataFrame(disease_xrefs)
@@ -173,7 +217,6 @@ class DiseaseOntologyParser(BaseParser):
             ontology = pronto.Ontology(str(obo_path))
 
             diseases = []
-            disease_anatomy = []
             disease_xrefs = []
 
             for term in ontology.terms():
@@ -198,25 +241,11 @@ class DiseaseOntologyParser(BaseParser):
                         "xref": str(xref)
                     })
 
-                # Extract relationships to anatomy
-                for rel in term.relationships:
-                    for target in term.relationships[rel]:
-                        if target.id.startswith("UBERON:"):
-                            disease_anatomy.append({
-                                "disease_id": term.id,
-                                "anatomy_id": target.id,
-                                "relationship": "diseaseLocalizesToAnatomy"
-                            })
-
             logger.info(f"Parsed {len(diseases)} disease terms")
-            logger.info(f"Found {len(disease_anatomy)} disease-anatomy relationships")
 
             result = {
                 "disease_nodes": pd.DataFrame(diseases),
             }
-
-            if disease_anatomy:
-                result["disease_anatomy"] = pd.DataFrame(disease_anatomy)
 
             if disease_xrefs:
                 result["disease_xrefs"] = pd.DataFrame(disease_xrefs)
@@ -237,14 +266,6 @@ class DiseaseOntologyParser(BaseParser):
             definition = definition.split(" [")[0]
         return definition
 
-    def _extract_uberon_id(self, text: str) -> Optional[str]:
-        """Extract UBERON ID from relationship text."""
-        import re
-        match = re.search(r'(UBERON:\d+)', str(text))
-        if match:
-            return match.group(1)
-        return None
-
     def get_schema(self) -> Dict[str, Dict[str, str]]:
         """
         Get the schema for Disease Ontology data.
@@ -253,16 +274,19 @@ class DiseaseOntologyParser(BaseParser):
             Dictionary defining the schema for disease nodes and relationships
         """
         return {
+            "slim_terms": {
+                "doid": "Disease Ontology ID (e.g., DOID:10652)",
+                "name": "Disease name",
+                "source": "Slim source (DOcancerslim, etc.)",
+                "pathophysiology": "Disease pathophysiology category",
+                "license": "License (CC BY 3.0)",
+                "sourceDatabase": "Source database (Disease Ontology)"
+            },
             "disease_nodes": {
                 "doid": "Disease Ontology ID (e.g., DOID:10652)",
                 "name": "Disease name",
                 "definition": "Disease definition",
                 "synonyms": "Pipe-separated list of synonyms"
-            },
-            "disease_anatomy": {
-                "disease_id": "Disease Ontology ID",
-                "anatomy_id": "UBERON anatomy ID",
-                "relationship": "Relationship type (diseaseLocalizesToAnatomy)"
             },
             "disease_xrefs": {
                 "doid": "Disease Ontology ID",

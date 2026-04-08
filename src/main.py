@@ -28,8 +28,6 @@ from parsers import (
     DrugBankParser,
     NCBIGeneParser,
     DoRothEAParser,
-)
-from parsers.hetionet_components import (
     DiseaseOntologyParser,
     GeneOntologyParser,
     UberonParser,
@@ -39,10 +37,7 @@ from parsers.hetionet_components import (
     BindingDBParser,
     BgeeParser,
     CTDParser,
-    HetionetPrecomputedParser,
     PubTatorParser,
-    SIDERParser,
-    LINCS1000Parser,
     MEDLINECooccurrenceParser,
 )
 
@@ -244,16 +239,7 @@ class AlzKBPipeline:
             # 'ctd': CTDParser(
             #     data_dir=str(self.raw_dir / "hetionet")
             # ),
-            # 'hetionet_precomputed': HetionetPrecomputedParser(
-            #     data_dir=str(self.raw_dir / "hetionet")
-            # ),
             # 'pubtator': PubTatorParser(
-            #     data_dir=str(self.raw_dir / "hetionet")
-            # ),
-            # 'sider': SIDERParser(
-            #     data_dir=str(self.raw_dir / "hetionet")
-            # ),
-            # 'lincs': LINCS1000Parser(
             #     data_dir=str(self.raw_dir / "hetionet")
             # ),
             # 'medline_cooccurrence': MEDLINECooccurrenceParser(
