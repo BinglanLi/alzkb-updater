@@ -1,8 +1,8 @@
 """
-MeSH Parser for AlzKB.
+MeSH Parser for the knowledge graph.
 
 This module parses MeSH (Medical Subject Headings) to extract symptom nodes
-and disease-symptom relationships for AlzKB.
+and disease-symptom relationships for the knowledge graph.
 
 Data Sources:
   - Full MeSH: https://nlmpubs.nlm.nih.gov/projects/mesh/MESH_FILES/xmlmesh/
@@ -38,7 +38,7 @@ class MeSHParser(BaseParser):
     """
     Parser for MeSH (Medical Subject Headings).
 
-    Extracts symptom terms from MeSH for use in AlzKB.
+    Extracts symptom terms from MeSH for use in the knowledge graph.
     Includes the Hetionet symptom subset with HSDN (Human Symptom Disease Network) flag.
     """
 

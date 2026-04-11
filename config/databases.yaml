@@ -1,0 +1,100 @@
+# Database Configuration
+# Edit this file to enable/disable sources and configure access credentials.
+#
+# Fields:
+#   enabled: set to true to include this source in the pipeline
+#   args:    constructor arguments passed to the parser
+#            (use *_env suffix to read a value from an environment variable)
+#   notes:   description of the data source
+
+databases:
+
+  # Core sources (direct integration)
+  aopdb:
+    enabled: true
+    args:
+      mysql_config:
+        host: "localhost"
+        user_env: MYSQL_USERNAME
+        password_env: MYSQL_PASSWORD
+        database_env: MYSQL_DB_NAME
+    notes: "Adverse Outcome Pathway Database. Provides Pathway nodes and geneInPathway edges. Requires local MySQL."
+
+  disgenet:
+    enabled: true
+    args:
+      api_key_env: DISGENET_API_KEY
+    notes: "Gene-disease associations via REST API. Queries disease terms from project.yaml."
+
+  drugbank:
+    enabled: false
+    args:
+      username_env: DRUGBANK_USERNAME
+      password_env: DRUGBANK_PASSWORD
+    notes: "Drug information and drug-gene binding. Requires authentication."
+
+  ncbigene:
+    enabled: false
+    args: {}
+    notes: "Gene nodes from NCBI FTP. Disease-agnostic; provides the base Gene node set."
+
+  dorothea:
+    enabled: false
+    args: {}
+    notes: "Transcription factor regulatory network from OmniPath API."
+
+  # Hetionet component sources
+  disease_ontology:
+    enabled: false
+    args: {}
+    notes: "Disease Ontology slim terms (137 curated diseases). Provides Disease nodes."
+
+  gene_ontology:
+    enabled: false
+    args: {}
+    notes: "GO terms and gene annotations. Provides BiologicalProcess, MolecularFunction, CellularComponent nodes."
+
+  uberon:
+    enabled: false
+    args: {}
+    notes: "Uberon anatomy ontology. Provides BodyPart nodes."
+
+  mesh:
+    enabled: false
+    args: {}
+    notes: "MeSH symptom descriptors. Provides Symptom nodes."
+
+  gwas:
+    enabled: false
+    args: {}
+    notes: "GWAS Catalog gene-disease associations."
+
+  drugcentral:
+    enabled: false
+    args: {}
+    notes: "Drug-disease relationships and pharmacologic classes from SQL dump."
+
+  bindingdb:
+    enabled: false
+    args: {}
+    notes: "Drug-gene binding affinities."
+
+  bgee:
+    enabled: false
+    args: {}
+    notes: "Differential gene expression by anatomy. Provides anatomyUpregulatesGene/anatomyDownregulatesGene edges."
+
+  ctd:
+    enabled: false
+    args: {}
+    notes: "Comparative Toxicogenomics Database. Chemical-gene expression interactions."
+
+  pubtator:
+    enabled: false
+    args: {}
+    notes: "PubTator Central literature co-occurrence mining."
+
+  medline_cooccurrence:
+    enabled: false
+    args: {}
+    notes: "MEDLINE co-occurrence: disease-symptom, disease-anatomy, disease-disease."

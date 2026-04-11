@@ -1,11 +1,14 @@
 """
-DisGeNETParser: Parser for DisGeNET data with API support.
+DisGeNETParser: Parser for DisGeNET gene-disease association data.
 
 DisGeNET is a comprehensive database of gene-disease associations
 from various sources including literature and databases.
 
 Source: https://www.disgenet.org/
 API Documentation: https://www.disgenet.org/api/
+
+Disease scope is configurable via the disease_scope parameter, which
+is read from config/project.yaml by the pipeline.
 """
 
 import logging
@@ -16,36 +19,47 @@ import requests
 import time
 from .base_parser import BaseParser
 
-from ontology_configs import (
-    DISGENET_DISEASE_CLASSIFICATIONS,
-    DISGENET_DISEASE_MAPPINGS,
-    DISGENET_GENE_DISEASE_ASSOCIATIONS,
-)
+DISGENET_DISEASE_CLASSIFICATIONS = 'disease_classifications'
+DISGENET_DISEASE_MAPPINGS = 'disease_mappings'
+DISGENET_GENE_DISEASE_ASSOCIATIONS = 'gene_disease_associations'
 
 logger = logging.getLogger(__name__)
 
 
 class DisGeNETParser(BaseParser):
     """
-    Parser for DisGeNET gene-disease association data with API support.
+    Parser for DisGeNET gene-disease association data.
 
     Supports both API-based retrieval and manual file-based parsing.
+    Disease search terms are configurable via the disease_scope parameter.
     """
 
     API_BASE_URL = "https://api.disgenet.com/api/v1"
-    
-    def __init__(self, data_dir: str, api_key: Optional[str] = None):
+
+    def __init__(self, data_dir: str, api_key: Optional[str] = None,
+                 disease_scope: Optional[Dict] = None):
         """
         Initialize DisGeNET parser.
-        
+
         Args:
-            data_dir: Directory for storing data files
-            api_key: DisGeNET API key (optional, for API access)
+            data_dir: Directory for storing data files.
+            api_key: DisGeNET API key (optional, for API access).
+            disease_scope: Disease scope dict from project config. Required key:
+                           primary_terms (list of search strings).
         """
         super().__init__(data_dir)
         self.api_key = api_key or os.getenv('DISGENET_API_KEY')
         self.session = requests.Session()
-        
+
+        # Disease scope configuration — required for API-based querying
+        if disease_scope and disease_scope.get("primary_terms"):
+            self.disease_terms = disease_scope["primary_terms"]
+        else:
+            raise ValueError(
+                "DisGeNETParser requires 'disease_scope.primary_terms' in project.yaml. "
+                "Set disease_scope_mode: none in databases.yaml to skip disease filtering."
+            )
+
         if self.api_key:
             self.session.headers.update({
                 'Authorization': self.api_key,
@@ -105,19 +119,20 @@ class DisGeNETParser(BaseParser):
         """
         Download DisGeNET data via API.
 
-        First retrieves Alzheimer's disease IDs and metadata, then fetches gene-disease associations.
+        Retrieves disease IDs matching the configured disease scope, then
+        fetches gene-disease associations for each.
 
         Returns:
             True if successful, False otherwise.
         """
-        logger.info("Downloading DisGeNET data via API...")
+        logger.info(f"Downloading DisGeNET data via API (disease terms: {self.disease_terms})...")
 
         try:
-            # Step 1: Get Alzheimer's disease IDs and metadata
-            disease_classifications, disease_mappings = self.get_alzheimer_disease_ids()
+            # Step 1: Get disease IDs and metadata for configured terms
+            disease_classifications, disease_mappings = self.get_disease_ids(self.disease_terms)
 
             if disease_classifications is None or disease_mappings is None:
-                logger.error("Failed to retrieve Alzheimer's disease IDs from API")
+                logger.error("Failed to retrieve disease IDs from API")
                 return False
 
             # Save disease data frames
@@ -181,21 +196,55 @@ class DisGeNETParser(BaseParser):
             return False
     
     
-    def get_alzheimer_disease_ids(self) -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame]]:
+    def get_disease_ids(self, search_terms: Optional[List[str]] = None) -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame]]:
         """
-        Get Alzheimer's disease IDs and related information from DisGeNET API using free text search.
+        Get disease IDs and related information from DisGeNET API using free text search.
+
+        Args:
+            search_terms: List of disease search strings (e.g., ["alzheimer"]).
+                          If None, uses self.disease_terms.
 
         Returns:
             Tuple of two DataFrames:
-            - {{DISGENET_DISEASE_CLASSIFICATIONS}}: Contains disease classification information across ontology systems
-            - {{DISGENET_DISEASE_MAPPINGS}}: Contains disease code mappings across vocabularies
+            - disease_classifications: disease classification information
+            - disease_mappings: disease code mappings across vocabularies
         """
-        logger.info("Querying DisGeNET API for Alzheimer's disease entities...")
+        if search_terms is None:
+            search_terms = self.disease_terms
 
-        # API endpoint for disease entity search
+        all_classifications = []
+        all_mappings = []
+
+        for term in search_terms:
+            logger.info(f"Querying DisGeNET API for disease term: '{term}'...")
+            c, m = self._query_disease_term(term)
+            if c is not None:
+                all_classifications.append(c)
+            if m is not None:
+                all_mappings.append(m)
+
+        if not all_classifications:
+            return None, None
+
+        classifications = pd.concat(all_classifications, ignore_index=True).drop_duplicates()
+        mappings = pd.concat(all_mappings, ignore_index=True).drop_duplicates()
+
+        logger.info(f"Total: {len(classifications)} classifications, {len(mappings)} mappings")
+        return classifications, mappings
+
+    def _query_disease_term(self, search_term: str) -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame]]:
+        """
+        Query DisGeNET API for a single disease search term.
+
+        Args:
+            search_term: Free text disease search string.
+
+        Returns:
+            Tuple of (classifications_df, mappings_df) or (None, None).
+        """
         endpoint = f"{self.API_BASE_URL}/entity/disease"
         params = {
-            'disease_free_text_search_string': 'alzheimer',
+            'disease_free_text_search_string': search_term,
         }
 
         # Make the API call 
@@ -489,36 +538,35 @@ class DisGeNETParser(BaseParser):
             }
         }
     
-    def filter_alzheimer_associations(self, assoc_df: pd.DataFrame) -> pd.DataFrame:
+    def filter_associations_by_disease(self, assoc_df: pd.DataFrame,
+                                       terms: Optional[List[str]] = None) -> pd.DataFrame:
         """
-        Filter associations for Alzheimer's disease.
-        
+        Filter associations by disease terms.
+
         Args:
-            assoc_df: DataFrame of all gene-disease associations
-        
+            assoc_df: DataFrame of all gene-disease associations.
+            terms: List of disease name substrings to match (case-insensitive).
+                   If None, uses self.disease_terms.
+
         Returns:
-            Filtered DataFrame of Alzheimer's-related associations
+            Filtered DataFrame of matching associations.
         """
-        logger.info("Filtering for Alzheimer's disease associations...")
-        
-        # Search for Alzheimer's in disease name
-        mask = assoc_df['diseaseName'].str.contains(
-            'Alzheimer', case=False, na=False
-        )
-        
-        alzheimer_assoc = assoc_df[mask].copy()
-        
-        logger.info(f"✓ Found {len(alzheimer_assoc)} Alzheimer's gene-disease associations")
-        
-        if len(alzheimer_assoc) > 0:
-            # Show unique diseases
-            unique_diseases = alzheimer_assoc['diseaseName'].unique()
-            logger.info(f"Unique Alzheimer's diseases: {len(unique_diseases)}")
+        if terms is None:
+            terms = self.disease_terms
+
+        logger.info(f"Filtering associations for disease terms: {terms}")
+
+        pattern = "|".join(terms)
+        mask = assoc_df['diseaseName'].str.contains(pattern, case=False, na=False)
+        filtered = assoc_df[mask].copy()
+
+        logger.info(f"Found {len(filtered)} matching gene-disease associations")
+
+        if len(filtered) > 0:
+            unique_diseases = filtered['diseaseName'].unique()
+            logger.info(f"Unique diseases matched: {len(unique_diseases)}")
             for disease in unique_diseases[:5]:
                 logger.info(f"  - {disease}")
-            
-            # Show top associated genes
-            top_genes = alzheimer_assoc['geneSymbol'].value_counts().head(10)
-            logger.info(f"Top associated genes: {dict(top_genes)}")
-        
-        return alzheimer_assoc
+
+        return filtered
+

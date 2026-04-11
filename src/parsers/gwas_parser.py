@@ -1,8 +1,8 @@
 """
-GWAS Catalog Parser for AlzKB.
+GWAS Catalog Parser for the knowledge graph.
 
 This module parses the GWAS Catalog to extract gene-disease associations
-(geneAssociatesWithDisease) for AlzKB.
+(geneAssociatesWithDisease) for the knowledge graph.
 
 Data Source: https://www.ebi.ac.uk/gwas/api/search/downloads/full
 
@@ -25,7 +25,7 @@ class GWASParser(BaseParser):
     Parser for the GWAS Catalog.
 
     Extracts gene-disease associations from genome-wide association studies
-    for use in AlzKB's geneAssociatesWithDisease relationships.
+    for use in the knowledge graph's geneAssociatesWithDisease relationships.
     """
 
     # GWAS Catalog download URL

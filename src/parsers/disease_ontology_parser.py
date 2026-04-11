@@ -1,8 +1,8 @@
 """
-Disease Ontology Parser for AlzKB.
+Disease Ontology Parser for the knowledge graph.
 
 This module parses the Disease Ontology (DO) to extract disease nodes
-and disease-anatomy relationships for AlzKB.
+and disease-anatomy relationships for the knowledge graph.
 
 Data Sources:
   - Full DO: https://github.com/DiseaseOntology/HumanDiseaseOntology

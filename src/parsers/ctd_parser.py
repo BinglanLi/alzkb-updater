@@ -1,8 +1,8 @@
 """
-CTD (Comparative Toxicogenomics Database) Parser for AlzKB.
+CTD (Comparative Toxicogenomics Database) Parser for the knowledge graph.
 
 This module parses CTD chemical-gene interaction data to extract expression
-relationships (chemicalIncreasesExpression, chemicalDecreasesExpression) for AlzKB.
+relationships (chemicalIncreasesExpression, chemicalDecreasesExpression) for the knowledge graph.
 
 Data Source: http://ctdbase.org/downloads/
 
@@ -26,7 +26,7 @@ class CTDParser(BaseParser):
     """
     Parser for CTD (Comparative Toxicogenomics Database).
 
-    Extracts chemical-gene expression relationships for use in AlzKB's
+    Extracts chemical-gene expression relationships for use in the knowledge graph's
     chemicalIncreasesExpression and chemicalDecreasesExpression relationships.
     """
 

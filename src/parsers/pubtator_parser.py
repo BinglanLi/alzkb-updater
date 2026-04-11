@@ -1,5 +1,5 @@
 """
-PubTator/MEDLINE Parser for AlzKB.
+PubTator/MEDLINE Parser for the knowledge graph.
 
 This module parses PubTator Central data to extract literature-mined
 associations including:
@@ -36,7 +36,7 @@ class PubTatorParser(BaseParser):
     """
     Parser for PubTator Central / MEDLINE literature mining data.
 
-    Extracts co-occurrence relationships from literature for use in AlzKB.
+    Extracts co-occurrence relationships from literature for use in the knowledge graph.
     Uses pre-computed bioconcept2pubtator files from NCBI FTP.
     """
 

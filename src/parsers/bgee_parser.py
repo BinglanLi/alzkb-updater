@@ -1,8 +1,8 @@
 """
-Bgee Expression Parser for AlzKB.
+Bgee Expression Parser for the knowledge graph.
 
 This module parses Bgee gene expression data to extract gene-anatomy
-differential expression relationships for AlzKB.
+differential expression relationships for the knowledge graph.
 
 Data Source: https://github.com/dhimmel/bgee (precomputed differential expression)
 Commit: 08ba54e83ee8e28dec22b4351d29e23f1d034d30

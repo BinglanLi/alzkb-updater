@@ -1,0 +1,85 @@
+# KG Project Configuration
+# This file defines the disease scope and ontology settings for this knowledge graph.
+
+project:
+  name: "alzkb"
+  display_name: "Alzheimer's Knowledge Base"
+  version: "2.3.0"
+
+  disease_scope:
+    primary_terms:
+      - "alzheimer"
+      - "alzheimer's disease"
+    umls_cuis:
+      - "C0002395"   # Alzheimer's Disease
+      - "C0750901"   # Alzheimer's Disease, Late Onset
+      - "C0750900"   # Alzheimer's Disease, Early Onset
+    doid_ids:
+      - "DOID:10652"  # Alzheimer's disease
+    mesh_ids:
+      - "D000544"     # Alzheimer Disease
+    drug_names:
+      - "donepezil"
+      - "rivastigmine"
+      - "galantamine"
+      - "memantine"
+      - "aducanumab"
+      - "lecanemab"
+      - "tacrine"
+      - "solanezumab"
+      - "gantenerumab"
+      - "donanemab"
+
+  ontology:
+    base_file: "data/ontology/alzkb_v2.rdf"
+    namespace: "http://jdr.bio/ontologies/alzkb.owl"
+    populated_output: "data/output/alzkb_v2_populated.rdf"
+
+  graph_indexes:
+    Gene: ["geneSymbol", "xrefNcbiGene"]
+    Drug: ["commonName", "xrefDrugbank", "xrefDTXSID"]
+    Disease: ["commonName", "xrefUmlsCUI", "xrefDiseaseOntology"]
+    Pathway: ["pathwayName"]
+    BodyPart: ["commonName", "xrefUberon"]
+    Symptom: ["commonName", "xrefMeSH"]
+    TranscriptionFactor: ["TF"]
+
+  node_types:
+    - Gene
+    - Drug
+    - Disease
+    - Pathway
+    - BiologicalProcess
+    - MolecularFunction
+    - CellularComponent
+    - BodyPart
+    - Symptom
+    - TranscriptionFactor
+    - SideEffect
+    - PharmacologicClass
+
+  edge_types:
+    - geneAssociatesWithDisease
+    - geneInPathway
+    - geneInteractsWithGene
+    - geneCovariesWithGene
+    - geneRegulatesGene
+    - geneParticipatesInBiologicalProcess
+    - geneHasMolecularFunction
+    - geneAssociatedWithCellularComponent
+    - transcriptionFactorInteractsWithGene
+    - compoundTreatsDisease
+    - compoundPalliatesDisease
+    - compoundBindsGene
+    - compoundCausesSideEffect
+    - compoundUpregulatesGene
+    - compoundDownregulatesGene
+    - chemicalIncreasesExpression
+    - chemicalDecreasesExpression
+    - anatomyUpregulatesGene
+    - anatomyDownregulatesGene
+    - diseasePresentsSymptom
+    - diseaseLocalizesToAnatomy
+    - diseaseResemblesDisease
+    - pharmacologicClassIncludesCompound
+    - pathwayContainsGene

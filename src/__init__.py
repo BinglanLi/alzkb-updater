@@ -1,4 +1,4 @@
 """
-AlzKB Updater - Alzheimer's Knowledge Base data integration tool.
+KG Pipeline - Disease-specific knowledge graph construction tool.
 """
-__version__ = "1.0.0"
+__version__ = "2.3.0"

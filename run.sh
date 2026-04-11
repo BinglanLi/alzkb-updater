@@ -1,33 +1,25 @@
 #!/bin/bash
-# Simple script to run AlzKB updater
+# Run the AlzKB pipeline
 
 echo "================================"
 echo "AlzKB Updater"
 echo "================================"
 echo ""
 
-# Check if virtual environment exists
-if [ ! -d "venv" ]; then
-    echo "Creating virtual environment..."
-    python3 -m venv venv
+# Activate virtual environment
+if [ -f ".venv/bin/activate" ]; then
+    source .venv/bin/activate
+elif [ -f "venv/bin/activate" ]; then
+    source venv/bin/activate
+else
+    echo "No virtual environment found. Run: python3 -m venv .venv && pip install -r requirements.txt"
+    exit 1
 fi
 
-# Activate virtual environment
-echo "Activating virtual environment..."
-source venv/bin/activate
-
-# Install dependencies
-echo "Installing dependencies..."
-pip install -q -r requirements.txt
-
-# Run the updater
-echo ""
-echo "Running AlzKB updater..."
-echo ""
-cd src
+# Run the pipeline
 python src/main.py "$@"
 
 echo ""
 echo "================================"
-echo "Update complete!"
+echo "Done."
 echo "================================"

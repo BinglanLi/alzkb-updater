@@ -1,5 +1,5 @@
 """
-MEDLINE Cooccurrence Parser for AlzKB.
+MEDLINE Cooccurrence Parser for the knowledge graph.
 
 This module parses MEDLINE co-occurrence data to extract:
 - Disease-Symptom (presents) edges (DpS) via PubMed co-occurrence

@@ -1,5 +1,5 @@
 """
-DrugBankParser: Parser for DrugBank data with authentication support.
+DrugBankParser: Parser for DrugBank drug data with authentication support.
 
 DrugBank is a comprehensive database of drug information including
 drug targets, interactions, and pharmacology.
@@ -10,6 +10,8 @@ Note: Requires free academic account for access.
 Download Example:
     curl -Lfv -o filename.zip -u username:password \\
         https://go.drugbank.com/releases/5-1-14/downloads/all-drug-links
+
+Disease-specific drug filtering is configurable via the disease_scope parameter.
 """
 
 import logging
@@ -22,7 +24,8 @@ import io
 from pathlib import Path
 from typing import Dict, Optional, List
 from .base_parser import BaseParser
-from ontology_configs import DRUGBANK_DRUGS
+
+DRUGBANK_DRUGS = 'drugs'
 
 logger = logging.getLogger(__name__)
 
@@ -38,24 +41,27 @@ class DrugBankParser(BaseParser):
     BASE_URL = "https://go.drugbank.com"
 
     def __init__(self, data_dir: str, username: Optional[str] = None,
-                 password: Optional[str] = None, version: str = "latest"):
+                 password: Optional[str] = None, version: str = "latest",
+                 disease_scope: Optional[Dict] = None):
         """
         Initialize DrugBank parser.
 
         Args:
-            data_dir: Directory for storing data files
-            username: DrugBank username/email (optional)
-            password: DrugBank password (optional)
-            version: DrugBank release version (e.g., "5-1-14" or "latest")
+            data_dir: Directory for storing data files.
+            username: DrugBank username/email (optional).
+            password: DrugBank password (optional).
+            version: DrugBank release version (e.g., "5-1-14" or "latest").
+            disease_scope: Disease scope dict from project config. If provided,
+                           filter_drugs_by_indication() reads drug_names from it.
         """
         super().__init__(data_dir)
         self.username = username or os.getenv('DRUGBANK_USERNAME')
         self.password = password or os.getenv('DRUGBANK_PASSWORD')
         self.version = version
+        self.disease_scope = disease_scope
         self.session = requests.Session()
 
         if self.username and self.password:
-            # Set up HTTP Basic Authentication
             self.session.auth = (self.username, self.password)
             logger.info("DrugBank credentials configured with HTTP Basic Auth")
         else:
@@ -255,34 +261,40 @@ class DrugBankParser(BaseParser):
             }
         }
     
-    def filter_alzheimer_drugs(self, drugs_df: pd.DataFrame) -> pd.DataFrame:
+    def filter_drugs_by_indication(self, drugs_df: pd.DataFrame,
+                                    drug_names: Optional[List[str]] = None) -> pd.DataFrame:
         """
-        Filter drugs for those used in Alzheimer's disease.
-        
+        Filter drugs by known indication drug names.
+
         Args:
-            drugs_df: DataFrame of all drugs
-        
+            drugs_df: DataFrame of all drugs.
+            drug_names: List of drug names to filter for (case-insensitive).
+                        If None, reads from disease_scope.drug_names in project config.
+                        If no drug_names configured, returns unfiltered.
+
         Returns:
-            Filtered DataFrame of Alzheimer's-related drugs
+            Filtered DataFrame of matching drugs.
         """
-        logger.info("Filtering for Alzheimer's-related drugs...")
-        
-        # Known Alzheimer's drugs
-        known_ad_drugs = [
-            'donepezil', 'rivastigmine', 'galantamine', 'memantine',
-            'aducanumab', 'lecanemab', 'tacrine', 'solanezumab',
-            'gantenerumab', 'donanemab'
-        ]
-        
-        mask = drugs_df['drug_name'].str.lower().isin(known_ad_drugs)
-        
-        alzheimer_drugs = drugs_df[mask].copy()
-        
-        logger.info(f"✓ Found {len(alzheimer_drugs)} known Alzheimer's drugs")
-        
-        if len(alzheimer_drugs) > 0:
-            logger.info("Drugs found:")
-            for _, drug in alzheimer_drugs.iterrows():
+        if drug_names is None:
+            if self.disease_scope and self.disease_scope.get("drug_names"):
+                drug_names = self.disease_scope["drug_names"]
+            else:
+                logger.warning(
+                    "No drug_names in disease_scope; returning unfiltered drug list. "
+                    "Add disease_scope.drug_names to project.yaml to filter by indication."
+                )
+                return drugs_df
+
+        logger.info(f"Filtering for {len(drug_names)} known drugs...")
+
+        drug_names_lower = [n.lower() for n in drug_names]
+        mask = drugs_df['drug_name'].str.lower().isin(drug_names_lower)
+        filtered = drugs_df[mask].copy()
+
+        logger.info(f"Found {len(filtered)} matching drugs")
+
+        if len(filtered) > 0:
+            for _, drug in filtered.iterrows():
                 logger.info(f"  - {drug.get('drug_name', 'Unknown')}")
-        
-        return alzheimer_drugs
+
+        return filtered

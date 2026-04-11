@@ -1,8 +1,8 @@
 """
-Uberon Anatomy Parser for AlzKB.
+Uberon Anatomy Parser for the knowledge graph.
 
 This module parses the Uberon anatomy ontology to extract anatomical structure
-nodes (Anatomy) for AlzKB.
+nodes (Anatomy) for the knowledge graph.
 
 Data Sources:
   - Full Uberon: http://purl.obolibrary.org/obo/uberon.obo
@@ -37,7 +37,7 @@ class UberonParser(BaseParser):
     """
     Parser for the Uberon anatomy ontology.
 
-    Extracts anatomical structure concepts for use as Anatomy nodes in AlzKB.
+    Extracts anatomical structure concepts for use as Anatomy nodes in the knowledge graph.
     Includes the hetio-slim subset with MeSH cross-references.
     """
 

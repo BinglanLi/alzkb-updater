@@ -2,7 +2,7 @@
 NCBIGeneParser: Parser for NCBI Gene data.
 
 NCBI Gene provides comprehensive gene information for multiple organisms.
-For AlzKB, we focus on human genes (Homo sapiens).
+For the knowledge graph, we focus on human genes (Homo sapiens).
 
 Source: https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/
 """
@@ -13,7 +13,8 @@ import pandas as pd
 from typing import Dict, Optional
 from pathlib import Path
 from .base_parser import BaseParser
-from ontology_configs import NCBI_GENES
+
+NCBI_GENES = 'genes'
 
 logger = logging.getLogger(__name__)
 

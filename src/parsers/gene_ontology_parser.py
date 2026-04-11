@@ -1,5 +1,5 @@
 """
-Gene Ontology Parser for AlzKB.
+Gene Ontology Parser for the knowledge graph.
 
 This module parses the Gene Ontology (GO) to extract:
 - Biological Process (BP) nodes

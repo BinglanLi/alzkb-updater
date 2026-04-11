@@ -1,8 +1,8 @@
 """
-BindingDB Parser for AlzKB.
+BindingDB Parser for the knowledge graph.
 
 This module parses BindingDB data to extract drug-gene binding relationships
-(chemicalBindsGene) for AlzKB.
+(chemicalBindsGene) for the knowledge graph.
 
 Data Source: https://www.bindingdb.org/bind/downloads/
 
@@ -26,7 +26,7 @@ class BindingDBParser(BaseParser):
     Parser for BindingDB database.
 
     Extracts drug-target binding data including affinity measurements
-    for use in AlzKB's chemicalBindsGene relationships.
+    for use in the knowledge graph's chemicalBindsGene relationships.
     """
 
     # BindingDB download URL (update version as needed)

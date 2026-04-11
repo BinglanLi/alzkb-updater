@@ -13,13 +13,18 @@ import logging
 from typing import Dict, Optional, Any, List
 import pandas as pd
 from .base_parser import BaseParser
-from ontology_configs import (
-    AOPDB_TABLE_MAPPING,
-    AOPDB_AOPS,
-    AOPDB_PATHWAYS,
-    AOPDB_GENE_PATHWAY_RELATIONSHIPS,
-    AOPDB_DRUGS,
-)
+
+AOPDB_AOPS = 'aops'
+AOPDB_PATHWAYS = 'pathways'
+AOPDB_GENE_PATHWAY_RELATIONSHIPS = 'gene_pathway_relationships'
+AOPDB_DRUGS = 'drugs'
+
+AOPDB_TABLE_MAPPING = {
+    AOPDB_AOPS: 'aop_info',
+    AOPDB_PATHWAYS: 'pathway_gene',
+    AOPDB_GENE_PATHWAY_RELATIONSHIPS: 'pathway_gene',
+    AOPDB_DRUGS: 'chemical_info',
+}
 
 logger = logging.getLogger(__name__)
 

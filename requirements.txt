@@ -20,6 +20,9 @@ requests-cache>=1.0.0
 # Database connections
 mysql-connector-python>=8.0.33
 
+# Configuration
+pyyaml>=6.0
+
 # Environment variables
 python-dotenv>=1.0.0
 

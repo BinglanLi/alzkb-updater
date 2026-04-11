@@ -1,8 +1,8 @@
 """
-DoRothEA Parser for AlzKB.
+DoRothEA Parser for the knowledge graph.
 
 This module parses DoRothEA data to extract transcription factor nodes
-and TF-gene regulatory relationships for AlzKB.
+and TF-gene regulatory relationships for the knowledge graph.
 
 DoRothEA is a gene regulatory network containing signed TF-target interactions.
 Data is retrieved from OmniPath API which provides DoRothEA interactions.
@@ -17,7 +17,6 @@ Output:
 References:
   - https://saezlab.github.io/dorothea/
   - https://bioconductor.org/packages/release/data/experiment/vignettes/dorothea/inst/doc/dorothea.R
-  - https://github.com/EpistasisLab/AlzKB/blob/master/scripts/dorothea.R
   - DoRothEA resource: https://doi.org/10.1101/gr.240663.118
 """
 
@@ -28,7 +27,9 @@ import requests
 from pathlib import Path
 from typing import Dict, List, Optional
 from .base_parser import BaseParser
-from ontology_configs import DOROTHEA_TRANSCRIPTION_FACTORS, DOROTHEA_TF_GENE_INTERACTIONS
+
+DOROTHEA_TRANSCRIPTION_FACTORS = 'transcription_factors'
+DOROTHEA_TF_GENE_INTERACTIONS = 'tf_gene_interactions'
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ class DoRothEAParser(BaseParser):
     """
     Parser for DoRothEA transcription factor regulatory network.
 
-    Extracts TF-gene regulatory relationships for use in AlzKB's
+    Extracts TF-gene regulatory relationships for use in the knowledge graph's
     transcriptionFactorInteractsWithGene relationships.
 
     Uses OmniPath API to retrieve DoRothEA data, which provides:

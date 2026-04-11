@@ -1,5 +1,5 @@
 """
-DrugCentral Parser for AlzKB.
+DrugCentral Parser for the knowledge graph.
 
 This module parses DrugCentral data to extract:
 - Drug-disease treatment relationships (drugTreatsDisease, drugPalliatesDisease)
@@ -32,7 +32,7 @@ class DrugCentralParser(BaseParser):
     Parser for DrugCentral database.
 
     Extracts drug-disease treatment relationships and pharmacologic class
-    information from DrugCentral for use in AlzKB.
+    information from DrugCentral for use in the knowledge graph.
     """
 
     # DrugCentral SQL dump URL

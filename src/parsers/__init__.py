@@ -1,7 +1,7 @@
 """
-Data parsers for AlzKB v2.
+Data parsers for the knowledge graph.
 
-This module contains parsers for various data sources used to populate AlzKB.
+This module contains parsers for various data sources used to populate the knowledge graph.
 Each parser is responsible for downloading, parsing, and formatting data from
 a specific source.
 """

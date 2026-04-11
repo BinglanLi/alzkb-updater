@@ -1,10 +1,9 @@
 """
-Ontology module for AlzKB v2.
+Ontology module for the KG pipeline.
 
-This module provides functionality for working with the AlzKB OWL ontology,
-including loading, populating, and querying the ontology.
+Provides functionality for loading, populating, and querying the OWL ontology.
 """
 
-from .alzkb_populator import AlzKBOntologyPopulator
+from .populator import OntologyPopulator
 
-__all__ = ['AlzKBOntologyPopulator']
+__all__ = ['OntologyPopulator']
