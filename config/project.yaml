@@ -9,7 +9,6 @@ project:
   disease_scope:
     primary_terms:
       - "alzheimer"
-      - "alzheimer's disease"
     umls_cuis:
       - "C0002395"   # Alzheimer's Disease
       - "C0750901"   # Alzheimer's Disease, Late Onset
@@ -45,8 +44,10 @@ project:
     TranscriptionFactor: ["TF"]
 
   node_types:
+    # Active: parsers exist and produce these node types
     - Gene
     - Drug
+    - Chemical
     - Disease
     - Pathway
     - BiologicalProcess
@@ -55,10 +56,60 @@ project:
     - BodyPart
     - Symptom
     - TranscriptionFactor
-    - SideEffect
-    - PharmacologicClass
+    - DrugClass
+    # Inactive: defined in ontology but no parser produces these yet
+    # - AdverseEffect
+    # - AnimalToxin
+    # - Biotoxin
+    # - CellType
+    # - ChemicalConcept
+    # - ChemicalEffect
+    # - ChemicalList
+    # - ClinicalPhenotype
+    # - CopyNumberVariant
+    # - Database
+    # - EnvironmentalRiskFactor
+    # - ExposureEvent
+    # - Finding
+    # - FungalToxin
+    # - GainOfFunctionMutation
+    # - GeneticDisease
+    # - GeneticEntity
+    # - GeneticPathway
+    # - GeneticRiskFactor
+    # - Human
+    # - HumanConcept
+    # - HumanMolecule
+    # - HumanNucleicAcid
+    # - HumanProtein
+    # - HumanSmallMolecule
+    # - List
+    # - LossOfFunctionMutation
+    # - MedicalCondition
+    # - MetabolicPathway
+    # - MicrobialToxin
+    # - Mutation
+    # - NonHumanSpecies
+    # - Organ
+    # - OrganSystem
+    # - PharmaceuticalDrug
+    # - PlantToxin
+    # - Publication
+    # - ResearchEntity
+    # - RiskFactor
+    # - SignalTransductionPathway
+    # - SingleNucleotidePolymorphism
+    # - Species
+    # - Study
+    # - SyntheticToxin
+    # - TherapeuticEffect
+    # - TissueType
+    # - Toxin
+    # - Variant
+    # - VenomComponent
 
   edge_types:
+    # Active: parsers exist and produce these edge types
     - geneAssociatesWithDisease
     - geneInPathway
     - geneInteractsWithGene
@@ -68,18 +119,31 @@ project:
     - geneHasMolecularFunction
     - geneAssociatedWithCellularComponent
     - transcriptionFactorInteractsWithGene
-    - compoundTreatsDisease
-    - compoundPalliatesDisease
-    - compoundBindsGene
-    - compoundCausesSideEffect
-    - compoundUpregulatesGene
-    - compoundDownregulatesGene
+    - drugTreatsDisease
+    - chemicalAssociatesWithDisease
+    - chemicalBindsGene
+    - chemicalCausesEffect
     - chemicalIncreasesExpression
     - chemicalDecreasesExpression
     - anatomyUpregulatesGene
     - anatomyDownregulatesGene
-    - diseasePresentsSymptom
+    - symptomManifestationOfDisease
     - diseaseLocalizesToAnatomy
-    - diseaseResemblesDisease
-    - pharmacologicClassIncludesCompound
+    - diseaseAssociatesWithDisease
+    - drugInClass
     - pathwayContainsGene
+    # Inactive: defined in ontology but no parser produces these yet
+    # - anatomyExpressesGene
+    # - bodyPartExpressesGene
+    # - bodyPartOverexpressesGene
+    # - bodyPartUnderexpressesGene
+    # - chemicalInList
+    # - diseaseDownregulatesGene
+    # - diseaseManifestedAsPhenotype
+    # - diseaseRegulatesGeneOther
+    # - diseaseUpregulatesGene
+    # - drugCausesEffect
+    # - pathwayRegulatesGene
+    # - phenotypeManifestationOfDisease
+    # - riskGoverenedByExposure
+    # - riskGovernedByGene

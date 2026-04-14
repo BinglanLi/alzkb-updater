@@ -9,12 +9,49 @@
 # For relationships: relationship_type, inverse_relationship_type, source_filename, parse_config
 #   (subject_node_type, subject_column_name, subject_match_property,
 #    object_node_type, object_column_name, object_match_property)
+#
+# IMPORTANT: All node entries must appear before relationship entries.
+# ista matches relationships against already-loaded individuals, so any
+# relationship processed before its subject/object nodes exist will silently
+# produce zero edges.
 
 mappings:
 
   # ===========================================================================
-  # AOP-DB - Adverse Outcome Pathway Database
+  # NODE POPULATIONS
+  # Must all come before relationship entries.
   # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # NCBI Gene - Gene Information (loaded first; many relationships depend on it)
+  # ---------------------------------------------------------------------------
+  ncbigene.genes:
+    data_type: node
+    node_type: Gene
+    source_filename: genes.tsv
+    merge: false
+    skip: false
+    parse_config:
+      headers: true
+      iri_column_name: Symbol
+      compound_fields:
+        dbXrefs:
+          delimiter: "|"
+          field_split_prefix: ":"
+      data_property_map:
+        GeneID: xrefNcbiGene
+        Symbol: geneSymbol
+        type_of_gene: typeOfGene
+        Full_name_from_nomenclature_authority: commonName
+        xref_MIM: xrefOMIM
+        xref_HGNC: xrefHGNC
+        xref_Ensembl: xrefEnsembl
+        chromosome: chromosome
+        source_database: sourceDatabase
+
+  # ---------------------------------------------------------------------------
+  # AOP-DB - Adverse Outcome Pathway Database
+  # ---------------------------------------------------------------------------
   aopdb.drugs:
     data_type: node
     node_type: Drug
@@ -46,25 +83,9 @@ mappings:
         ext_source: sourceDatabase
         source_database: sourceDatabase
 
-  aopdb.gene_pathway_relationships:
-    data_type: relationship
-    relationship_type: geneInPathway
-    inverse_relationship_type: pathwayContainsGene
-    source_filename: gene_pathway_relationships.tsv
-    merge: false
-    skip: false
-    parse_config:
-      headers: true
-      subject_node_type: Gene
-      subject_column_name: entrez
-      subject_match_property: xrefNcbiGene
-      object_node_type: Pathway
-      object_column_name: path_name
-      object_match_property: pathwayName
-
-  # ===========================================================================
+  # ---------------------------------------------------------------------------
   # DisGeNET - Gene-Disease Associations
-  # ===========================================================================
+  # ---------------------------------------------------------------------------
   disgenet.disease_classifications:
     data_type: node
     node_type: Disease
@@ -97,26 +118,9 @@ mappings:
       data_property_map:
         DO: xrefDiseaseOntology
 
-  disgenet.gene_disease_associations:
-    data_type: relationship
-    relationship_type: geneAssociatesWithDisease
-    source_filename: gene_disease_associations.tsv
-    merge: false
-    skip: false
-    parse_config:
-      headers: true
-      subject_node_type: Gene
-      subject_column_name: geneSymbol
-      subject_match_property: geneSymbol
-      object_node_type: Disease
-      object_column_name: diseaseId
-      object_match_property: xrefUmlsCUI
-      filter_column: diseaseType
-      filter_value: disease
-
-  # ===========================================================================
+  # ---------------------------------------------------------------------------
   # DrugBank - Drug Information
-  # ===========================================================================
+  # ---------------------------------------------------------------------------
   drugbank.drugs:
     data_type: node
     node_type: Drug
@@ -147,55 +151,13 @@ mappings:
       data_property_map:
         drugbank_id: xrefDrugbank
         name: commonName
-        type: drugType
+        type: PharmacologicClass
         inchikey: inchiKey
         sourceDatabase: sourceDatabase
 
-  drugbank.drug_binds_gene:
-    data_type: relationship
-    relationship_type: compoundBindsGene
-    source_filename: drug_binds_gene.tsv
-    merge: false
-    skip: false
-    parse_config:
-      headers: true
-      subject_node_type: Drug
-      subject_column_name: drugbank_id
-      subject_match_property: xrefDrugbank
-      object_node_type: Gene
-      object_column_name: entrez_gene_id
-      object_match_property: xrefNcbiGene
-
-  # ===========================================================================
-  # NCBI Gene - Gene Information
-  # ===========================================================================
-  ncbigene.genes:
-    data_type: node
-    node_type: Gene
-    source_filename: genes.tsv
-    merge: false
-    skip: false
-    parse_config:
-      headers: true
-      iri_column_name: Symbol
-      compound_fields:
-        dbXrefs:
-          delimiter: "|"
-          field_split_prefix: ":"
-      data_property_map:
-        GeneID: xrefNcbiGene
-        Symbol: geneSymbol
-        type_of_gene: typeOfGene
-        Full_name_from_nomenclature_authority: commonName
-        xref_MIM: xrefOMIM
-        xref_HGNC: xrefHGNC
-        xref_Ensembl: xrefEnsembl
-        chromosome: chromosome
-        source_database: sourceDatabase
-
-  # ===========================================================================
+  # ---------------------------------------------------------------------------
   # DoRothEA - Transcription Factor Regulatory Network
-  # ===========================================================================
+  # ---------------------------------------------------------------------------
   dorothea.transcription_factors:
     data_type: node
     node_type: TranscriptionFactor
@@ -209,222 +171,9 @@ mappings:
         tf_symbol: TF
         source_database: sourceDatabase
 
-  dorothea.tf_gene_interactions:
-    data_type: relationship
-    relationship_type: transcriptionFactorInteractsWithGene
-    source_filename: tf_gene_interactions.tsv
-    merge: false
-    skip: false
-    parse_config:
-      headers: true
-      subject_node_type: TranscriptionFactor
-      subject_column_name: tf_symbol
-      subject_match_property: TF
-      object_node_type: Gene
-      object_column_name: target_gene
-      object_match_property: geneSymbol
-
-  # ===========================================================================
-  # SIDER - Side Effect Nodes and Compound-causes-SideEffect Edges
-  # No parser implemented yet — placeholder for future integration
-  # ===========================================================================
-  sider.side_effect_nodes:
-    data_type: node
-    node_type: SideEffect
-    source_filename: side_effect_nodes.tsv
-    merge: false
-    skip: true
-    parse_config:
-      headers: true
-      iri_column_name: umls_cui
-      data_property_map:
-        umls_cui: xrefUmlsCUI
-        name: commonName
-        source: sourceDatabase
-
-  sider.compound_causes_side_effect:
-    data_type: relationship
-    relationship_type: compoundCausesSideEffect
-    source_filename: compound_causes_side_effect.tsv
-    merge: false
-    skip: true
-    parse_config:
-      headers: true
-      subject_node_type: Drug
-      subject_column_name: drugbank_id
-      subject_match_property: xrefDrugbank
-      object_node_type: SideEffect
-      object_column_name: umls_cui
-      object_match_property: xrefUmlsCUI
-
-  # ===========================================================================
-  # LINCS L1000 - Expression Edges
-  # No parser implemented yet — placeholder for future integration
-  # ===========================================================================
-  lincs.compound_upregulates_gene:
-    data_type: relationship
-    relationship_type: compoundUpregulatesGene
-    source_filename: compound_upregulates_gene.tsv
-    merge: false
-    skip: true
-    parse_config:
-      headers: true
-      subject_node_type: Drug
-      subject_column_name: drugbank_id
-      subject_match_property: xrefDrugbank
-      object_node_type: Gene
-      object_column_name: entrez_gene_id
-      object_match_property: xrefNcbiGene
-
-  lincs.compound_downregulates_gene:
-    data_type: relationship
-    relationship_type: compoundDownregulatesGene
-    source_filename: compound_downregulates_gene.tsv
-    merge: false
-    skip: true
-    parse_config:
-      headers: true
-      subject_node_type: Drug
-      subject_column_name: drugbank_id
-      subject_match_property: xrefDrugbank
-      object_node_type: Gene
-      object_column_name: entrez_gene_id
-      object_match_property: xrefNcbiGene
-
-  lincs.gene_regulates_gene:
-    data_type: relationship
-    relationship_type: geneRegulatesGene
-    source_filename: gene_regulates_gene.tsv
-    merge: false
-    skip: true
-    parse_config:
-      headers: true
-      subject_node_type: Gene
-      subject_column_name: source_gene
-      subject_match_property: xrefNcbiGene
-      object_node_type: Gene
-      object_column_name: target_gene
-      object_match_property: xrefNcbiGene
-
-  # ===========================================================================
-  # MEDLINE Co-occurrence - Literature-mined Edges
-  # ===========================================================================
-  medline.disease_symptom_cooccurrence:
-    data_type: relationship
-    relationship_type: diseasePresentsSymptom
-    source_filename: disease_symptom_cooccurrence.tsv
-    merge: false
-    skip: false
-    parse_config:
-      headers: true
-      subject_node_type: Disease
-      subject_column_name: doid_code
-      subject_match_property: xrefDiseaseOntology
-      object_node_type: Symptom
-      object_column_name: mesh_id
-      object_match_property: xrefMeSH
-
-  medline.disease_anatomy_cooccurrence:
-    data_type: relationship
-    relationship_type: diseaseLocalizesToAnatomy
-    source_filename: disease_anatomy_cooccurrence.tsv
-    merge: false
-    skip: false
-    parse_config:
-      headers: true
-      subject_node_type: Disease
-      subject_column_name: doid_code
-      subject_match_property: xrefDiseaseOntology
-      object_node_type: BodyPart
-      object_column_name: uberon_id
-      object_match_property: xrefUberon
-
-  medline.disease_disease_cooccurrence:
-    data_type: relationship
-    relationship_type: diseaseResemblesDisease
-    source_filename: disease_disease_cooccurrence.tsv
-    merge: false
-    skip: false
-    parse_config:
-      headers: true
-      subject_node_type: Disease
-      subject_column_name: doid_code_0
-      subject_match_property: xrefDiseaseOntology
-      object_node_type: Disease
-      object_column_name: doid_code_1
-      object_match_property: xrefDiseaseOntology
-
-  # ===========================================================================
-  # DrugCentral - Pharmacologic Classes
-  # ===========================================================================
-  drugcentral.pharmacologic_classes:
-    data_type: node
-    node_type: PharmacologicClass
-    source_filename: pharmacologic_classes.tsv
-    merge: false
-    skip: false
-    parse_config:
-      headers: true
-      iri_column_name: class_id
-      data_property_map:
-        class_id: classId
-        class_name: commonName
-        class_type: classType
-        source: sourceDatabase
-
-  drugcentral.pharmacologic_class_includes_compound:
-    data_type: relationship
-    relationship_type: pharmacologicClassIncludesCompound
-    inverse_relationship_type: compoundInPharmacologicClass
-    source_filename: pharmacologic_class_includes_compound.tsv
-    merge: false
-    skip: false
-    parse_config:
-      headers: true
-      subject_node_type: PharmacologicClass
-      subject_column_name: class_id
-      subject_match_property: classId
-      object_node_type: Drug
-      object_column_name: drugbank_id
-      object_match_property: xrefDrugbank
-
-  # ===========================================================================
-  # PharmacotherapyDB - Drug Indications (CtD, CpD)
-  # No parser implemented yet — placeholder for future integration
-  # ===========================================================================
-  pharmacotherapydb.compound_treats_disease:
-    data_type: relationship
-    relationship_type: compoundTreatsDisease
-    source_filename: compound_treats_disease.tsv
-    merge: false
-    skip: true
-    parse_config:
-      headers: true
-      subject_node_type: Drug
-      subject_column_name: drugbank_id
-      subject_match_property: xrefDrugbank
-      object_node_type: Disease
-      object_column_name: doid_id
-      object_match_property: xrefDiseaseOntology
-
-  pharmacotherapydb.compound_palliates_disease:
-    data_type: relationship
-    relationship_type: compoundPalliatesDisease
-    source_filename: compound_palliates_disease.tsv
-    merge: false
-    skip: true
-    parse_config:
-      headers: true
-      subject_node_type: Drug
-      subject_column_name: drugbank_id
-      subject_match_property: xrefDrugbank
-      object_node_type: Disease
-      object_column_name: doid_id
-      object_match_property: xrefDiseaseOntology
-
-  # ===========================================================================
+  # ---------------------------------------------------------------------------
   # Disease Ontology - Slim Terms (137 curated diseases)
-  # ===========================================================================
+  # ---------------------------------------------------------------------------
   disease_ontology.slim_terms:
     data_type: node
     node_type: Disease
@@ -440,9 +189,180 @@ mappings:
         pathophysiology: pathophysiology
         sourceDatabase: sourceDatabase
 
+  # ---------------------------------------------------------------------------
+  # Uberon - Hetio Slim (652 anatomies with MeSH cross-references)
+  # ---------------------------------------------------------------------------
+  uberon.hetio_slim:
+    data_type: node
+    node_type: BodyPart
+    source_filename: hetio_slim.tsv
+    merge: false
+    skip: false
+    parse_config:
+      headers: true
+      iri_column_name: uberon_id
+      data_property_map:
+        uberon_id: xrefUberon
+        uberon_name: commonName
+        mesh_id: xrefMeSH
+        bto_id: xrefBTO
+        sourceDatabase: sourceDatabase
+
+  # ---------------------------------------------------------------------------
+  # MeSH - Hetio Symptoms (505 symptoms)
+  # ---------------------------------------------------------------------------
+  mesh.hetio_symptoms:
+    data_type: node
+    node_type: Symptom
+    source_filename: hetio_symptoms.tsv
+    merge: false
+    skip: false
+    parse_config:
+      headers: true
+      iri_column_name: mesh_id
+      data_property_map:
+        mesh_id: xrefMeSH
+        mesh_name: commonName
+        in_hsdn: inHSDN
+        sourceDatabase: sourceDatabase
+
+  # ---------------------------------------------------------------------------
+  # DrugCentral - Pharmacologic Classes
+  # ---------------------------------------------------------------------------
+  drugcentral.pharmacologic_classes:
+    data_type: node
+    node_type: DrugClass
+    source_filename: pharmacologic_classes.tsv
+    merge: false
+    skip: false
+    parse_config:
+      headers: true
+      iri_column_name: class_id
+      data_property_map:
+        class_id: classId
+        class_name: commonName
+        class_type: classType
+        source: sourceDatabase
+
+  # ---------------------------------------------------------------------------
+  # SIDER - Side Effect Nodes
+  # No parser implemented yet — placeholder for future integration
+  # ---------------------------------------------------------------------------
+  sider.side_effect_nodes:
+    data_type: node
+    node_type: ChemicalEffect
+    source_filename: side_effect_nodes.tsv
+    merge: false
+    skip: true
+    parse_config:
+      headers: true
+      iri_column_name: umls_cui
+      data_property_map:
+        umls_cui: xrefUmlsCUI
+        name: commonName
+        source: sourceDatabase
+
   # ===========================================================================
+  # RELATIONSHIP POPULATIONS
+  # All node types above must be loaded before any entry here.
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # AOP-DB relationships
+  # ---------------------------------------------------------------------------
+  aopdb.gene_pathway_relationships:
+    data_type: relationship
+    relationship_type: geneInPathway
+    inverse_relationship_type: pathwayContainsGene
+    source_filename: gene_pathway_relationships.tsv
+    merge: false
+    skip: false
+    parse_config:
+      headers: true
+      subject_node_type: Gene
+      subject_column_name: entrez
+      subject_match_property: xrefNcbiGene
+      object_node_type: Pathway
+      object_column_name: path_name
+      object_match_property: pathwayName
+
+  # ---------------------------------------------------------------------------
+  # DisGeNET relationships
+  # ---------------------------------------------------------------------------
+  disgenet.gene_disease_associations:
+    data_type: relationship
+    relationship_type: geneAssociatesWithDisease
+    source_filename: gene_disease_associations.tsv
+    merge: false
+    skip: false
+    parse_config:
+      headers: true
+      subject_node_type: Gene
+      subject_column_name: geneSymbol
+      subject_match_property: geneSymbol
+      object_node_type: Disease
+      object_column_name: diseaseId
+      object_match_property: xrefUmlsCUI
+      filter_column: diseaseType
+      filter_value: disease
+
+  # ---------------------------------------------------------------------------
+  # DrugBank relationships
+  # ---------------------------------------------------------------------------
+  drugbank.drug_binds_gene:
+    data_type: relationship
+    relationship_type: chemicalBindsGene
+    source_filename: drug_binds_gene.tsv
+    merge: false
+    skip: false
+    parse_config:
+      headers: true
+      subject_node_type: Drug
+      subject_column_name: drugbank_id
+      subject_match_property: xrefDrugbank
+      object_node_type: Gene
+      object_column_name: entrez_gene_id
+      object_match_property: xrefNcbiGene
+
+  # ---------------------------------------------------------------------------
+  # DoRothEA relationships
+  # ---------------------------------------------------------------------------
+  dorothea.tf_gene_interactions:
+    data_type: relationship
+    relationship_type: transcriptionFactorInteractsWithGene
+    source_filename: tf_gene_interactions.tsv
+    merge: false
+    skip: false
+    parse_config:
+      headers: true
+      subject_node_type: TranscriptionFactor
+      subject_column_name: tf_symbol
+      subject_match_property: TF
+      object_node_type: Gene
+      object_column_name: target_gene
+      object_match_property: geneSymbol
+
+  # ---------------------------------------------------------------------------
+  # DrugCentral relationships
+  # ---------------------------------------------------------------------------
+  drugcentral.pharmacologic_class_includes_compound:
+    data_type: relationship
+    relationship_type: drugInClass
+    source_filename: pharmacologic_class_includes_compound.tsv
+    merge: false
+    skip: false
+    parse_config:
+      headers: true
+      subject_node_type: Drug
+      subject_column_name: drugbank_id
+      subject_match_property: xrefDrugbank
+      object_node_type: DrugClass
+      object_column_name: class_id
+      object_match_property: classId
+
+  # ---------------------------------------------------------------------------
   # Bgee - Differential Gene Expression by Anatomy
-  # ===========================================================================
+  # ---------------------------------------------------------------------------
   bgee.anatomy_upregulates_gene:
     data_type: relationship
     relationship_type: anatomyUpregulatesGene
@@ -473,10 +393,126 @@ mappings:
       object_column_name: entrez_gene_id
       object_match_property: xrefNcbiGene
 
-  # ===========================================================================
+  # ---------------------------------------------------------------------------
+  # MEDLINE Co-occurrence - Literature-mined Edges
+  # ---------------------------------------------------------------------------
+  medline.disease_symptom_cooccurrence:
+    data_type: relationship
+    relationship_type: symptomManifestationOfDisease
+    source_filename: disease_symptom_cooccurrence.tsv
+    merge: false
+    skip: false
+    parse_config:
+      headers: true
+      subject_node_type: Symptom
+      subject_column_name: mesh_id
+      subject_match_property: xrefMeSH
+      object_node_type: Disease
+      object_column_name: doid_code
+      object_match_property: xrefDiseaseOntology
+
+  medline.disease_anatomy_cooccurrence:
+    data_type: relationship
+    relationship_type: diseaseLocalizesToAnatomy
+    source_filename: disease_anatomy_cooccurrence.tsv
+    merge: false
+    skip: false
+    parse_config:
+      headers: true
+      subject_node_type: Disease
+      subject_column_name: doid_code
+      subject_match_property: xrefDiseaseOntology
+      object_node_type: BodyPart
+      object_column_name: uberon_id
+      object_match_property: xrefUberon
+
+  medline.disease_disease_cooccurrence:
+    data_type: relationship
+    relationship_type: diseaseAssociatesWithDisease
+    source_filename: disease_disease_cooccurrence.tsv
+    merge: false
+    skip: false
+    parse_config:
+      headers: true
+      subject_node_type: Disease
+      subject_column_name: doid_code_0
+      subject_match_property: xrefDiseaseOntology
+      object_node_type: Disease
+      object_column_name: doid_code_1
+      object_match_property: xrefDiseaseOntology
+
+  # ---------------------------------------------------------------------------
+  # SIDER - Compound-causes-SideEffect Edges
+  # No parser implemented yet — placeholder for future integration
+  # ---------------------------------------------------------------------------
+  sider.compound_causes_side_effect:
+    data_type: relationship
+    relationship_type: chemicalCausesEffect
+    source_filename: compound_causes_side_effect.tsv
+    merge: false
+    skip: true
+    parse_config:
+      headers: true
+      subject_node_type: Drug
+      subject_column_name: drugbank_id
+      subject_match_property: xrefDrugbank
+      object_node_type: ChemicalEffect
+      object_column_name: umls_cui
+      object_match_property: xrefUmlsCUI
+
+  # ---------------------------------------------------------------------------
+  # LINCS L1000 - Expression Edges
+  # No parser implemented yet — placeholder for future integration
+  # ---------------------------------------------------------------------------
+  lincs.compound_upregulates_gene:
+    data_type: relationship
+    relationship_type: chemicalIncreasesExpression
+    source_filename: compound_upregulates_gene.tsv
+    merge: false
+    skip: true
+    parse_config:
+      headers: true
+      subject_node_type: Drug
+      subject_column_name: drugbank_id
+      subject_match_property: xrefDrugbank
+      object_node_type: Gene
+      object_column_name: entrez_gene_id
+      object_match_property: xrefNcbiGene
+
+  lincs.compound_downregulates_gene:
+    data_type: relationship
+    relationship_type: chemicalDecreasesExpression
+    source_filename: compound_downregulates_gene.tsv
+    merge: false
+    skip: true
+    parse_config:
+      headers: true
+      subject_node_type: Drug
+      subject_column_name: drugbank_id
+      subject_match_property: xrefDrugbank
+      object_node_type: Gene
+      object_column_name: entrez_gene_id
+      object_match_property: xrefNcbiGene
+
+  lincs.gene_regulates_gene:
+    data_type: relationship
+    relationship_type: geneRegulatesGene
+    source_filename: gene_regulates_gene.tsv
+    merge: false
+    skip: true
+    parse_config:
+      headers: true
+      subject_node_type: Gene
+      subject_column_name: source_gene
+      subject_match_property: xrefNcbiGene
+      object_node_type: Gene
+      object_column_name: target_gene
+      object_match_property: xrefNcbiGene
+
+  # ---------------------------------------------------------------------------
   # Hetionet Precomputed - Gene-Gene Relationships
   # No parser implemented yet — placeholder for future integration
-  # ===========================================================================
+  # ---------------------------------------------------------------------------
   hetionet_precomputed.gene_interacts:
     data_type: relationship
     relationship_type: geneInteractsWithGene
@@ -507,49 +543,46 @@ mappings:
       object_column_name: gene_1
       object_match_property: xrefNcbiGene
 
-  # ===========================================================================
-  # Uberon - Hetio Slim (652 anatomies with MeSH cross-references)
-  # ===========================================================================
-  uberon.hetio_slim:
-    data_type: node
-    node_type: BodyPart
-    source_filename: hetio_slim.tsv
-    merge: false
-    skip: false
-    parse_config:
-      headers: true
-      iri_column_name: uberon_id
-      data_property_map:
-        uberon_id: xrefUberon
-        uberon_name: commonName
-        mesh_id: xrefMeSH
-        bto_id: xrefBTO
-        sourceDatabase: sourceDatabase
-
-  # ===========================================================================
-  # MeSH - Hetio Symptoms (505 symptoms)
-  # ===========================================================================
-  mesh.hetio_symptoms:
-    data_type: node
-    node_type: Symptom
-    source_filename: hetio_symptoms.tsv
-    merge: false
-    skip: false
-    parse_config:
-      headers: true
-      iri_column_name: mesh_id
-      data_property_map:
-        mesh_id: xrefMeSH
-        mesh_name: commonName
-        in_hsdn: inHSDN
-        sourceDatabase: sourceDatabase
-
-  # ===========================================================================
-  # Gene Ontology - Aggregated GO Annotations
-  # ===========================================================================
-  gene_ontology.go_annotations:
+  # ---------------------------------------------------------------------------
+  # PharmacotherapyDB - Drug Indications
+  # No parser implemented yet — placeholder for future integration
+  # ---------------------------------------------------------------------------
+  pharmacotherapydb.compound_treats_disease:
     data_type: relationship
-    relationship_type: geneParticipatesInGOTerm
+    relationship_type: drugTreatsDisease
+    source_filename: compound_treats_disease.tsv
+    merge: false
+    skip: true
+    parse_config:
+      headers: true
+      subject_node_type: Drug
+      subject_column_name: drugbank_id
+      subject_match_property: xrefDrugbank
+      object_node_type: Disease
+      object_column_name: doid_id
+      object_match_property: xrefDiseaseOntology
+
+  pharmacotherapydb.compound_palliates_disease:
+    data_type: relationship
+    relationship_type: chemicalAssociatesWithDisease
+    source_filename: compound_palliates_disease.tsv
+    merge: false
+    skip: true
+    parse_config:
+      headers: true
+      subject_node_type: Drug
+      subject_column_name: drugbank_id
+      subject_match_property: xrefDrugbank
+      object_node_type: Disease
+      object_column_name: doid_id
+      object_match_property: xrefDiseaseOntology
+
+  # ---------------------------------------------------------------------------
+  # Gene Ontology - Aggregated GO Annotations
+  # ---------------------------------------------------------------------------
+  gene_ontology.go_biological_process:
+    data_type: relationship
+    relationship_type: geneParticipatesInBiologicalProcess
     source_filename: go_annotations.tsv
     merge: false
     skip: true  # Requires special aggregated parsing not yet implemented
@@ -559,6 +592,38 @@ mappings:
       subject_column_name: gene_ids
       subject_match_property: xrefNcbiGene
       object_node_type: BiologicalProcess
+      object_column_name: go_id
+      object_match_property: xrefGeneOntology
+      aggregated_format: true
+
+  gene_ontology.go_molecular_function:
+    data_type: relationship
+    relationship_type: geneHasMolecularFunction
+    source_filename: go_annotations.tsv
+    merge: false
+    skip: true  # Requires special aggregated parsing not yet implemented
+    parse_config:
+      headers: true
+      subject_node_type: Gene
+      subject_column_name: gene_ids
+      subject_match_property: xrefNcbiGene
+      object_node_type: MolecularFunction
+      object_column_name: go_id
+      object_match_property: xrefGeneOntology
+      aggregated_format: true
+
+  gene_ontology.go_cellular_component:
+    data_type: relationship
+    relationship_type: geneAssociatedWithCellularComponent
+    source_filename: go_annotations.tsv
+    merge: false
+    skip: true  # Requires special aggregated parsing not yet implemented
+    parse_config:
+      headers: true
+      subject_node_type: Gene
+      subject_column_name: gene_ids
+      subject_match_property: xrefNcbiGene
+      object_node_type: CellularComponent
       object_column_name: go_id
       object_match_property: xrefGeneOntology
       aggregated_format: true
