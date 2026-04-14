@@ -7,6 +7,7 @@ and writes per-type CSV files suitable for Memgraph's LOAD CSV.
 Output files:
     nodes_{NodeType}.csv   — One file per node type with id, properties, :LABEL
     edges_{RelType}.csv    — One file per relationship type with :START_ID, :END_ID, :TYPE
+    import.cypher          — Cypher LOAD CSV script for importing all CSVs into Memgraph
 """
 
 import csv
@@ -18,6 +19,8 @@ from typing import Dict, List, Optional
 from rdflib import Graph, Namespace, RDF, RDFS, OWL
 
 logger = logging.getLogger(__name__)
+
+_MEMGRAPH_IMPORT_PREFIX = "/import-data"
 
 
 class MemgraphExporter:
@@ -45,14 +48,21 @@ class MemgraphExporter:
 
     def export(self) -> dict:
         """
-        Export nodes and edges to typed CSV files.
+        Export nodes and edges to typed CSV files, then write an import.cypher script.
 
         Returns:
-            {"nodes_count": int, "edges_count": int, "output_files": [str]}
+            {
+                "nodes_count": int,
+                "edges_count": int,
+                "output_files": [str],
+                "cypher_script": str,  # path to import.cypher
+            }
         """
         output_files = []
         total_nodes = 0
         total_edges = 0
+        node_columns: dict[str, list[str]] = {}
+        rel_types: list[str] = []
 
         # Detect the ontology namespace from the RDF
         ontology_ns = self._detect_namespace()
@@ -62,7 +72,7 @@ class MemgraphExporter:
         for node_type, nodes in nodes_by_type.items():
             filename = f"nodes_{node_type}.csv"
             filepath = self.output_dir / filename
-            self._write_node_csv(filepath, nodes, node_type)
+            node_columns[node_type] = self._write_node_csv(filepath, nodes, node_type)
             total_nodes += len(nodes)
             output_files.append(str(filepath))
             logger.info(f"  Exported {len(nodes)} {node_type} nodes -> {filename}")
@@ -75,7 +85,13 @@ class MemgraphExporter:
             self._write_edge_csv(filepath, edges, rel_type)
             total_edges += len(edges)
             output_files.append(str(filepath))
+            rel_types.append(rel_type)
             logger.info(f"  Exported {len(edges)} {rel_type} edges -> {filename}")
+
+        # --- Write Cypher import script ---
+        cypher_path = self._write_cypher_script(node_columns, rel_types)
+        output_files.append(str(cypher_path))
+        logger.info(f"  Wrote Cypher import script -> {cypher_path.name}")
 
         logger.info(f"Total: {total_nodes} nodes, {total_edges} edges, "
                      f"{len(output_files)} files")
@@ -84,6 +100,7 @@ class MemgraphExporter:
             "nodes_count": total_nodes,
             "edges_count": total_edges,
             "output_files": output_files,
+            "cypher_script": str(cypher_path),
         }
 
     def _detect_namespace(self) -> Optional[Namespace]:
@@ -219,26 +236,35 @@ class MemgraphExporter:
 
         return dict(edges_by_type)
 
-    def _write_node_csv(self, filepath: Path, nodes: list, node_type: str):
-        """Write a node CSV file."""
+    def _write_node_csv(self, filepath: Path, nodes: list, node_type: str) -> list[str]:
+        """
+        Write a node CSV file.
+
+        Returns:
+            Property column names for this node type, excluding ``uri``.
+            Used by ``_write_cypher_script`` to build CREATE statements.
+        """
         if not nodes:
-            return
+            return []
 
         # Collect all property keys across all nodes of this type
         all_keys = set()
         for node in nodes:
             all_keys.update(node.keys())
 
-        # Order: id first, then sorted property names
+        # Order: id first, then sorted property names, uri last (archival only)
         all_keys.discard("id")
         all_keys.discard("uri")
         columns = ["id"] + sorted(all_keys) + ["uri"]
+        prop_columns = [c for c in columns if c != "uri"]
 
         with open(filepath, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=columns, extrasaction="ignore")
             writer.writeheader()
             for node in nodes:
                 writer.writerow(node)
+
+        return prop_columns
 
     def _write_edge_csv(self, filepath: Path, edges: list, rel_type: str):
         """Write an edge CSV file."""
@@ -252,3 +278,65 @@ class MemgraphExporter:
             writer.writeheader()
             for edge in edges:
                 writer.writerow(edge)
+
+    def _write_cypher_script(
+        self,
+        node_columns: dict[str, list[str]],
+        rel_types: list[str],
+    ) -> Path:
+        """
+        Write a Cypher LOAD CSV import script for all exported CSV files.
+
+        Node IDs in this ontology use type-specific prefixes (``gene_*``,
+        ``drug_*``, ``disease_*``, ``pathway_*``), so IDs are globally unique
+        across node types.  MATCH clauses are therefore label-agnostic —
+        correct without label hints, and simpler than inferring domain/range
+        per relationship.
+
+        Returns:
+            Path to the written ``import.cypher`` file.
+        """
+        filepath = self.output_dir / "import.cypher"
+        lines = [
+            "// Knowledge graph import script — generated by MemgraphExporter",
+            f"// docker run -v /abs/path/to/data/output:{_MEMGRAPH_IMPORT_PREFIX} memgraph/memgraph-platform",
+            "// Note: LOAD CSV parses all values as strings."
+            " Use ToInteger()/ToFloat() for numeric comparisons.",
+            "",
+        ]
+
+        # Indexes — both label and label-property index per node type
+        if node_columns:
+            lines.append("// Indexes")
+            for node_type in sorted(node_columns):
+                lines.append(f"CREATE INDEX ON :{node_type};")
+                lines.append(f"CREATE INDEX ON :{node_type}(id);")
+            lines.append("")
+
+        # Node LOAD CSV blocks
+        for node_type, columns in node_columns.items():
+            prop_map = ", ".join(f"{c}: row.{c}" for c in columns)
+            lines += [
+                f"// Nodes: {node_type}",
+                f'LOAD CSV FROM "{_MEMGRAPH_IMPORT_PREFIX}/nodes_{node_type}.csv"'
+                " WITH HEADER AS row",
+                f"CREATE (:{node_type} {{{prop_map}}});",
+                "",
+            ]
+
+        # Edge LOAD CSV blocks
+        for rel_type in rel_types:
+            lines += [
+                f"// Edges: {rel_type}",
+                f'LOAD CSV FROM "{_MEMGRAPH_IMPORT_PREFIX}/edges_{rel_type}.csv"'
+                " WITH HEADER AS row",
+                "MATCH (a {id: row.start_id})",
+                "MATCH (b {id: row.end_id})",
+                f"CREATE (a)-[:{rel_type}]->(b);",
+                "",
+            ]
+
+        with open(filepath, "w") as f:
+            f.write("\n".join(lines))
+
+        return filepath

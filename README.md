@@ -62,6 +62,7 @@ Output files appear in `data/output/`:
 - `alzkb_v2_populated.rdf` — populated OWL ontology
 - `nodes_{NodeType}.csv` — one CSV per node type (Gene, Drug, Disease, …)
 - `edges_{RelType}.csv` — one CSV per relationship type
+- `import.cypher` — Cypher LOAD CSV script; paste into Memgraph Lab to load the graph
 
 Logs are written to `kg_build.log`.
 
