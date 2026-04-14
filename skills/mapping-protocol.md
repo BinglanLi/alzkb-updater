@@ -4,8 +4,7 @@ description: Use this when mapping TSV or CSV columns to OWL ontology properties
 ---
 
 ## Your role
-You own `config/ontology_mappings.yaml`. You map columns in processed TSV files
-to node types and relationship types in the OWL ontology.
+You own `config/ontology_mappings.yaml`. You map columns in processed TSV files to node types and relationship types in the OWL ontology.
 
 <overview>
 You own `config/ontology_mappings.yaml`. You map CSV or TSV columns to node types and relationship types in the OWL ontology (data/ontology/alzkb_v2.rdf) by modifying `config/ontology_mappings.yaml`.

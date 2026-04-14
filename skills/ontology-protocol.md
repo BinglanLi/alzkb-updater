@@ -4,7 +4,7 @@ description: Use this when defining disease scope and maintaining the OWL ontolo
 ---
 
 <overview>
-You own `config/databases.yaml` and work with the reference OWL ontology file `data/ontology/alzkb_v2.rdf`.
+You own `config/project.yaml` and work with the reference OWL ontology file `data/ontology/alzkb_v2.rdf`.
 
 You are responsible for:
 - Defining the disease scope

@@ -41,18 +41,18 @@ Principle: provide constructive, detailed report about the inquired database in 
       ],
       "update_logs_available": "boolean"
     },
-    "biomedical_entity_types_covered": {
-      "entity_types": [
+    "node_types": {
+      "names": [
         "Gene"         # "protein", "disease", "drug", "drug class", "pathway", "biological process", "molecular function", "cellular component", "symptom", "body part", "tissue", "transcription factor", "variant/SNP", "phenotype", "metabolite", "cell type", "organism", "others"
       ],
       "primary_identifiers_and_nomenclature": [
         "Entrez Gene IDs"         #"HGNC symbols", "MeSH terms", "UMLS CUIs", "ChEBI IDs"
       ]
     },
-    "biomedical_relationship_types": {
-      "format": "EntityType–relationship–EntityType",
-      "examples": [
-        "Drug–treats–Disease"       #"Gene–interacts–Gene", "BodyPart–downregulates–Gene", "Drug–palliates–Disease", "Drug–resembles–Drug"
+    "relationship_types": {
+      "format": "nodeRelationshipNode",
+      "names": [
+        "drugTreatsDisease"       # "geneInPathway", "geneHasMolecularFunction"
       ],
       "origins": [
         "curated"                 #"text-mined", "computationally predicted", "experimentally validated"
