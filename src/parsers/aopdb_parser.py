@@ -174,7 +174,7 @@ class AOPDBParser(BaseParser):
             """,
             AOPDB_DRUGS: """
                 SELECT * FROM chemical_info
-                ORDER BY chemical_id
+                ORDER BY ChemicalName
             """,
         }
         
