@@ -111,6 +111,11 @@ class DrugBankParser(BaseParser):
         Returns:
             True if successful, False otherwise.
         """
+        output_path = Path(self.get_file_path(f"{DRUGBANK_DRUGS}.csv"))
+        if output_path.exists() and not self.force:
+            logger.info(f"File already exists: {output_path}")
+            return True
+
         logger.info("Downloading DrugBank data with HTTP Basic Authentication...")
 
         # Construct download URL
@@ -129,9 +134,6 @@ class DrugBankParser(BaseParser):
             response.raise_for_status()
 
             logger.info(f"✓ Download successful (Content-Type: {response.headers.get('content-type', 'unknown')})")
-
-            # Save to file
-            output_path = self.get_file_path(f"{DRUGBANK_DRUGS}.csv")
 
             # Check if response is a zip file
             content_type = response.headers.get('content-type', '')

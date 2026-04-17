@@ -8,9 +8,10 @@ Runs the full pipeline in four steps:
   4. Export graph — write Memgraph-compatible CSV files to data/output/
 
 Usage:
-    python src/main.py                       # full pipeline
-    python src/main.py --source disgenet     # one source only
-    python src/main.py --log-level DEBUG     # verbose logging
+    python src/main.py                            # full pipeline
+    python src/main.py --source disgenet          # one source only
+    python src/main.py --log-level DEBUG          # verbose logging
+    python src/main.py --force-download           # re-download all source files
 """
 
 import inspect
@@ -115,7 +116,7 @@ def load_config():
 # Pipeline steps
 # ---------------------------------------------------------------------------
 
-def extract(databases, project_config, raw_dir):
+def extract(databases, project_config, raw_dir, force_download=False):
     """Download and parse data from all enabled source databases."""
     parsed_data = {}
     disease_scope = project_config.get("disease_scope", {})
@@ -141,6 +142,7 @@ def extract(databases, project_config, raw_dir):
 
         try:
             parser = parser_cls(**args)
+            parser.force = force_download
             if not parser.download_data():
                 logger.warning(f"Download incomplete for {source_name}; trying existing files")
             data = parser.parse_data()
@@ -253,6 +255,11 @@ Examples:
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
         help="Logging verbosity (default: INFO)",
     )
+    parser.add_argument(
+        "--force-download",
+        action="store_true",
+        help="Re-download source files even if they already exist.",
+    )
     args = parser.parse_args()
 
     setup_logging(args.log_level)
@@ -271,13 +278,13 @@ Examples:
         source_config = databases.get(args.source, {})
         source_config["enabled"] = True
         databases = {args.source: source_config}
-        parsed_data = extract(databases, project_config, raw_dir)
+        parsed_data = extract(databases, project_config, raw_dir, force_download=args.force_download)
         export_tsv(parsed_data, processed_dir)
         logger.info(f"Single-source run for '{args.source}' complete.")
         return
 
     logger.info(f"Starting {project_config.get('display_name', 'KG')} pipeline")
-    parsed_data = extract(databases, project_config, raw_dir)
+    parsed_data = extract(databases, project_config, raw_dir, force_download=args.force_download)
     export_tsv(parsed_data, processed_dir)
     populate(project_config, ontology_mappings, processed_dir)
     export_graph(project_config, output_dir)

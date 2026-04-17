@@ -80,11 +80,15 @@ class DoRothEAParser(BaseParser):
         """
         logger.info("Downloading DoRothEA TF-gene regulatory network from OmniPath...")
 
+        dorothea_path = self.get_file_path(f"{DOROTHEA_TF_GENE_INTERACTIONS}.tsv")
+        if Path(dorothea_path).exists() and not self.force:
+            logger.info(f"File already exists: {dorothea_path}")
+            return True
+
         try:
             response = requests.get(self.OMNIPATH_DOROTHEA_URL, timeout=120)
             response.raise_for_status()
 
-            dorothea_path = self.get_file_path(f"{DOROTHEA_TF_GENE_INTERACTIONS}.tsv")
             with open(dorothea_path, 'w') as f:
                 f.write(response.text)
 

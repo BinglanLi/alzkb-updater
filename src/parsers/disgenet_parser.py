@@ -13,6 +13,7 @@ is read from config/project.yaml by the pipeline.
 
 import logging
 import os
+from pathlib import Path
 from typing import Dict, Optional, List, Tuple
 import pandas as pd
 import requests
@@ -126,6 +127,15 @@ class DisGeNETParser(BaseParser):
             True if successful, False otherwise.
         """
         logger.info(f"Downloading DisGeNET data via API (disease terms: {self.disease_terms})...")
+
+        output_files = [
+            self.get_file_path(f"api_{DISGENET_DISEASE_CLASSIFICATIONS}.tsv"),
+            self.get_file_path(f"api_{DISGENET_DISEASE_MAPPINGS}.tsv"),
+            self.get_file_path(f"api_{DISGENET_GENE_DISEASE_ASSOCIATIONS}.tsv"),
+        ]
+        if all(Path(f).exists() for f in output_files) and not self.force:
+            logger.info("All DisGeNET API files already present, skipping download")
+            return True
 
         try:
             # Step 1: Get disease IDs and metadata for configured terms

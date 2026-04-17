@@ -14,13 +14,11 @@ from typing import Dict, Optional, Any, List
 import pandas as pd
 from .base_parser import BaseParser
 
-AOPDB_AOPS = 'aops'
 AOPDB_PATHWAYS = 'pathways'
 AOPDB_GENE_PATHWAY_RELATIONSHIPS = 'gene_pathway_relationships'
 AOPDB_DRUGS = 'drugs'
 
 AOPDB_TABLE_MAPPING = {
-    AOPDB_AOPS: 'aop_info',
     AOPDB_PATHWAYS: 'pathway_gene',
     AOPDB_GENE_PATHWAY_RELATIONSHIPS: 'pathway_gene',
     AOPDB_DRUGS: 'chemical_info',
@@ -151,31 +149,34 @@ class AOPDBParser(BaseParser):
         available_tables = self._get_table_names()
         logger.info(f"Available tables: {available_tables}")
 
-        # Specify query languages
-        query = dict()
-        # General query
-        for result_key, table_name in AOPDB_TABLE_MAPPING.items():
-            query[result_key] = f"SELECT * FROM {table_name}"
-        # Specalized queries
-        query[AOPDB_PATHWAYS] = """
-            SELECT path_name, 
-                GROUP_CONCAT(DISTINCT path_id) as path_id, 
-                CONCAT('AOPDB - ', GROUP_CONCAT(DISTINCT ext_source)) as ext_source
-            FROM(
-                SELECT DISTINCT path_id, 
-                TRIM(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(path_name, '<sub>', ''), '</sub>', ''), '<i>', ''), '</i>', ''), ' - Homo sapiens (human)', '')) as path_name, 
-                ext_source 
+        # Queries for each output key
+        query = {
+            AOPDB_PATHWAYS: """
+                SELECT path_name,
+                    GROUP_CONCAT(DISTINCT path_id ORDER BY path_id) as path_id,
+                    CONCAT('AOPDB - ', GROUP_CONCAT(DISTINCT ext_source ORDER BY ext_source)) as ext_source
+                FROM(
+                    SELECT DISTINCT path_id,
+                    TRIM(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(path_name, '<sub>', ''), '</sub>', ''), '<i>', ''), '</i>', ''), ' - Homo sapiens (human)', '')) as path_name,
+                    ext_source
+                    FROM pathway_gene
+                    WHERE tax_id = 9606)data
+                GROUP BY path_name
+                ORDER BY path_name
+            """,
+            AOPDB_GENE_PATHWAY_RELATIONSHIPS: """
+                SELECT DISTINCT entrez,
+                    path_id,
+                    TRIM(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(path_name, '<sub>', ''), '</sub>', ''), '<i>', ''), '</i>', ''), ' - Homo sapiens (human)', '')) as path_name
                 FROM pathway_gene
-                WHERE tax_id = 9606)data
-            GROUP BY path_name;
-        """
-        query[AOPDB_GENE_PATHWAY_RELATIONSHIPS] = """
-            SELECT DISTINCT entrez,
-                path_id,
-                TRIM(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(path_name, '<sub>', ''), '</sub>', ''), '<i>', ''), '</i>', ''), ' - Homo sapiens (human)', '')) as path_name
-            FROM pathway_gene
-            WHERE tax_id = 9606;
-        """
+                WHERE tax_id = 9606
+                ORDER BY entrez, path_id
+            """,
+            AOPDB_DRUGS: """
+                SELECT * FROM chemical_info
+                ORDER BY chemical_id
+            """,
+        }
         
         # Query each table type
         for result_key, table_name in AOPDB_TABLE_MAPPING.items():
@@ -198,30 +199,24 @@ class AOPDBParser(BaseParser):
             Dictionary describing the schema for AOP entities.
         """
         return {
-            AOPDB_AOPS: {
-                'aop_id': 'AOP identifier',
-                'aop_name': 'AOP name',
-                'description': 'AOP description',
-                'source_database': 'Source database'
-            },
             AOPDB_PATHWAYS: {
                 'path_id': 'Pathway identifier',
                 'path_name': 'Pathway name',
                 'ext_source': 'External source',
-                'source_database': 'Source database'
+                'source_database': 'AOP-DB'
             },
             AOPDB_GENE_PATHWAY_RELATIONSHIPS: {
                 'entrez': 'Entrez identifier',
                 'path_id': 'Pathway identifier',
                 'path_name': 'Pathway name',
-                'source_database': 'Source database'
+                'source_database': 'AOP-DB'
             },
             AOPDB_DRUGS: {
                 'chemical_id': 'Chemical identifier',
                 'chemical_name': 'Chemical name',
                 'chemical_type': 'Chemical type',
                 'chemical_description': 'Chemical description',
-                'source_database': 'Source database'
+                'source_database': 'AOP-DB'
             }
         }
     

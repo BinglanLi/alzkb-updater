@@ -45,7 +45,9 @@ class BaseParser(ABC):
         
         # Create directories if they don't exist
         self.source_dir.mkdir(parents=True, exist_ok=True)
-        
+
+        self.force = False
+
         logger.info(f"Initialized {self.__class__.__name__}")
         logger.info(f"Data directory: {self.source_dir}")
     
@@ -79,21 +81,20 @@ class BaseParser(ABC):
         """
         pass
     
-    def download_file(self, url: str, filename: str, force: bool = False) -> Optional[str]:
+    def download_file(self, url: str, filename: str) -> Optional[str]:
         """
         Download a file from a URL.
-        
+
         Args:
             url: URL to download from
             filename: Name to save the file as
-            force: If True, re-download even if file exists
-        
+
         Returns:
             Path to downloaded file, or None if failed
         """
         filepath = self.source_dir / filename
-        
-        if filepath.exists() and not force:
+
+        if filepath.exists() and not self.force:
             logger.info(f"File already exists: {filepath}")
             return str(filepath)
         
@@ -113,36 +114,35 @@ class BaseParser(ABC):
             logger.error(f"Failed to download {url}: {e}")
             return None
     
-    def extract_gzip(self, gz_path: str, force: bool = False) -> Optional[str]:
+    def extract_gzip(self, gz_path: str) -> Optional[str]:
         """
         Extract a gzipped file.
-        
+
         Args:
             gz_path: Path to the .gz file
-            force: If True, re-extract even if file exists
-        
+
         Returns:
             Path to extracted file, or None if failed
         """
         if not gz_path.endswith('.gz'):
             logger.warning(f"File does not appear to be gzipped: {gz_path}")
             return gz_path
-        
+
         output_path = Path(gz_path).with_suffix('')  # Remove .gz extension
-        
-        if Path(output_path).exists() and not force:
+
+        if output_path.exists() and not self.force:
             logger.info(f"Extracted file already exists: {output_path}")
-            return output_path
-        
+            return str(output_path)
+
         try:
             logger.info(f"Extracting {gz_path}")
             with gzip.open(gz_path, 'rb') as f_in:
                 with open(output_path, 'wb') as f_out:
                     shutil.copyfileobj(f_in, f_out)
-            
+
             logger.info(f"✓ Extracted to: {output_path}")
-            return output_path
-            
+            return str(output_path)
+
         except Exception as e:
             logger.error(f"Failed to extract {gz_path}: {e}")
             return None

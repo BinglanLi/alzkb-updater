@@ -6,8 +6,6 @@ This module parses DrugCentral data to extract:
 - Pharmacologic Class nodes (PC)
 - Pharmacologic Class includes Compound edges (PCiC)
 
-Data Source: https://unmtid-dbs.net/download/drugcentral.dump.sql.gz
-
 Output:
   - drug_treats_disease.tsv: drugTreatsDisease (CtD) relationships
   - drug_palliates_disease.tsv: drugPalliatesDisease (CpD) relationships
@@ -36,7 +34,7 @@ class DrugCentralParser(BaseParser):
     """
 
     # DrugCentral SQL dump URL
-    DRUGCENTRAL_URL = "https://unmtid-dbs.net/download/drugcentral.dump.01012025.sql.gz"
+    DRUGCENTRAL_URL = "https://unmtid-dbs.net/download/drugcentral.dump.11012023.sql.gz"
 
     # Valid pharmacologic class types for hetionet
     VALID_CLASS_TYPES = {

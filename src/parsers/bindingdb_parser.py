@@ -49,17 +49,21 @@ class BindingDBParser(BaseParser):
         Returns:
             True if successful, False otherwise
         """
+        existing_tsv = list(self.source_dir.glob("BindingDB_All*.tsv"))
+        if existing_tsv and not self.force:
+            logger.info(f"Already extracted: {existing_tsv[0]}")
+            return True
+
         logger.info("Downloading BindingDB...")
 
         result = self.download_file(self.BINDINGDB_URL, "BindingDB_All.tsv.zip")
 
         if result:
-            # Extract the zip file
-            zip_path = self.source_dir / "BindingDB_All.tsv.zip"
+            zip_path = Path(result)
             try:
                 with zipfile.ZipFile(zip_path, 'r') as zf:
                     zf.extractall(self.source_dir)
-                logger.info(f"Successfully extracted BindingDB")
+                logger.info("Successfully extracted BindingDB")
                 return True
             except Exception as e:
                 logger.error(f"Failed to extract BindingDB: {e}")
