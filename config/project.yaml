@@ -17,17 +17,17 @@ project:
       - "DOID:10652"  # Alzheimer's disease
     mesh_ids:
       - "D000544"     # Alzheimer Disease
-    drug_names:
-      - "donepezil"
-      - "rivastigmine"
-      - "galantamine"
-      - "memantine"
-      - "aducanumab"
-      - "lecanemab"
-      - "tacrine"
-      - "solanezumab"
-      - "gantenerumab"
-      - "donanemab"
+    # drug_names:
+    #   - "donepezil"
+    #   - "rivastigmine"
+    #   - "galantamine"
+    #   - "memantine"
+    #   - "aducanumab"
+    #   - "lecanemab"
+    #   - "tacrine"
+    #   - "solanezumab"
+    #   - "gantenerumab"
+    #   - "donanemab"
 
   ontology:
     base_file: "data/ontology/alzkb_v2.rdf"
