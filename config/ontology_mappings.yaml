@@ -209,12 +209,12 @@ mappings:
         sourceDatabase: sourceDatabase
 
   # ---------------------------------------------------------------------------
-  # MeSH - Hetio Symptoms (505 symptoms)
+  # MeSH - Signs and Symptoms (C23.888 subtree)
   # ---------------------------------------------------------------------------
-  mesh.hetio_symptoms:
+  mesh.symptom_nodes:
     data_type: node
     node_type: Symptom
-    source_filename: hetio_symptoms.tsv
+    source_filename: symptom_nodes.tsv
     merge: false
     skip: false
     parse_config:
@@ -223,7 +223,6 @@ mappings:
       data_property_map:
         mesh_id: xrefMeSH
         mesh_name: commonName
-        in_hsdn: inHSDN
         sourceDatabase: sourceDatabase
 
   # ---------------------------------------------------------------------------

@@ -61,7 +61,7 @@ databases:
   mesh:
     enabled: false
     args: {}
-    notes: "MeSH symptom descriptors. Provides Symptom nodes."
+    notes: "MeSH Signs and Symptoms descriptors (C23.888 subtree). Provides Symptom nodes. Update MESH_YEAR in src/parsers/mesh_parser.py each January."
 
   gwas:
     enabled: false
