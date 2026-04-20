@@ -1,0 +1,62 @@
+{
+  "name": "DrugCentral",
+  "description": "A drug information resource providing drug-disease treatment relationships (indications, off-label uses) and pharmacologic class annotations. Maintained by the University of New Mexico.",
+  "access_mode": "PostgreSQL database loaded from a gzipped SQL dump",
+  "instructions": {
+    "download": "https://unmtid-dbs.net/download/drugcentral.dump.11012023.sql.gz",
+    "after_download": [
+      "createdb -O <owner> drugcentral",
+      "gunzip -c drugcentral.sql.gz | psql drugcentral"
+    ],
+    "python_access": "Connect via psycopg2. The parser defaults to host=localhost, port=5432, dbname=drugcentral. Override by adding a pg_config block in config/databases.yaml under drugcentral.args. Do NOT use user_env/password_env keys unless the env vars are actually set — unset _env keys resolve to None and break the psycopg2 connection.",
+    "inspect": [
+      "psql drugcentral -c \"\\dt\"",
+      "psql drugcentral -c \"\\d omop_relationship\"",
+      "psql drugcentral -c \"\\d pharma_class\"",
+      "psql drugcentral -c \"\\d identifier\"",
+      "psql drugcentral -c \"SELECT relationship_name, count(*) FROM omop_relationship GROUP BY 1;\"",
+      "psql drugcentral -c \"SELECT type, count(*) FROM pharma_class GROUP BY 1;\""
+    ],
+    "gotchas": [
+      "The _resolve_env_vars function in main.py converts user_env/password_env to user: None / password: None when env vars are unset. psycopg2 treats None as empty string, which breaks authentication. Only add _env keys to databases.yaml if the env vars are guaranteed to be set.",
+      "The parser sets search_path=public via the psycopg2 options parameter. If tables are not found, verify the search_path is correct."
+    ]
+  },
+  "schema": {
+    "omop_relationship": {
+      "description": "Drug-disease links. Use relationship_name IN ('indication', 'off-label use')",
+      "columns": {
+        "id": "integer, primary key",
+        "struct_id": "integer, FK to structures.id",
+        "concept_id": "integer, OMOP concept ID for disease",
+        "relationship_name": "varchar(256), e.g. 'indication', 'off-label use'",
+        "concept_name": "varchar(256), disease name",
+        "umls_cui": "char(8), UMLS CUI",
+        "snomed_full_name": "varchar(500), SNOMED-CT term",
+        "cui_semantic_type": "char(4)",
+        "snomed_conceptid": "bigint"
+      }
+    },
+    "pharma_class": {
+      "description": "Pharmacologic class definitions AND struct-to-class mapping in one table. No separate junction table exists.",
+      "columns": {
+        "id": "integer, primary key",
+        "struct_id": "integer, FK to structures.id",
+        "type": "varchar(20), class type (e.g. 'Mechanism of Action', 'Physiologic Effect', 'Chemical/Ingredient', 'Chemical Structure')",
+        "name": "varchar(1000), class name",
+        "class_code": "varchar(20), class identifier (e.g. NDFRT code)",
+        "source": "varchar(100), e.g. 'FDA'"
+      }
+    },
+    "identifier": {
+      "description": "Maps struct_id to external database IDs. Use id_type = 'DRUGBANK_ID' to get DrugBank IDs.",
+      "columns": {
+        "id": "integer, primary key",
+        "identifier": "varchar(50), the external ID value",
+        "id_type": "varchar(50), e.g. 'DRUGBANK_ID'",
+        "struct_id": "integer, FK to structures.id",
+        "parent_match": "boolean"
+      }
+    }
+  }
+}
