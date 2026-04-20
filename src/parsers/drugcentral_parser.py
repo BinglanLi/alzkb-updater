@@ -9,13 +9,15 @@ This module parses DrugCentral data to extract:
 Output:
   - drug_treats_disease.tsv: drugTreatsDisease (CtD) relationships
   - drug_palliates_disease.tsv: drugPalliatesDisease (CpD) relationships
-  - pharmacologic_classes.tsv: Pharmacologic Class nodes (478)
-  - pharmacologic_class_includes_compound.tsv: PCiC edges (1,948)
+  - pharmacologic_classes.tsv: Pharmacologic Class nodes
+  - pharmacologic_class_includes_compound.tsv: PCiC edges
+
+Requires a local PostgreSQL instance with the DrugCentral dump loaded:
+  createdb drugcentral
+  gunzip -c drugcentral.sql.gz | psql drugcentral
 """
 
 import logging
-import gzip
-import re
 from pathlib import Path
 from typing import Dict, List, Optional
 import pandas as pd
@@ -26,17 +28,10 @@ logger = logging.getLogger(__name__)
 
 
 class DrugCentralParser(BaseParser):
-    """
-    Parser for DrugCentral database.
+    """Parser for DrugCentral PostgreSQL database."""
 
-    Extracts drug-disease treatment relationships and pharmacologic class
-    information from DrugCentral for use in the knowledge graph.
-    """
-
-    # DrugCentral SQL dump URL
     DRUGCENTRAL_URL = "https://unmtid-dbs.net/download/drugcentral.dump.11012023.sql.gz"
 
-    # Valid pharmacologic class types for hetionet
     VALID_CLASS_TYPES = {
         'Physiologic Effect',
         'Mechanism of Action',
@@ -44,345 +39,162 @@ class DrugCentralParser(BaseParser):
         'Chemical Structure'
     }
 
-    def __init__(self, data_dir: str):
+    def __init__(self, data_dir: str = None,
+                 pg_config: Optional[Dict[str, str]] = None):
         """
-        Initialize the DrugCentral parser.
-
         Args:
-            data_dir: Directory to store downloaded and processed data
+            data_dir: Directory for cached data
+            pg_config: PostgreSQL connection config with keys:
+                       'host', 'port', 'dbname', 'user', 'password'
         """
         super().__init__(data_dir)
         self.source_name = "drugcentral"
+        self.pg_config = pg_config or {}
+        self._pg_available = False
+
+        try:
+            import psycopg2
+            self._pg_available = True
+            logger.info("psycopg2 is available")
+        except ImportError:
+            logger.warning("psycopg2 not available. Install with: pip install psycopg2-binary")
+
+    def _connect(self):
+        import psycopg2
+        defaults = {"host": "localhost", "port": 5432, "dbname": "drugcentral",
+                    "options": "-c search_path=public"}
+        config = {**defaults, **self.pg_config}
+        return psycopg2.connect(**config)
+
+    def _query(self, conn, query: str, params=None) -> pd.DataFrame:
+        try:
+            with conn.cursor() as cur:
+                cur.execute(query, params)
+                cols = [desc[0] for desc in cur.description]
+                return pd.DataFrame(cur.fetchall(), columns=cols)
+        except Exception:
+            conn.rollback()
+            raise
 
     def download_data(self) -> bool:
-        """
-        Download the DrugCentral SQL dump.
-
-        Returns:
-            True if successful, False otherwise
-        """
         logger.info("Downloading DrugCentral...")
-
         result = self.download_file(self.DRUGCENTRAL_URL, "drugcentral.sql.gz")
-
         if result:
             logger.info(f"Successfully downloaded DrugCentral to {result}")
+            logger.info("Load into PostgreSQL with: gunzip -c drugcentral.sql.gz | psql drugcentral")
             return True
-        else:
-            logger.error("Failed to download DrugCentral")
-            return False
+        logger.error("Failed to download DrugCentral")
+        return False
 
     def parse_data(self) -> Dict[str, pd.DataFrame]:
-        """
-        Parse DrugCentral SQL dump.
-
-        Returns:
-            Dictionary with drug-disease relationships and pharmacologic classes
-        """
-        sql_path = self.source_dir / "drugcentral.sql.gz"
-
-        if not sql_path.exists():
-            logger.error(f"DrugCentral file not found: {sql_path}")
+        if not self._pg_available:
+            logger.error("psycopg2 is required. Install with: pip install psycopg2-binary")
             return {}
-
-        logger.info(f"Parsing DrugCentral from {sql_path}")
 
         result = {}
 
         try:
-            # Parse the SQL dump to extract relevant tables
-            omop_relationships = self._parse_omop_relationships(sql_path)
+            with self._connect() as conn:
+                omop_df = self._query_omop_relationships(conn)
+                if omop_df is not None and len(omop_df) > 0:
+                    treats = omop_df[omop_df['relationship_name'] == 'indication']
+                    palliates = omop_df[omop_df['relationship_name'] == 'off-label use']
 
-            if omop_relationships:
-                # Separate by relationship type
-                treats = [r for r in omop_relationships if r.get('relationship_name') == 'indication']
-                palliates = [r for r in omop_relationships if r.get('relationship_name') == 'off-label use']
+                    logger.info(f"Found {len(treats)} treatment relationships")
+                    logger.info(f"Found {len(palliates)} palliation relationships")
 
-                logger.info(f"Found {len(treats)} treatment relationships")
-                logger.info(f"Found {len(palliates)} palliation relationships")
+                    if len(treats) > 0:
+                        result["drug_treats_disease"] = treats.reset_index(drop=True)
+                    if len(palliates) > 0:
+                        result["drug_palliates_disease"] = palliates.reset_index(drop=True)
+                else:
+                    logger.warning("No drug-disease relationships found")
 
-                if treats:
-                    result["drug_treats_disease"] = pd.DataFrame(treats)
+                classes_df = self._query_pharmacologic_classes(conn)
+                if classes_df is not None and len(classes_df) > 0:
+                    result["pharmacologic_classes"] = classes_df
+                    logger.info(f"Found {len(classes_df)} pharmacologic classes")
+                else:
+                    logger.warning("No pharmacologic classes found")
 
-                if palliates:
-                    result["drug_palliates_disease"] = pd.DataFrame(palliates)
-            else:
-                logger.warning("No drug-disease relationships found")
-
-            # Parse pharmacologic classes
-            pharma_classes, drug_to_class = self._parse_pharmacologic_classes(sql_path)
-
-            if pharma_classes is not None and len(pharma_classes) > 0:
-                result["pharmacologic_classes"] = pharma_classes
-                logger.info(f"Found {len(pharma_classes)} pharmacologic classes")
-
-            if drug_to_class is not None and len(drug_to_class) > 0:
-                result["pharmacologic_class_includes_compound"] = drug_to_class
-                logger.info(f"Found {len(drug_to_class)} drug-class relationships")
-
-            return result
+                if classes_df is not None:
+                    valid_class_codes = set(classes_df['class_code'].values)
+                    edges_df = self._query_drug_class_edges(conn, valid_class_codes)
+                    if edges_df is not None and len(edges_df) > 0:
+                        result["pharmacologic_class_includes_compound"] = edges_df
+                        logger.info(f"Found {len(edges_df)} drug-class relationships")
 
         except Exception as e:
-            logger.error(f"Error parsing DrugCentral: {e}")
+            logger.error(f"Error connecting to DrugCentral database: {e}")
+            logger.error("Ensure PostgreSQL is running and the dump is loaded: "
+                         "gunzip -c drugcentral.sql.gz | psql drugcentral")
             return {}
 
-    def _parse_omop_relationships(self, sql_path: Path) -> List[Dict]:
+        return result
+
+    def _query_omop_relationships(self, conn) -> Optional[pd.DataFrame]:
+        query = """
+            SELECT struct_id, concept_id, relationship_name, concept_name,
+                   umls_cui, snomed_full_name
+            FROM omop_relationship
+            WHERE relationship_name IN ('indication', 'off-label use')
         """
-        Parse OMOP relationship table from SQL dump.
-
-        Args:
-            sql_path: Path to SQL dump file
-
-        Returns:
-            List of drug-disease relationship dictionaries
-        """
-        relationships = []
-        in_table = False
-        table_name = None
-
-        # Regex to match INSERT statements
-        insert_pattern = re.compile(r"INSERT INTO (\w+) VALUES")
-        values_pattern = re.compile(r"\(([^)]+)\)")
-
         try:
-            with gzip.open(sql_path, 'rt', encoding='utf-8', errors='ignore') as f:
-                for line in f:
-                    # Check for relevant table inserts
-                    if 'omop_relationship' in line.lower():
-                        in_table = True
-
-                    if in_table and line.strip().startswith('('):
-                        # Parse VALUES
-                        matches = values_pattern.findall(line)
-                        for match in matches:
-                            parts = self._parse_sql_values(match)
-                            if len(parts) >= 5:
-                                rel = {
-                                    "struct_id": parts[0],
-                                    "concept_id": parts[1],
-                                    "relationship_name": parts[2],
-                                    "concept_name": parts[3],
-                                    "umls_cui": parts[4] if len(parts) > 4 else "",
-                                    "snomed_full_name": parts[5] if len(parts) > 5 else "",
-                                    "source": "DrugCentral"
-                                }
-                                relationships.append(rel)
-
-                    # Check for end of table
-                    if in_table and line.strip() == ');':
-                        in_table = False
-
+            df = self._query(conn, query)
+            df['source'] = 'DrugCentral'
+            return df
         except Exception as e:
-            logger.error(f"Error reading SQL dump: {e}")
-
-        return relationships
-
-    def _parse_sql_values(self, values_str: str) -> List[str]:
-        """
-        Parse SQL VALUES string into list of values.
-
-        Args:
-            values_str: Comma-separated values string
-
-        Returns:
-            List of parsed values
-        """
-        values = []
-        current = ""
-        in_quote = False
-
-        for char in values_str:
-            if char == "'" and not in_quote:
-                in_quote = True
-            elif char == "'" and in_quote:
-                in_quote = False
-            elif char == ',' and not in_quote:
-                values.append(current.strip().strip("'"))
-                current = ""
-            else:
-                current += char
-
-        if current:
-            values.append(current.strip().strip("'"))
-
-        return values
-
-    def _parse_pharmacologic_classes(self, sql_path: Path) -> tuple:
-        """
-        Parse pharmacologic class tables from SQL dump.
-
-        Extracts:
-        - pharma_class table: class definitions
-        - struct2atc table: drug-class mappings via ATC codes
-        - identifier table: DrugBank ID mappings
-
-        Args:
-            sql_path: Path to SQL dump file
-
-        Returns:
-            Tuple of (pharmacologic_classes DataFrame, drug_to_class DataFrame)
-        """
-        logger.info("Parsing pharmacologic classes from DrugCentral SQL dump")
-
-        pharma_classes = []
-        struct2atc = []
-        identifiers = {}  # struct_id -> drugbank_id mapping
-
-        # Track which table we're parsing
-        current_table = None
-
-        try:
-            with gzip.open(sql_path, 'rt', encoding='utf-8', errors='ignore') as f:
-                for line in f:
-                    line_lower = line.lower()
-
-                    # Detect table context from COPY statements (PostgreSQL)
-                    if line_lower.startswith('copy '):
-                        if 'pharma_class' in line_lower and 'struct_id' not in line_lower:
-                            current_table = 'pharma_class'
-                        elif 'struct2atc' in line_lower:
-                            current_table = 'struct2atc'
-                        elif 'identifier' in line_lower:
-                            current_table = 'identifier'
-                        else:
-                            current_table = None
-                        continue
-
-                    # End of COPY data
-                    if line.strip() == '\\.' or line.startswith('--'):
-                        current_table = None
-                        continue
-
-                    # Parse data rows
-                    if current_table and line.strip() and not line.startswith('--'):
-                        parts = line.strip().split('\t')
-
-                        if current_table == 'pharma_class' and len(parts) >= 4:
-                            # pharma_class: class_id, class_name, class_source, class_type
-                            class_type = parts[3] if len(parts) > 3 else ''
-                            if class_type in self.VALID_CLASS_TYPES:
-                                pharma_classes.append({
-                                    'class_id': parts[0],
-                                    'class_name': parts[1],
-                                    'class_source': parts[2],
-                                    'class_type': class_type,
-                                    'source': f'{parts[2]} via DrugCentral',
-                                    'license': 'CC BY 4.0',
-                                    'sourceDatabase': 'DrugCentral'
-                                })
-
-                        elif current_table == 'identifier' and len(parts) >= 4:
-                            # identifier: id, identifier, id_type, struct_id
-                            if parts[2] == 'DRUGBANK_ID':
-                                struct_id = parts[3]
-                                drugbank_id = parts[1]
-                                identifiers[struct_id] = drugbank_id
-
-                        elif current_table == 'struct2atc' and len(parts) >= 2:
-                            # struct2atc: struct_id, atc_code
-                            struct2atc.append({
-                                'struct_id': parts[0],
-                                'atc_code': parts[1]
-                            })
-
-        except Exception as e:
-            logger.error(f"Error parsing pharmacologic classes: {e}")
-            return None, None
-
-        # Create pharmacologic classes DataFrame
-        if pharma_classes:
-            classes_df = pd.DataFrame(pharma_classes)
-            classes_df = classes_df.drop_duplicates(subset=['class_id'])
-
-            # Add URL based on NDFRT ontology
-            classes_df['url'] = classes_df['class_id'].apply(
-                lambda x: f'http://purl.bioontology.org/ontology/NDFRT/{x}'
-            )
-
-            logger.info(f"Parsed {len(classes_df)} pharmacologic classes")
-        else:
-            classes_df = None
-            logger.warning("No pharmacologic classes found")
-
-        # Create drug-to-class relationships
-        # Note: The original hetionet uses a more complex mapping through ATC codes
-        # For simplicity, we'll try to map directly using struct_id to DrugBank ID
-        if pharma_classes and identifiers:
-            # Parse struct2pharma_class table for direct mappings
-            drug_class_edges = self._parse_struct_pharma_class(sql_path, identifiers, classes_df)
-            if drug_class_edges is not None and len(drug_class_edges) > 0:
-                logger.info(f"Parsed {len(drug_class_edges)} drug-class relationships")
-                return classes_df, drug_class_edges
-
-        return classes_df, None
-
-    def _parse_struct_pharma_class(self, sql_path: Path, identifiers: Dict, classes_df: pd.DataFrame) -> Optional[pd.DataFrame]:
-        """
-        Parse struct2pharma_class table for drug-class relationships.
-
-        Args:
-            sql_path: Path to SQL dump file
-            identifiers: Dict mapping struct_id to drugbank_id
-            classes_df: DataFrame of valid pharmacologic classes
-
-        Returns:
-            DataFrame with drug-class relationships
-        """
-        drug_class_edges = []
-        current_table = None
-        valid_class_ids = set(classes_df['class_id'].values) if classes_df is not None else set()
-
-        try:
-            with gzip.open(sql_path, 'rt', encoding='utf-8', errors='ignore') as f:
-                for line in f:
-                    line_lower = line.lower()
-
-                    # Detect struct2pharma_class table
-                    if line_lower.startswith('copy ') and 'struct2pharma_class' in line_lower:
-                        current_table = 'struct2pharma_class'
-                        continue
-
-                    if line.strip() == '\\.' or line.startswith('--'):
-                        if current_table == 'struct2pharma_class':
-                            break  # Found what we need
-                        current_table = None
-                        continue
-
-                    if current_table == 'struct2pharma_class' and line.strip():
-                        parts = line.strip().split('\t')
-                        if len(parts) >= 2:
-                            struct_id = parts[0]
-                            class_id = parts[1]
-
-                            # Only include if we have a DrugBank ID and valid class
-                            if struct_id in identifiers and class_id in valid_class_ids:
-                                drug_class_edges.append({
-                                    'drugbank_id': identifiers[struct_id],
-                                    'class_id': class_id,
-                                    'source': 'DrugCentral',
-                                    'license': 'CC BY 4.0',
-                                    'unbiased': False,
-                                    'sourceDatabase': 'DrugCentral'
-                                })
-
-        except Exception as e:
-            logger.error(f"Error parsing struct2pharma_class: {e}")
+            logger.error(f"Error querying omop_relationship: {e}")
             return None
 
-        if drug_class_edges:
-            edges_df = pd.DataFrame(drug_class_edges)
-            edges_df = edges_df.drop_duplicates(subset=['drugbank_id', 'class_id'])
-            return edges_df
+    def _query_pharmacologic_classes(self, conn) -> Optional[pd.DataFrame]:
+        placeholders = ','.join(['%s'] * len(self.VALID_CLASS_TYPES))
+        query = f"""
+            SELECT DISTINCT class_code, name, type, source
+            FROM pharma_class
+            WHERE type IN ({placeholders})
+              AND class_code IS NOT NULL
+        """
+        try:
+            df = self._query(conn, query, list(self.VALID_CLASS_TYPES))
+            df = df.rename(columns={'name': 'class_name', 'type': 'class_type',
+                                    'source': 'class_source'})
+            df = df.drop_duplicates(subset=['class_code'])
+            df['url'] = df['class_code'].apply(
+                lambda x: f'http://purl.bioontology.org/ontology/NDFRT/{x}'
+            )
+            df['license'] = 'CC BY 4.0'
+            df['sourceDatabase'] = 'DrugCentral'
+            df['source'] = df['class_source'].apply(lambda x: f'{x} via DrugCentral')
+            return df
+        except Exception as e:
+            logger.error(f"Error querying pharma_class: {e}")
+            return None
 
-        return None
+    def _query_drug_class_edges(self, conn, valid_class_codes: set) -> Optional[pd.DataFrame]:
+        placeholders = ','.join(['%s'] * len(self.VALID_CLASS_TYPES))
+        query = f"""
+            SELECT i.identifier AS drugbank_id, pc.class_code
+            FROM pharma_class pc
+            JOIN identifier i ON pc.struct_id = i.struct_id
+            WHERE i.id_type = 'DRUGBANK_ID'
+              AND pc.type IN ({placeholders})
+              AND pc.class_code IS NOT NULL
+        """
+        try:
+            df = self._query(conn, query, list(self.VALID_CLASS_TYPES))
+            df = df[df['class_code'].isin(valid_class_codes)]
+            df = df.drop_duplicates(subset=['drugbank_id', 'class_code'])
+            df['source'] = 'DrugCentral'
+            df['license'] = 'CC BY 4.0'
+            df['unbiased'] = False
+            df['sourceDatabase'] = 'DrugCentral'
+            return df
+        except Exception as e:
+            logger.error(f"Error querying drug-class edges: {e}")
+            return None
 
     def get_schema(self) -> Dict[str, Dict[str, str]]:
-        """
-        Get the schema for DrugCentral data.
-
-        Returns:
-            Dictionary defining the schema for drug-disease relationships and pharmacologic classes
-        """
         return {
             "drug_treats_disease": {
                 "struct_id": "DrugCentral structure ID",
@@ -403,7 +215,7 @@ class DrugCentralParser(BaseParser):
                 "source": "Data source (DrugCentral)"
             },
             "pharmacologic_classes": {
-                "class_id": "NDFRT class identifier (e.g., N0000175503)",
+                "class_code": "NDFRT class identifier (e.g., N0000175503)",
                 "class_name": "Class name",
                 "class_source": "Source of class definition (FDA, etc.)",
                 "class_type": "Type: Physiologic Effect, Mechanism of Action, etc.",
@@ -414,7 +226,7 @@ class DrugCentralParser(BaseParser):
             },
             "pharmacologic_class_includes_compound": {
                 "drugbank_id": "DrugBank ID of compound",
-                "class_id": "NDFRT class identifier",
+                "class_code": "NDFRT class identifier",
                 "source": "Data source (DrugCentral)",
                 "license": "License (CC BY 4.0)",
                 "unbiased": "Whether edge is unbiased (False)",
