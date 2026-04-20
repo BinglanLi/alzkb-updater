@@ -69,9 +69,9 @@ databases:
     notes: "GWAS Catalog. Provides geneAssociatesWithDisease edges."
 
   drugcentral:
-    enabled: false
+    enabled: true
     args: {}
-    notes: "Drug-disease and drug class data from SQL dump. Provides DrugClass nodes and drugTreatsDisease, drugInClass edges."
+    notes: "Drug-disease and drug class data from PostgreSQL. Provides DrugClass nodes and drugTreatsDisease, drugInClass edges. Load dump first: gunzip -c drugcentral.sql.gz | psql drugcentral"
 
   bindingdb:
     enabled: false
