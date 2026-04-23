@@ -443,7 +443,7 @@ class DisGeNETParser(BaseParser):
             if mappings_df is not None:
                 mappings_df['sourceDatabase'] = 'DisGeNET'
                 result['disease_mappings'] = mappings_df
-            logger.info(f"✓ Parsed {len(mappings_df)} disease mappings from API")
+                logger.info(f"✓ Parsed {len(mappings_df)} disease mappings from API")
 
         except FileNotFoundError:
             logger.error(f"Disease mappings file not found: {api_mappings_file}")
