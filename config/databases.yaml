@@ -27,39 +27,39 @@ databases:
     notes: "Gene-disease associations via REST API. Provides geneAssociatesWithDisease edges. Queries disease terms from project.yaml."
 
   drugbank:
-    enabled: false
+    enabled: true
     args:
       username_env: DRUGBANK_USERNAME
       password_env: DRUGBANK_PASSWORD
     notes: "Drug information and drug-gene binding. Provides Drug nodes and chemicalBindsGene edges. Requires authentication."
 
   ncbigene:
-    enabled: false
+    enabled: true
     args: {}
     notes: "Gene nodes from NCBI FTP. Disease-agnostic; provides the base Gene node set."
 
   dorothea:
-    enabled: false
+    enabled: true
     args: {}
     notes: "Transcription factor regulatory network from OmniPath API. Provides TranscriptionFactor nodes and transcriptionFactorInteractsWithGene edges."
 
   disease_ontology:
-    enabled: false
+    enabled: true
     args: {}
     notes: "Disease Ontology slim terms (137 curated diseases). Provides Disease nodes."
 
   gene_ontology:
-    enabled: false
+    enabled: true
     args: {}
     notes: "GO terms and gene annotations. Provides BiologicalProcess, MolecularFunction, CellularComponent nodes and geneParticipatesInBiologicalProcess, geneHasMolecularFunction, geneAssociatedWithCellularComponent edges."
 
   uberon:
-    enabled: false
+    enabled: true
     args: {}
     notes: "Uberon anatomy ontology. Provides BodyPart nodes."
 
   mesh:
-    enabled: false
+    enabled: true
     args: {}
     notes: "MeSH Signs and Symptoms descriptors (C23.888 subtree). Provides Symptom nodes. Update MESH_YEAR in src/parsers/mesh_parser.py each January."
 
@@ -94,6 +94,6 @@ databases:
     notes: "PubTator Central literature co-occurrence mining."
 
   medline_cooccurrence:
-    enabled: false
+    enabled: true
     args: {}
     notes: "MEDLINE co-occurrence. Provides symptomManifestationOfDisease, diseaseLocalizesToAnatomy, and diseaseAssociatesWithDisease edges."
