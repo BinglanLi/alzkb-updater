@@ -49,7 +49,7 @@ alzkb-updater/
 | `DrugCentralParser` | DrugCentral | Local PostgreSQL | `drug_treats_disease.tsv`, `drug_palliates_disease.tsv`, `pharmacologic_classes.tsv`, `pharmacologic_class_includes_compound.tsv` |
 | `GeneOntologyParser` | Gene Ontology | OBO file | `biological_process.tsv`, `molecular_function.tsv`, `cellular_component.tsv` |
 | `GWASParser` | GWAS Catalog | HTTP | `gene_disease_associations.tsv` |
-| `MEDLINECooccurrenceParser` | MEDLINE | Pre-computed files | `symptom_disease.tsv`, `disease_anatomy.tsv`, `disease_disease.tsv` |
+| `MEDLINECooccurrenceParser` | MEDLINE | NCBI E-utilities (PubMed) | `disease_symptom_cooccurrence.tsv`, `disease_anatomy_cooccurrence.tsv`, `disease_disease_cooccurrence.tsv` |
 | `MeSHParser` | MeSH | XML download | `symptoms.tsv` |
 | `NCBIGeneParser` | NCBI Gene | NCBI FTP | `genes.tsv` |
 | `PubTatorParser` | PubTator | NCBI FTP | `cooccurrence.tsv` |
