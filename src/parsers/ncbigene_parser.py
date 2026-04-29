@@ -2,9 +2,9 @@
 NCBIGeneParser: Parser for NCBI Gene data.
 
 NCBI Gene provides comprehensive gene information for multiple organisms.
-For the knowledge graph, we focus on human genes (Homo sapiens).
+For the knowledge graph, we focus on human genes (Homo sapiens, tax_id 9606).
 
-Source: https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/
+Source: https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz
 """
 
 import logging
@@ -14,245 +14,229 @@ from typing import Dict, Optional
 from pathlib import Path
 from .base_parser import BaseParser
 
-NCBI_GENES = 'genes'
+NCBI_GENES = "genes"
 
 logger = logging.getLogger(__name__)
+
+# Default URL — can be overridden via databases.yaml source_url arg
+_DEFAULT_SOURCE_URL = (
+    "https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/"
+    "Homo_sapiens.gene_info.gz"
+)
 
 
 class NCBIGeneParser(BaseParser):
     """
     Parser for NCBI Gene data.
 
-    Downloads and parses human gene information from NCBI.
-    Optionally filters genes based on tissue expression using Bgee data.
+    Downloads and parses human gene information from NCBI FTP.
+    Extracts basic gene information and expands the dbXrefs cross-references
+    into individual columns keyed by source database name.
+
+    Constructor args (passed from databases.yaml via main.py):
+        data_dir   – base directory for raw/cached files (injected by main.py)
+        source_url – URL of the gzipped gene_info file (from databases.yaml args)
+
+    Tissue/expression filtering is intentionally excluded; use BgeeParser.
     """
 
-    GENE_INFO_URL = "https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz"
-    GENE_INFO_FILE = "Homo_sapiens.gene_info"
-    # Optional: Bgee expression data to filter genes by expression level in certain tissues
-    BGEE_URL = "https://bgee.org/ftp/bgee_v15_0/download/calls/expr_calls/Homo_sapiens_expr_advanced.tsv.gz"
-    BGEE_FILE = "Homo_sapiens_expr_advanced.tsv"
+    # Columns to retain before expanding cross-references
+    USEFUL_COLUMNS = [
+        "GeneID",
+        "Symbol",
+        "Synonyms",
+        "dbXrefs",
+        "chromosome",
+        "description",
+        "type_of_gene",
+        "Full_name_from_nomenclature_authority",
+    ]
 
-    def __init__(self, data_dir: str, tissue_filter: Optional[str] = None):
+    def __init__(self, data_dir: str, source_url: Optional[str] = None):
         """
-        Initialize NCBI Gene parser.
+        Initialise the NCBI Gene parser.
 
         Args:
-            data_dir: Directory for storing data files
-            tissue_filter: Optional tissue name to filter genes by expression (e.g., "brain")
+            data_dir:   Directory for storing raw/cached data files.
+            source_url: URL of the gzipped gene_info TSV.  Defaults to the
+                        official NCBI FTP path if not supplied.
         """
         super().__init__(data_dir)
-        self.tissue_filter = tissue_filter
-        if self.tissue_filter:
-            logger.info(f"Gene filtering enabled for tissue: {self.tissue_filter}")
+        self.source_url: str = source_url or _DEFAULT_SOURCE_URL
+
+        # Derive the local filenames from the URL so nothing is hardcoded
+        gz_name = Path(self.source_url).name          # e.g. Homo_sapiens.gene_info.gz
+        self._gz_filename = gz_name
+        self._extracted_filename = gz_name[:-3] if gz_name.endswith(".gz") else gz_name
+
+    # ------------------------------------------------------------------
+    # Download
+    # ------------------------------------------------------------------
 
     def download_data(self) -> bool:
         """
-        Download NCBI Gene data.
-        
-        Returns:
-            True if successful, False otherwise.
-        """
-        logger.info("Downloading NCBI Gene data...")
-        
-        # Download gene info file (gzipped)
-        gene_info_gz = self.download_file(self.GENE_INFO_URL, Path(self.GENE_INFO_URL).name)
-        if not gene_info_gz:
-            logger.error("Failed to download NCBI gene info file")
-            return False
-        
-        # Extract gene info file
-        gene_info_file = self.extract_gzip(gene_info_gz)
-        if not gene_info_file:
-            logger.error("Failed to extract NCBI gene info file")
-            return False
-        
-        # Optionally download Bgee expression data
-        logger.info("Attempting to download Bgee expression data (optional)...")
-        try:
-            bgee_gz = self.download_file(self.BGEE_URL, Path(self.BGEE_URL).name)
-            if bgee_gz:
-                self.extract_gzip(bgee_gz)
-        except Exception as e:
-            logger.warning(f"Could not download Bgee data (optional): {e}")
-        
-        return True
-    
-    def parse_data(self) -> Dict[str, pd.DataFrame]:
-        """
-        Parse NCBI Gene data.
+        Download the NCBI Gene gzipped TSV and extract it.
 
         Returns:
-            Dictionary with 'genes' DataFrame.
+            True if the extracted file is available, False otherwise.
+        """
+        logger.info(f"Downloading NCBI Gene data from {self.source_url} ...")
+
+        gz_path = self.download_file(self.source_url, self._gz_filename)
+        if not gz_path:
+            logger.error("Failed to download NCBI gene info file")
+            return False
+
+        extracted = self.extract_gzip(gz_path)
+        if not extracted:
+            logger.error("Failed to extract NCBI gene info file")
+            return False
+
+        return True
+
+    # ------------------------------------------------------------------
+    # Parse
+    # ------------------------------------------------------------------
+
+    def parse_data(self) -> Dict[str, pd.DataFrame]:
+        """
+        Parse the NCBI Gene TSV into a DataFrame of human gene records.
+
+        Returns:
+            ``{"genes": DataFrame}`` with expanded cross-reference columns,
+            or an empty dict on failure.
         """
         logger.info("Parsing NCBI Gene data...")
 
-        result = {}
-
-        # Parse gene info file
-        gene_info_file = self.get_file_path(self.GENE_INFO_FILE)
-
-        if not Path(gene_info_file).exists():
-            logger.error(f"NCBI gene info file not found: {gene_info_file}")
+        gene_info_path = Path(self.get_file_path(self._extracted_filename))
+        if not gene_info_path.exists():
+            logger.error(f"NCBI gene info file not found: {gene_info_path}")
             return {}
 
-        # Column names for NCBI gene_info file
-        columns = [
-            'tax_id', 'GeneID', 'Symbol', 'LocusTag', 'Synonyms', 'dbXrefs',
-            'chromosome', 'map_location', 'description', 'type_of_gene',
-            'Symbol_from_nomenclature_authority',
-            'Full_name_from_nomenclature_authority',
-            'Nomenclature_status', 'Other_designations',
-            'Modification_date', 'Feature_type'
+        # Official column order for the NCBI gene_info format
+        all_columns = [
+            "tax_id", "GeneID", "Symbol", "LocusTag", "Synonyms", "dbXrefs",
+            "chromosome", "map_location", "description", "type_of_gene",
+            "Symbol_from_nomenclature_authority",
+            "Full_name_from_nomenclature_authority",
+            "Nomenclature_status", "Other_designations",
+            "Modification_date", "Feature_type",
         ]
 
-        genes_df = self.read_tsv(gene_info_file, names=columns, skiprows=1,
-                                low_memory=False)
+        genes_df = self.read_tsv(
+            str(gene_info_path),
+            names=all_columns,
+            skiprows=1,       # skip the header line (starts with #tax_id)
+            low_memory=False,
+        )
 
-        if genes_df is not None:
-            # Filter for human genes (tax_id = 9606)
-            genes_df = genes_df[genes_df['tax_id'] == 9606].copy()
+        if genes_df is None:
+            logger.error("Failed to read NCBI gene info file")
+            return {}
 
-            logger.info(f"✓ Parsed {len(genes_df)} human genes")
+        # The species-specific file already contains only Homo sapiens, but
+        # filter defensively in case the URL is ever changed to the full dump.
+        genes_df = genes_df[genes_df["tax_id"] == 9606].copy()
+        logger.info(f"Loaded {len(genes_df):,} human gene records (tax_id=9606)")
 
-            # Show gene type distribution
-            gene_types = genes_df['type_of_gene'].value_counts()
-            logger.info(f"Gene types: {dict(gene_types)}")
+        # Retain only the columns needed downstream
+        genes_df = genes_df[self.USEFUL_COLUMNS].copy()
 
-            # Parse cross-references to extract MIM, HGNC, and Ensembl IDs into separate columns
-            genes_df = self.parse_dbxrefs(genes_df)
+        # Expand dbXrefs → one column per source database
+        genes_df = self._expand_dbxrefs(genes_df)
 
-            # Apply tissue filter if specified
-            if self.tissue_filter:
-                genes_df = self.filter_genes_by_tissue(genes_df, self.tissue_filter)
+        # Provenance label
+        genes_df["source_database"] = "NCBI Gene"
 
-            # Add source database column
-            genes_df['source_database'] = 'NCBI Gene'
+        logger.info(
+            "Gene type distribution: "
+            + str(genes_df["type_of_gene"].value_counts().to_dict())
+        )
 
-            result[NCBI_GENES] = genes_df
+        return {NCBI_GENES: genes_df}
 
-        return result
-    
+    # ------------------------------------------------------------------
+    # Schema
+    # ------------------------------------------------------------------
+
     def get_schema(self) -> Dict[str, Dict[str, str]]:
-        """
-        Get the schema for NCBI Gene data.
-
-        Returns:
-            Dictionary describing the schema for genes.
-        """
+        """Return column semantics for the ``genes`` table."""
         return {
-            f'{NCBI_GENES}': {
-                'GeneID': 'NCBI Gene ID',
-                'Symbol': 'Gene symbol',
-                'description': 'Gene description',
-                'type_of_gene': 'Type of gene (protein-coding, ncRNA, etc.)',
-                'chromosome': 'Chromosome location',
-                'dbXrefs': 'Cross-references to other databases',
-                'xref_MIM': 'MIM (OMIM) identifier',
-                'xref_HGNC': 'HGNC identifier',
-                'xref_Ensembl': 'Ensembl gene identifier',
-                'Synonyms': 'Alternative gene symbols',
-                'Full_name_from_nomenclature_authority': 'Official full name',
-                'source_database': 'Source database (NCBI Gene)',
+            NCBI_GENES: {
+                "GeneID":   "NCBI Gene ID (Entrez)",
+                "Symbol":   "Official gene symbol",
+                "Synonyms": "Pipe-delimited list of alternative gene symbols",
+                "dbXrefs":  "Raw pipe-delimited cross-references string",
+                "chromosome":  "Chromosome location",
+                "description": "Gene description",
+                "type_of_gene": "Gene type (protein-coding, ncRNA, etc.)",
+                "Full_name_from_nomenclature_authority": "Official full gene name",
+                "source_database": "Source database label",
+                # xref_* columns are added dynamically from dbXrefs content
             }
         }
-    
-    
-    def parse_dbxrefs(self, genes_df: pd.DataFrame) -> pd.DataFrame:
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _parse_xref_string(xref_str) -> dict:
         """
-        Parse the dbXrefs column to extract cross-references.
+        Parse a single dbXrefs field value into ``{source: identifier}``.
+
+        The field is a ``|``-delimited list of ``SourceDB:Identifier`` entries.
+        The source is the token before the *first* colon; everything after is
+        the identifier (which may itself contain colons, e.g. ``HGNC:HGNC:5``).
+
+        Missing / empty values (NaN or the literal ``-``) return ``{}``.
+
+        Example::
+
+            "MIM:138670|HGNC:HGNC:5|Ensembl:ENSG00000121410"
+            → {"MIM": "138670", "HGNC": "HGNC:5", "Ensembl": "ENSG00000121410"}
+        """
+        if pd.isna(xref_str) or str(xref_str).strip() in ("", "-"):
+            return {}
+        result: dict = {}
+        for entry in str(xref_str).split("|"):
+            entry = entry.strip()
+            if ":" not in entry:
+                continue
+            source, _, identifier = entry.partition(":")
+            source = source.strip()
+            identifier = identifier.strip()
+            if source:
+                result[source] = identifier
+        return result
+
+    def _expand_dbxrefs(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Expand the ``dbXrefs`` column into one column per source database.
+
+        Column names are prefixed with ``xref_`` (e.g. ``xref_Ensembl``,
+        ``xref_HGNC``, ``xref_MIM``).  Rows with no entry for a given source
+        get ``NaN``.
 
         Args:
-            genes_df: DataFrame with dbXrefs column
+            df: DataFrame containing a ``dbXrefs`` column.
 
         Returns:
-            DataFrame with additional columns for each cross-reference database
+            DataFrame with additional ``xref_*`` columns appended.
         """
-        logger.info("Parsing database cross-references...")
+        logger.info("Expanding dbXrefs into individual cross-reference columns...")
 
-        df = genes_df.copy()
+        xref_dicts = df["dbXrefs"].apply(self._parse_xref_string)
+        xref_df = pd.DataFrame(list(xref_dicts), index=df.index)
 
-        # Common databases to extract
-        dbs_to_extract = ['MIM', 'HGNC', 'Ensembl']
+        if xref_df.empty:
+            logger.warning("No cross-references found in dbXrefs column")
+            return df
 
-        for db in dbs_to_extract:
-            df[f'xref_{db}'] = df['dbXrefs'].str.extract(
-                f'{db}:([^|]+)', expand=False
-            )
+        xref_df.columns = [f"xref_{col}" for col in xref_df.columns]
+        logger.info(
+            f"Extracted {len(xref_df.columns)} cross-reference source(s): "
+            f"{sorted(xref_df.columns)}"
+        )
 
-        logger.info("✓ Parsed cross-references")
-        return df
-
-    def filter_genes_by_tissue(self, genes_df: pd.DataFrame, tissue_name: str) -> pd.DataFrame:
-        """
-        Filter genes based on tissue expression from Bgee data.
-
-        Simple filter: checks if tissue_name exists in a line of the Bgee file,
-        then extracts the Gene ID (Ensembl ID) from the first column.
-
-        Args:
-            genes_df: DataFrame of all genes
-            tissue_name: Name of tissue to filter by (e.g., "brain")
-
-        Returns:
-            Filtered DataFrame of genes expressed in the specified tissue
-        """
-        logger.info(f"Filtering for genes expressed in '{tissue_name}'...")
-
-        # Get path to extracted Bgee file
-        bgee_file = Path(self.get_file_path(self.BGEE_FILE))
-
-        if not bgee_file.exists():
-            logger.warning(f"Bgee file not found at {bgee_file}")
-            logger.warning("Tissue filtering requires Bgee data. Returning unfiltered genes.")
-            return genes_df
-
-        try:
-            # Read Bgee file and collect Ensembl Gene IDs for lines containing tissue name
-            tissue_gene_ids = set()
-
-            logger.info(f"Reading Bgee expression file: {bgee_file}")
-            with open(bgee_file, 'r', encoding='utf-8') as f:
-                # Skip header line
-                next(f, None)
-
-                for line in f:
-                    # Check if tissue name exists in the line (case-insensitive)
-                    if tissue_name.lower() in line.lower():
-                        # Extract first column (Gene ID - Ensembl ID)
-                        parts = line.split('\t')
-                        if parts:
-                            gene_id = parts[0].strip()
-                            if gene_id:
-                                tissue_gene_ids.add(gene_id)
-
-            logger.info(f"Found {len(tissue_gene_ids)} unique Ensembl gene IDs expressed in '{tissue_name}'")
-
-            if not tissue_gene_ids:
-                logger.warning(f"No genes found with '{tissue_name}' expression in Bgee data")
-                logger.warning("Returning unfiltered genes")
-                return genes_df
-
-            # Filter genes_df based on xref_Ensembl column (already parsed by parse_dbxrefs)
-            # Check if xref_Ensembl column exists
-            if 'xref_Ensembl' not in genes_df.columns:
-                logger.error("xref_Ensembl column not found. Expected parse_dbxrefs() to be called first.")
-                logger.warning("Returning unfiltered genes")
-                return genes_df
-
-            # Filter for genes with Ensembl IDs that match tissue-expressed genes
-            filtered_genes = genes_df[
-                genes_df['xref_Ensembl'].isin(tissue_gene_ids)
-            ].copy()
-
-            logger.info(f"✓ Filtered to {len(filtered_genes)} genes expressed in '{tissue_name}'")
-            logger.info(f"   ({len(genes_df) - len(filtered_genes)} genes removed)")
-
-            return filtered_genes
-
-        except Exception as e:
-            logger.error(f"Error filtering genes by tissue: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
-            logger.warning("Returning unfiltered genes")
-            return genes_df
+        return pd.concat([df, xref_df], axis=1)
