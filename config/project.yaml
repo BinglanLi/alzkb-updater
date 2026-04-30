@@ -125,15 +125,15 @@ project:
     - chemicalCausesEffect
     - chemicalIncreasesExpression
     - chemicalDecreasesExpression
-    - anatomyUpregulatesGene
-    - anatomyDownregulatesGene
+    # - anatomyUpregulatesGene  # Replaced by anatomyExpressesGene
+    # - anatomyDownregulatesGene  # Replaced by anatomyExpressesGene
     - symptomManifestationOfDisease
     - diseaseLocalizesToAnatomy
     - diseaseAssociatesWithDisease
     - drugInClass
     - pathwayContainsGene
+    - anatomyExpressesGene
     # Inactive: defined in ontology but no parser produces these yet
-    # - anatomyExpressesGene
     # - bodyPartExpressesGene
     # - bodyPartOverexpressesGene
     # - bodyPartUnderexpressesGene

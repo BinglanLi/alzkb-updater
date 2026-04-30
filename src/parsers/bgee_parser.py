@@ -2,20 +2,24 @@
 Bgee Expression Parser for the knowledge graph.
 
 This module parses Bgee gene expression data to extract gene-anatomy
-differential expression relationships for the knowledge graph.
+expression relationships for the knowledge graph.
 
-Data Source: https://github.com/dhimmel/bgee (precomputed differential expression)
-Commit: 08ba54e83ee8e28dec22b4351d29e23f1d034d30
+Data Source: https://www.bgee.org/
+Format: BGEE presence/absence expression calls (Homo_sapiens_expr_simple.tsv.gz)
+
+The file contains columns:
+  Gene ID, Gene name, Anatomical entity ID, Anatomical entity name,
+  Expression, Call quality, FDR, Expression score, Expression rank
 
 Output:
-  - anatomy_upregulates_gene.tsv: AuG edges (Anatomy upregulates Gene)
-  - anatomy_downregulates_gene.tsv: AdG edges (Anatomy downregulates Gene)
+  - anatomy_expresses_gene.tsv: AeG edges (Anatomy expresses Gene)
 """
 
 import logging
-import gzip
+import traceback
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, List, Optional, Set
+
 import pandas as pd
 
 from .base_parser import BaseParser
@@ -27,168 +31,252 @@ class BgeeParser(BaseParser):
     """
     Parser for Bgee gene expression database.
 
-    Extracts differential gene expression data from the pre-computed
-    dhimmel/bgee repository, which provides a pivoted matrix of
-    expression direction by anatomy.
+    Extracts gene expression data from BGEE using the presence/absence
+    expression calls format with quality metrics (FDR, expression score, rank).
+
+    Constructor args (passed from databases.yaml):
+        source_url  : URL to the Homo_sapiens_expr_simple.tsv.gz file.
+        tissue_filter: Optional list of UBERON IDs to restrict output to.
+                       When None, all UBERON anatomies are included.
     """
 
-    # Pre-computed differential expression from dhimmel/bgee
-    BGEE_COMMIT = "08ba54e83ee8e28dec22b4351d29e23f1d034d30"
-    BGEE_DIFFEX_URL = f"https://raw.githubusercontent.com/dhimmel/bgee/{BGEE_COMMIT}/data/diffex.tsv.gz"
-
-    # Fallback: current Bgee expression calls (if pre-computed not available)
-    BGEE_CURRENT_URL = "https://www.bgee.org/ftp/current/download/calls/expr_calls/Homo_sapiens_expr_simple.tsv.gz"
-
-    def __init__(self, data_dir: str, valid_uberon_ids: Set[str] = None, valid_gene_ids: Set[int] = None):
+    def __init__(
+        self,
+        data_dir: str,
+        source_url: str,
+        tissue_filter: Optional[List[str]] = None,
+    ):
         """
         Initialize the Bgee parser.
 
         Args:
-            data_dir: Directory to store downloaded and processed data
-            valid_uberon_ids: Optional set of valid UBERON IDs to filter by
-            valid_gene_ids: Optional set of valid Entrez Gene IDs to filter by
+            data_dir     : Directory to store downloaded and processed data.
+            source_url   : URL of the BGEE expression-calls TSV.gz file.
+            tissue_filter: Optional list of UBERON IDs to keep.
+                           When None, all UBERON anatomies are included.
         """
         super().__init__(data_dir)
         self.source_name = "bgee"
-        self.valid_uberon_ids = valid_uberon_ids
-        self.valid_gene_ids = valid_gene_ids
+        # Re-derive source_dir after overriding source_name
+        self.source_dir = self.data_dir / self.source_name
+        self.source_dir.mkdir(parents=True, exist_ok=True)
+
+        self.source_url = source_url
+        self.tissue_filter = tissue_filter  # None → include all; list → restrict
+
+    # ------------------------------------------------------------------
+    # Download
+    # ------------------------------------------------------------------
 
     def download_data(self) -> bool:
         """
-        Download Bgee differential expression data.
-
-        Downloads the pre-computed diffex.tsv.gz from dhimmel/bgee
-        which contains a pivoted matrix of differential expression.
+        Download Bgee expression calls data from the configured source_url.
 
         Returns:
-            True if successful, False otherwise
+            True if the file is available (downloaded or cached), else False.
         """
-        logger.info("Downloading Bgee differential expression data...")
-
-        # Try pre-computed first
-        result = self.download_file(self.BGEE_DIFFEX_URL, "diffex.tsv.gz")
-
+        logger.info("Downloading Bgee expression calls data...")
+        result = self.download_file(self.source_url, "expr_calls.tsv.gz")
         if result:
-            logger.info(f"Successfully downloaded Bgee diffex to {result}")
+            logger.info(f"Bgee expr_calls available at: {result}")
             return True
-        else:
-            logger.error("Failed to download Bgee diffex data")
-            return False
+        logger.error("Failed to download Bgee expression calls data.")
+        return False
+
+    # ------------------------------------------------------------------
+    # Ensembl → Entrez mapping helper
+    # ------------------------------------------------------------------
+
+    def _build_ensembl_to_entrez_map(self) -> Dict[str, str]:
+        """
+        Build an Ensembl Gene ID → Entrez Gene ID mapping from the NCBI
+        gene-info file (Homo_sapiens.gene_info or .gz) in data/raw/ncbigene/.
+
+        Returns:
+            Dict mapping Ensembl ID (str) to Entrez Gene ID (str).
+            Empty dict if the file cannot be found or read.
+        """
+        ncbigene_dir = self.data_dir / "ncbigene"
+        candidates = [
+            ncbigene_dir / "Homo_sapiens.gene_info",
+            ncbigene_dir / "Homo_sapiens.gene_info.gz",
+        ]
+
+        gene_info_path = None
+        for c in candidates:
+            if c.exists():
+                gene_info_path = c
+                break
+
+        if gene_info_path is None:
+            logger.warning(
+                "NCBI gene-info file not found in %s; "
+                "Ensembl → Entrez mapping unavailable.",
+                ncbigene_dir,
+            )
+            return {}
+
+        try:
+            compression = "gzip" if str(gene_info_path).endswith(".gz") else None
+            df = pd.read_csv(
+                gene_info_path,
+                sep="\t",
+                compression=compression,
+                low_memory=False,
+            )
+            # The header line starts with '#tax_id'; strip the leading '#'
+            df.columns = [c.lstrip("#") for c in df.columns]
+
+            mapping: Dict[str, str] = {}
+            for _, row in df.iterrows():
+                xrefs = str(row.get("dbXrefs", "-"))
+                if xrefs in ("-", "nan"):
+                    continue
+                for xref in xrefs.split("|"):
+                    if xref.startswith("Ensembl:"):
+                        ensembl_id = xref[len("Ensembl:"):]
+                        mapping[ensembl_id] = str(int(row["GeneID"]))
+
+            logger.info(
+                "Built Ensembl → Entrez mapping: %d entries.", len(mapping)
+            )
+            return mapping
+
+        except Exception as exc:
+            logger.error("Failed to build Ensembl → Entrez mapping: %s", exc)
+            logger.debug(traceback.format_exc())
+            return {}
+
+    # ------------------------------------------------------------------
+    # Parse
+    # ------------------------------------------------------------------
 
     def parse_data(self) -> Dict[str, pd.DataFrame]:
         """
-        Parse Bgee differential expression data.
+        Parse Bgee presence/absence expression calls.
 
-        The diffex.tsv.gz file is a pivoted matrix where:
-        - Rows are genes (GeneID column)
-        - Columns are UBERON anatomy IDs
-        - Values are: -1 (downregulated), 0 (no change), 1 (upregulated)
+        Workflow:
+          1. Read expr_calls.tsv.gz.
+          2. Keep only 'present' expression calls.
+          3. Keep only rows whose Anatomical entity ID starts with 'UBERON:'.
+          4. Apply tissue_filter if configured.
+          5. Map Ensembl Gene IDs to Entrez Gene IDs via NCBI gene-info.
+          6. Return anatomy_expresses_gene DataFrame.
 
         Returns:
-            Dictionary with:
-              - 'anatomy_upregulates_gene': AuG edges
-              - 'anatomy_downregulates_gene': AdG edges
+            Dict with key 'anatomy_expresses_gene' → DataFrame of AeG edges.
         """
-        diffex_path = self.source_dir / "diffex.tsv.gz"
+        expr_calls_path = self.source_dir / "expr_calls.tsv.gz"
 
-        if not diffex_path.exists():
-            logger.error(f"Bgee diffex file not found: {diffex_path}")
+        if not expr_calls_path.exists():
+            logger.error("Bgee expr_calls file not found: %s", expr_calls_path)
             return {}
 
-        logger.info(f"Parsing Bgee differential expression from {diffex_path}")
+        logger.info("Parsing Bgee expression calls from %s", expr_calls_path)
 
         try:
-            # Read the pivoted diffex matrix
+            # ---- 1. Load raw data ----------------------------------------
             df = pd.read_csv(
-                diffex_path,
-                sep='\t',
-                compression='gzip',
-                low_memory=False
+                expr_calls_path,
+                sep="\t",
+                compression="gzip",
+                low_memory=False,
+                quotechar='"',
+            )
+            logger.info("Loaded %d raw records; columns: %s", len(df), list(df.columns))
+
+            # ---- 2. Filter for 'present' calls only ----------------------
+            present = df[df["Expression"] == "present"].copy()
+            logger.info("%d 'present' expression calls.", len(present))
+
+            # ---- 3. Keep only UBERON anatomies ---------------------------
+            uberon_mask = present["Anatomical entity ID"].str.startswith(
+                "UBERON:", na=False
+            )
+            present = present[uberon_mask].copy()
+            logger.info(
+                "%d records after keeping UBERON anatomies.", len(present)
             )
 
-            logger.info(f"Loaded diffex matrix: {df.shape[0]} genes x {df.shape[1]-1} anatomies")
+            # ---- 4. Apply tissue_filter (optional) -----------------------
+            if self.tissue_filter:
+                present = present[
+                    present["Anatomical entity ID"].isin(self.tissue_filter)
+                ].copy()
+                logger.info(
+                    "%d records after tissue_filter.", len(present)
+                )
 
-            # Melt the pivoted matrix to long format
-            # First column is GeneID, rest are UBERON IDs
-            melted = pd.melt(
-                df,
-                id_vars='GeneID',
-                var_name='uberon_id',
-                value_name='direction'
+            if present.empty:
+                logger.warning("No records remain after filtering; returning empty.")
+                return {}
+
+            # ---- 5. Map Ensembl → Entrez ---------------------------------
+            ensembl_to_entrez = self._build_ensembl_to_entrez_map()
+
+            if ensembl_to_entrez:
+                present["entrez_gene_id"] = present["Gene ID"].map(ensembl_to_entrez)
+                before = len(present)
+                present = present.dropna(subset=["entrez_gene_id"]).copy()
+                logger.info(
+                    "Entrez mapping: retained %d / %d records.", len(present), before
+                )
+            else:
+                # Fallback: use Ensembl IDs directly
+                present["entrez_gene_id"] = present["Gene ID"]
+                logger.warning(
+                    "No Entrez mapping available; using Ensembl IDs as gene identifier."
+                )
+
+            if present.empty:
+                logger.warning("No records after Entrez mapping; returning empty.")
+                return {}
+
+            # ---- 6. Build output DataFrame --------------------------------
+            aeg = pd.DataFrame(
+                {
+                    "uberon_id": present["Anatomical entity ID"].values,
+                    "entrez_gene_id": present["entrez_gene_id"].values,
+                    "expression_call": present["Expression"].values,
+                    "call_quality": present["Call quality"].values,
+                    "fdr": present["FDR"].values,
+                    "expression_score": present["Expression score"].values,
+                    "expression_rank": present["Expression rank"].values,
+                    "source": "Bgee",
+                    "unbiased": True,
+                    "sourceDatabase": "Bgee",
+                }
             )
 
-            # Filter out no-change (direction == 0)
-            melted = melted[melted['direction'] != 0]
+            logger.info(
+                "Parsed %d Anatomy-expresses-Gene edges.", len(aeg)
+            )
+            return {"anatomy_expresses_gene": aeg}
 
-            logger.info(f"Found {len(melted)} differential expression relationships")
-
-            # Apply filters if provided
-            if self.valid_uberon_ids:
-                melted = melted[melted['uberon_id'].isin(self.valid_uberon_ids)]
-                logger.info(f"After UBERON filter: {len(melted)} relationships")
-
-            if self.valid_gene_ids:
-                melted = melted[melted['GeneID'].isin(self.valid_gene_ids)]
-                logger.info(f"After Gene ID filter: {len(melted)} relationships")
-
-            # Separate upregulation and downregulation
-            upregulated = melted[melted['direction'] == 1].copy()
-            downregulated = melted[melted['direction'] == -1].copy()
-
-            result = {}
-
-            # Anatomy upregulates Gene (AuG)
-            if len(upregulated) > 0:
-                aug = pd.DataFrame({
-                    'uberon_id': upregulated['uberon_id'],
-                    'entrez_gene_id': upregulated['GeneID'],
-                    'source': 'Bgee',
-                    'unbiased': True,
-                    'sourceDatabase': 'Bgee'
-                })
-                result["anatomy_upregulates_gene"] = aug
-                logger.info(f"Parsed {len(aug)} Anatomy-upregulates-Gene edges")
-
-            # Anatomy downregulates Gene (AdG)
-            if len(downregulated) > 0:
-                adg = pd.DataFrame({
-                    'uberon_id': downregulated['uberon_id'],
-                    'entrez_gene_id': downregulated['GeneID'],
-                    'source': 'Bgee',
-                    'unbiased': True,
-                    'sourceDatabase': 'Bgee'
-                })
-                result["anatomy_downregulates_gene"] = adg
-                logger.info(f"Parsed {len(adg)} Anatomy-downregulates-Gene edges")
-
-            return result
-
-        except Exception as e:
-            logger.error(f"Error parsing Bgee diffex: {e}")
-            import traceback
+        except Exception as exc:
+            logger.error("Error parsing Bgee expression calls: %s", exc)
             logger.error(traceback.format_exc())
             return {}
 
+    # ------------------------------------------------------------------
+    # Schema
+    # ------------------------------------------------------------------
+
     def get_schema(self) -> Dict[str, Dict[str, str]]:
         """
-        Get the schema for Bgee data.
-
-        Returns:
-            Dictionary defining the schema for differential expression relationships
+        Return the schema for Bgee output DataFrames.
         """
         return {
-            "anatomy_upregulates_gene": {
-                "uberon_id": "UBERON anatomy ID",
-                "entrez_gene_id": "Entrez Gene ID",
-                "source": "Data source (Bgee)",
-                "unbiased": "Whether edge is unbiased (True for Bgee)",
-                "sourceDatabase": "Source database name (Bgee)"
-            },
-            "anatomy_downregulates_gene": {
-                "uberon_id": "UBERON anatomy ID",
-                "entrez_gene_id": "Entrez Gene ID",
-                "source": "Data source (Bgee)",
-                "unbiased": "Whether edge is unbiased (True for Bgee)",
-                "sourceDatabase": "Source database name (Bgee)"
+            "anatomy_expresses_gene": {
+                "uberon_id": "UBERON anatomy ID (BodyPart source node)",
+                "entrez_gene_id": "Entrez Gene ID (Gene target node)",
+                "expression_call": "Expression call: 'present' or 'absent'",
+                "call_quality": "Call quality (e.g., 'gold quality', 'silver quality')",
+                "fdr": "False Discovery Rate",
+                "expression_score": "Expression score (0–100)",
+                "expression_rank": "Expression rank (lower = higher expression)",
+                "source": "Data source label ('Bgee')",
+                "unbiased": "Whether the edge is unbiased (True for Bgee)",
+                "sourceDatabase": "Source database name ('Bgee')",
             }
         }

@@ -81,6 +81,51 @@ Furthermore, this is beneficial when the ontology is used to populate a graph da
     
 
 
+
+
+    <!-- http://jdr.bio/ontologies/alzkb.owl#expression_call -->
+
+    <owl:AnnotationProperty rdf:about="http://jdr.bio/ontologies/alzkb.owl#expression_call">
+        <rdfs:comment>BGEE expression call: 'present' or 'absent'</rdfs:comment>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:AnnotationProperty>
+    
+
+
+    <!-- http://jdr.bio/ontologies/alzkb.owl#call_quality -->
+
+    <owl:AnnotationProperty rdf:about="http://jdr.bio/ontologies/alzkb.owl#call_quality">
+        <rdfs:comment>Quality of the BGEE expression call: 'high' or 'low'</rdfs:comment>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:AnnotationProperty>
+    
+
+
+    <!-- http://jdr.bio/ontologies/alzkb.owl#fdr -->
+
+    <owl:AnnotationProperty rdf:about="http://jdr.bio/ontologies/alzkb.owl#fdr">
+        <rdfs:comment>False Discovery Rate for the BGEE expression call</rdfs:comment>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#double"/>
+    </owl:AnnotationProperty>
+    
+
+
+    <!-- http://jdr.bio/ontologies/alzkb.owl#expression_score -->
+
+    <owl:AnnotationProperty rdf:about="http://jdr.bio/ontologies/alzkb.owl#expression_score">
+        <rdfs:comment>Expression score from BGEE (0-100)</rdfs:comment>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#double"/>
+    </owl:AnnotationProperty>
+    
+
+
+    <!-- http://jdr.bio/ontologies/alzkb.owl#expression_rank -->
+
+    <owl:AnnotationProperty rdf:about="http://jdr.bio/ontologies/alzkb.owl#expression_rank">
+        <rdfs:comment>Expression rank from BGEE</rdfs:comment>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+    </owl:AnnotationProperty>
+    
     <!-- http://www.w3.org/2000/01/rdf-schema#comment -->
 
     <rdf:Description rdf:about="http://www.w3.org/2000/01/rdf-schema#comment">
