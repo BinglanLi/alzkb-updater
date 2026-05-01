@@ -18,7 +18,7 @@ Output:
 import logging
 import traceback
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional
 
 import pandas as pd
 
@@ -84,70 +84,6 @@ class BgeeParser(BaseParser):
         return False
 
     # ------------------------------------------------------------------
-    # Ensembl → Entrez mapping helper
-    # ------------------------------------------------------------------
-
-    def _build_ensembl_to_entrez_map(self) -> Dict[str, str]:
-        """
-        Build an Ensembl Gene ID → Entrez Gene ID mapping from the NCBI
-        gene-info file (Homo_sapiens.gene_info or .gz) in data/raw/ncbigene/.
-
-        Returns:
-            Dict mapping Ensembl ID (str) to Entrez Gene ID (str).
-            Empty dict if the file cannot be found or read.
-        """
-        ncbigene_dir = self.data_dir / "ncbigene"
-        candidates = [
-            ncbigene_dir / "Homo_sapiens.gene_info",
-            ncbigene_dir / "Homo_sapiens.gene_info.gz",
-        ]
-
-        gene_info_path = None
-        for c in candidates:
-            if c.exists():
-                gene_info_path = c
-                break
-
-        if gene_info_path is None:
-            logger.warning(
-                "NCBI gene-info file not found in %s; "
-                "Ensembl → Entrez mapping unavailable.",
-                ncbigene_dir,
-            )
-            return {}
-
-        try:
-            compression = "gzip" if str(gene_info_path).endswith(".gz") else None
-            df = pd.read_csv(
-                gene_info_path,
-                sep="\t",
-                compression=compression,
-                low_memory=False,
-            )
-            # The header line starts with '#tax_id'; strip the leading '#'
-            df.columns = [c.lstrip("#") for c in df.columns]
-
-            mapping: Dict[str, str] = {}
-            for _, row in df.iterrows():
-                xrefs = str(row.get("dbXrefs", "-"))
-                if xrefs in ("-", "nan"):
-                    continue
-                for xref in xrefs.split("|"):
-                    if xref.startswith("Ensembl:"):
-                        ensembl_id = xref[len("Ensembl:"):]
-                        mapping[ensembl_id] = str(int(row["GeneID"]))
-
-            logger.info(
-                "Built Ensembl → Entrez mapping: %d entries.", len(mapping)
-            )
-            return mapping
-
-        except Exception as exc:
-            logger.error("Failed to build Ensembl → Entrez mapping: %s", exc)
-            logger.debug(traceback.format_exc())
-            return {}
-
-    # ------------------------------------------------------------------
     # Parse
     # ------------------------------------------------------------------
 
@@ -160,8 +96,7 @@ class BgeeParser(BaseParser):
           2. Keep only 'present' expression calls.
           3. Keep only rows whose Anatomical entity ID starts with 'UBERON:'.
           4. Apply tissue_filter if configured.
-          5. Map Ensembl Gene IDs to Entrez Gene IDs via NCBI gene-info.
-          6. Return anatomy_expresses_gene DataFrame.
+          5. Return anatomy_expresses_gene DataFrame.
 
         Returns:
             Dict with key 'anatomy_expresses_gene' → DataFrame of AeG edges.
@@ -211,32 +146,11 @@ class BgeeParser(BaseParser):
                 logger.warning("No records remain after filtering; returning empty.")
                 return {}
 
-            # ---- 5. Map Ensembl → Entrez ---------------------------------
-            ensembl_to_entrez = self._build_ensembl_to_entrez_map()
-
-            if ensembl_to_entrez:
-                present["entrez_gene_id"] = present["Gene ID"].map(ensembl_to_entrez)
-                before = len(present)
-                present = present.dropna(subset=["entrez_gene_id"]).copy()
-                logger.info(
-                    "Entrez mapping: retained %d / %d records.", len(present), before
-                )
-            else:
-                # Fallback: use Ensembl IDs directly
-                present["entrez_gene_id"] = present["Gene ID"]
-                logger.warning(
-                    "No Entrez mapping available; using Ensembl IDs as gene identifier."
-                )
-
-            if present.empty:
-                logger.warning("No records after Entrez mapping; returning empty.")
-                return {}
-
-            # ---- 6. Build output DataFrame --------------------------------
+            # ---- 5. Build output DataFrame --------------------------------
             aeg = pd.DataFrame(
                 {
                     "uberon_id": present["Anatomical entity ID"].values,
-                    "entrez_gene_id": present["entrez_gene_id"].values,
+                    "ensembl_gene_id": present["Gene ID"].values,
                     "expression_call": present["Expression"].values,
                     "call_quality": present["Call quality"].values,
                     "fdr": present["FDR"].values,
@@ -269,7 +183,7 @@ class BgeeParser(BaseParser):
         return {
             "anatomy_expresses_gene": {
                 "uberon_id": "UBERON anatomy ID (BodyPart source node)",
-                "entrez_gene_id": "Entrez Gene ID (Gene target node)",
+                "ensembl_gene_id": "Ensembl Gene ID (Gene target node)",
                 "expression_call": "Expression call: 'present' or 'absent'",
                 "call_quality": "Call quality (e.g., 'gold quality', 'silver quality')",
                 "fdr": "False Discovery Rate",

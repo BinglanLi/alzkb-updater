@@ -29,6 +29,12 @@ project:
     #   - "gantenerumab"
     #   - "donanemab"
 
+
+  data_filtering:
+    # Optional tissue filtering for expression data
+    # tissue_filter: null  # Set to null to include all tissues, or provide list of UBERON IDs
+    tissue_filter: null
+
   ontology:
     base_file: "data/ontology/alzkb_v2.rdf"
     namespace: "http://jdr.bio/ontologies/alzkb.owl"
@@ -147,3 +153,43 @@ project:
     # - phenotypeManifestationOfDisease
     # - riskGoverenedByExposure
     # - riskGovernedByGene
+
+  node_properties:
+    # Drug/Chemical properties
+    Drug:
+      - commonName
+      - xrefDrugbank
+      - xrefDTXSID
+      - drugDescription
+      - drugType
+      - drugGroups
+      - drugCategories
+      - drugIndication
+      - drugPharmacology
+      - drugMechanism
+      - drugToxicity
+      - drugHalfLife
+      - drugState
+      - molecularFormula
+      - molecularWeight
+    
+    # Disease properties
+    Disease:
+      - commonName
+      - xrefUmlsCUI
+      - xrefDiseaseOntology
+      - diseaseDescription
+      - diseaseSymptoms
+    
+    # Gene properties
+    Gene:
+      - geneSymbol
+      - xrefNcbiGene
+      - geneExpression
+      - geneExpressionCallQuality
+      - geneExpressionFDR
+      - geneExpressionScore
+      - geneExpressionRank
+      - chromosome
+      - typeOfGene
+
