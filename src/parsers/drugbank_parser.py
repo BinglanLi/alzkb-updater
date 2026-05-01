@@ -278,7 +278,6 @@ class DrugBankParser(BaseParser):
         Returns a dict with one or more of:
           - "drugs"            : Drug node properties
           - "drug_gene_edges"  : Drug-Gene binding edges (chemicalBindsGene)
-          - "compound_nodes"   : Compound view of drugs for ontology mapping
         """
         xml_path = self.source_dir / "full_database.xml"
         csv_path = self.source_dir / "drugs.csv"
@@ -299,30 +298,10 @@ class DrugBankParser(BaseParser):
         """
         Post-process all parsed DataFrames:
           1. Strip embedded newlines/carriage-returns from all string columns.
-          2. Build compound_nodes (drugbank_id, name, type, inchikey) for
-             ontology mapping before renaming 'name' → 'drug_name'.
-          3. Rename 'name' → 'drug_name' in the drugs DataFrame.
+          2. Rename 'name' → 'drug_name' in the drugs DataFrame.
         """
         if _DRUGS not in result:
             return result
-
-        drugs_df = result[_DRUGS]
-
-        # --- Build compound_nodes BEFORE renaming 'name' ---
-        # ontology_mappings.yaml expects columns: drugbank_id, name, type, inchikey
-        compound_col_map = {
-            "drugbank_id": "drugbank_id",
-            "name": "name",
-            "drugType": "type",
-            "inchikey": "inchikey",
-        }
-        compound_data = {}
-        for src_col, dst_col in compound_col_map.items():
-            if src_col in drugs_df.columns:
-                compound_data[dst_col] = drugs_df[src_col].values
-        compound_df = pd.DataFrame(compound_data)
-        result["compound_nodes"] = compound_df
-        logger.info("compound_nodes: %d rows", len(compound_df))
 
         # --- Strip embedded newlines from all string columns ---
         for table_name, df in result.items():
@@ -658,11 +637,5 @@ class DrugBankParser(BaseParser):
                 "gene_symbol": "HGNC gene symbol of the target/enzyme/carrier/transporter",
                 "uniprot_id": "UniProt accession of the polypeptide",
                 "interaction_type": "Type of interaction (target/enzyme/carrier/transporter)",
-            },
-            "compound_nodes": {
-                "drugbank_id": "DrugBank primary identifier (DB#####)",
-                "name": "Drug common name",
-                "type": "Drug type (small molecule / biotech)",
-                "inchikey": "InChIKey",
             },
         }

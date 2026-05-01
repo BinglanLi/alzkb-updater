@@ -134,25 +134,11 @@ mappings:
         drugbank_id: xrefDrugbank
         cas_number: xrefCasRN
         drug_name: commonName
+        inchikey: inchiKey
         source_database: sourceDatabase
       merge_column:
         source_column_name: cas_number
         data_property: xrefCasRN
-
-  drugbank.compound_nodes:
-    data_type: node
-    node_type: Drug
-    source_filename: compound_nodes.tsv
-    merge: false
-    skip: false
-    parse_config:
-      headers: true
-      iri_column_name: drugbank_id
-      data_property_map:
-        drugbank_id: xrefDrugbank
-        name: commonName
-        type: PharmacologicClass
-        inchikey: inchiKey
 
   # ---------------------------------------------------------------------------
   # DoRothEA - Transcription Factor Regulatory Network
