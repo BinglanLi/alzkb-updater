@@ -153,7 +153,6 @@ mappings:
         name: commonName
         type: PharmacologicClass
         inchikey: inchiKey
-        sourceDatabase: sourceDatabase
 
   # ---------------------------------------------------------------------------
   # DoRothEA - Transcription Factor Regulatory Network
