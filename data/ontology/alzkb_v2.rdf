@@ -24,6 +24,101 @@ Furthermore, this is beneficial when the ontology is used to populate a graph da
     
 
 
+    <!-- http://jdr.bio/ontologies/alzkb.owl#diseaseSpecificityIndex -->
+
+    <owl:DatatypeProperty rdf:about="http://jdr.bio/ontologies/alzkb.owl#diseaseSpecificityIndex">
+        <rdfs:subPropertyOf rdf:resource="http://jdr.bio/ontologies/alzkb.owl#geneDataProperty"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#double"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://jdr.bio/ontologies/alzkb.owl#diseasePleiotropyIndex -->
+
+    <owl:DatatypeProperty rdf:about="http://jdr.bio/ontologies/alzkb.owl#diseasePleiotropyIndex">
+        <rdfs:subPropertyOf rdf:resource="http://jdr.bio/ontologies/alzkb.owl#geneDataProperty"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#double"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://jdr.bio/ontologies/alzkb.owl#pLiScore -->
+
+    <owl:DatatypeProperty rdf:about="http://jdr.bio/ontologies/alzkb.owl#pLiScore">
+        <rdfs:subPropertyOf rdf:resource="http://jdr.bio/ontologies/alzkb.owl#geneDataProperty"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#double"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://jdr.bio/ontologies/alzkb.owl#diseaseType -->
+
+    <owl:DatatypeProperty rdf:about="http://jdr.bio/ontologies/alzkb.owl#diseaseType">
+        <rdfs:subPropertyOf rdf:resource="http://jdr.bio/ontologies/alzkb.owl#diseaseDataProperty"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://jdr.bio/ontologies/alzkb.owl#diseaseClass -->
+
+    <owl:DatatypeProperty rdf:about="http://jdr.bio/ontologies/alzkb.owl#diseaseClass">
+        <rdfs:subPropertyOf rdf:resource="http://jdr.bio/ontologies/alzkb.owl#diseaseDataProperty"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://jdr.bio/ontologies/alzkb.owl#diseaseSemanticType -->
+
+    <owl:DatatypeProperty rdf:about="http://jdr.bio/ontologies/alzkb.owl#diseaseSemanticType">
+        <rdfs:subPropertyOf rdf:resource="http://jdr.bio/ontologies/alzkb.owl#diseaseDataProperty"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://jdr.bio/ontologies/alzkb.owl#gdaScore -->
+
+    <owl:DatatypeProperty rdf:about="http://jdr.bio/ontologies/alzkb.owl#gdaScore">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#double"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://jdr.bio/ontologies/alzkb.owl#evidenceIndex -->
+
+    <owl:DatatypeProperty rdf:about="http://jdr.bio/ontologies/alzkb.owl#evidenceIndex">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#double"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://jdr.bio/ontologies/alzkb.owl#numberOfPublications -->
+
+    <owl:DatatypeProperty rdf:about="http://jdr.bio/ontologies/alzkb.owl#numberOfPublications">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#int"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://jdr.bio/ontologies/alzkb.owl#numberOfSnps -->
+
+    <owl:DatatypeProperty rdf:about="http://jdr.bio/ontologies/alzkb.owl#numberOfSnps">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#int"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://jdr.bio/ontologies/alzkb.owl#diseaseAssociatesWithGene -->
+
+    <owl:ObjectProperty rdf:about="http://jdr.bio/ontologies/alzkb.owl#diseaseAssociatesWithGene">
+        <owl:inverseOf rdf:resource="http://jdr.bio/ontologies/alzkb.owl#geneAssociatesWithDisease"/>
+        <rdfs:subPropertyOf rdf:resource="http://jdr.bio/ontologies/alzkb.owl#diseaseObjectProperty"/>
+        <rdfs:domain rdf:resource="http://jdr.bio/ontologies/alzkb.owl#MedicalCondition"/>
+        <rdfs:range rdf:resource="http://jdr.bio/ontologies/alzkb.owl#Gene"/>
+    </owl:ObjectProperty>
+    
     <!-- 
     ///////////////////////////////////////////////////////////////////////////////////////
     //
@@ -2023,7 +2118,7 @@ A chemical list is loosely defined, but they can be thought of in broad terms as
     <!-- http://jdr.bio/ontologies/alzkb.owl#CopyNumberVariant -->
 
     <owl:Class rdf:about="http://jdr.bio/ontologies/alzkb.owl#CopyNumberVariant">
-        <rdfs:subClassOf rdf:resource="http://jdr.bio/ontologies/alzkb.owl#Variant"/>
+        <rdfs:subClassOf rdf:resource="http://jdr.bio/ontologies/alzkb.owl#GeneticEntity"/>
     </owl:Class>
     
 
@@ -2567,7 +2662,7 @@ Note that each gene can be in potentially many pathways, and each pathway can co
     <!-- http://jdr.bio/ontologies/alzkb.owl#SingleNucleotidePolymorphism -->
 
     <owl:Class rdf:about="http://jdr.bio/ontologies/alzkb.owl#SingleNucleotidePolymorphism">
-        <rdfs:subClassOf rdf:resource="http://jdr.bio/ontologies/alzkb.owl#Variant"/>
+        <rdfs:subClassOf rdf:resource="http://jdr.bio/ontologies/alzkb.owl#GeneticEntity"/>
     </owl:Class>
     
 
@@ -2633,13 +2728,6 @@ Note that each gene can be in potentially many pathways, and each pathway can co
     </owl:Class>
     
 
-
-    <!-- http://jdr.bio/ontologies/alzkb.owl#Variant -->
-
-    <owl:Class rdf:about="http://jdr.bio/ontologies/alzkb.owl#Variant">
-        <rdfs:subClassOf rdf:resource="http://jdr.bio/ontologies/alzkb.owl#GeneticEntity"/>
-    </owl:Class>
-    
 
 
     <!-- http://jdr.bio/ontologies/alzkb.owl#VenomComponent -->
