@@ -211,6 +211,26 @@ mappings:
         fma_id: xrefFMA
 
   # ---------------------------------------------------------------------------
+  # MeSH - Medical Subject Headings
+  # ---------------------------------------------------------------------------
+  mesh.symptom_nodes:
+    data_type: node
+    node_type: Symptom
+    source_filename: symptom_nodes.tsv
+    merge: true
+    skip: false
+    parse_config:
+      headers: true
+      iri_column_name: mesh_id
+      data_property_map:
+        mesh_id: xrefMeSH
+        mesh_name: commonName
+        sourceDatabase: sourceDatabase
+      merge_column:
+        source_column_name: mesh_id
+        data_property: xrefMeSH
+
+  # ---------------------------------------------------------------------------
   # DrugCentral - Drug Information, Classification, and Effects
   # ---------------------------------------------------------------------------
   drugcentral.drugs:

@@ -46,7 +46,7 @@ project:
     Disease: ["commonName", "xrefUmlsCUI", "xrefDiseaseOntology"]
     Pathway: ["pathwayName"]
     BodyPart: ["commonName", "xrefUberon"]
-    Symptom: ["commonName", "xrefMeSH"]
+    Symptom: ["commonName", "xrefMeSH", "sourceDatabase"]
     TranscriptionFactor: ["TF"]
     DrugClass: ["pharma_class_name"]
     ChemicalEffect: ["commonName", "xrefMeSH"]
@@ -215,4 +215,10 @@ project:
     ChemicalEffect:
       - commonName
       - xrefMeSH
+    
+    # Symptom properties
+    Symptom:
+      - commonName
+      - xrefMeSH
+      - sourceDatabase
 

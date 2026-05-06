@@ -85,3 +85,12 @@ databases:
     notes: Gene expression presence/absence calls by anatomy. Provides anatomyExpressesGene
       edges with expression quality metrics (call quality, FDR, expression score,
       rank).
+
+  mesh:
+    enabled: true
+    args:
+      base_url: "https://nlmpubs.nlm.nih.gov/projects/mesh/MESH_FILES/xmlmesh/"
+    notes: >-
+      MeSH (Medical Subject Headings) descriptor XML from NLM. Extracts Symptom
+      nodes from the Signs and Symptoms subtree (C23.888). Public source — no
+      credentials required. Produces: symptom_nodes.tsv.
