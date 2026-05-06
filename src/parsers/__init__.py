@@ -12,6 +12,7 @@ from .drugbank_parser import DrugBankParser
 from .disgenet_parser import DisGeNETParser
 from .aopdb_parser import AOPDBParser
 from .dorothea_parser import DoRothEAParser
+from .collecttri_parser import CollectTRIParser
 from .disease_ontology_parser import DiseaseOntologyParser
 from .gene_ontology_parser import GeneOntologyParser
 from .uberon_parser import UberonParser
@@ -31,6 +32,7 @@ __all__ = [
     'DisGeNETParser',
     'AOPDBParser',
     'DoRothEAParser',
+    'CollectTRIParser',
     'DiseaseOntologyParser',
     'GeneOntologyParser',
     'UberonParser',
