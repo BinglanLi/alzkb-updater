@@ -1,506 +1,361 @@
 """
 Gene Ontology Parser for the knowledge graph.
 
-This module parses the Gene Ontology (GO) to extract:
+Downloads and parses the Gene Ontology (GO) to extract:
 - Biological Process (BP) nodes
 - Molecular Function (MF) nodes
 - Cellular Component (CC) nodes
-- Gene-GO associations (aggregated by GO term)
+- Gene-GO associations (BP, MF, CC)
 
 Data Sources:
-  - GO OBO: http://current.geneontology.org/ontology/go-basic.obo
-  - NCBI gene2go: https://ftp.ncbi.nlm.nih.gov/gene/DATA/gene2go.gz
-  - GOA Human: http://current.geneontology.org/annotations/goa_human.gaf.gz (fallback)
+  - GO OBO: http://purl.obolibrary.org/obo/go.obo
+  - GOA Human: http://current.geneontology.org/annotations/goa_human.gaf.gz
+  - NCBI gene_info (for symbol→Entrez mapping, reused from ncbigene parser)
 
-Output:
-  - biological_process_nodes.tsv
-  - molecular_function_nodes.tsv
-  - cellular_component_nodes.tsv
-  - go_annotations.tsv: Aggregated gene-GO annotations (matches Hetionet format)
-  - gene_bp_associations.tsv (geneParticipatesInBiologicalProcess)
-  - gene_mf_associations.tsv (geneHasMolecularFunction)
-  - gene_cc_associations.tsv (geneAssociatedWithCellularComponent)
+Output (6 DataFrames):
+  - biological_process_nodes.tsv  (go_id, name, definition)
+  - molecular_function_nodes.tsv  (go_id, name, definition)
+  - cellular_component_nodes.tsv  (go_id, name, definition)
+  - gene_bp_associations.tsv      (entrez_gene_id, go_id, evidence)
+  - gene_mf_associations.tsv      (entrez_gene_id, go_id, evidence)
+  - gene_cc_associations.tsv      (entrez_gene_id, go_id, evidence)
 """
 
-import logging
 import gzip
+import logging
 from pathlib import Path
-from typing import Dict, Optional, List, Set
+from typing import Dict, Optional
+
 import pandas as pd
 
 try:
     import obonet
+    HAS_OBONET = True
 except ImportError:
-    obonet = None
-
-try:
-    import pronto
-except ImportError:
-    pronto = None
+    HAS_OBONET = False
 
 from .base_parser import BaseParser
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Output name constants — must match source_filename in ontology_mappings.yaml
+# ---------------------------------------------------------------------------
+BP_NODES = "biological_process_nodes"
+MF_NODES = "molecular_function_nodes"
+CC_NODES = "cellular_component_nodes"
+GENE_BP  = "gene_bp_associations"
+GENE_MF  = "gene_mf_associations"
+GENE_CC  = "gene_cc_associations"
+
+# GAF column names (17 columns in GAF 2.2)
+_GAF_COLUMNS = [
+    "DB", "DB_Object_ID", "DB_Object_Symbol", "Qualifier", "GO_ID",
+    "DB_Reference", "Evidence_Code", "With_From", "Aspect",
+    "DB_Object_Name", "DB_Object_Synonym", "DB_Object_Type",
+    "Taxon", "Date", "Assigned_By", "Annotation_Extension",
+    "Gene_Product_Form_ID",
+]
 
 
 class GeneOntologyParser(BaseParser):
     """
     Parser for the Gene Ontology (GO).
 
-    Extracts GO terms (BP, MF, CC) and gene-GO associations from
-    the GO OBO file and GOA annotations.
+    Extracts GO terms (BP, MF, CC) and human gene-GO associations from
+    the GO OBO file and GOA human annotation file.
     """
 
-    # Gene Ontology URLs
-    GO_OBO_URL = "http://current.geneontology.org/ontology/go-basic.obo"
+    # Official GO data sources (as specified by task)
+    GO_OBO_URL   = "http://purl.obolibrary.org/obo/go.obo"
     GOA_HUMAN_URL = "http://current.geneontology.org/annotations/goa_human.gaf.gz"
 
-    # NCBI gene2go - primary source for gene-GO associations (same as used by Hetionet)
-    GENE2GO_URL = "https://ftp.ncbi.nlm.nih.gov/gene/DATA/gene2go.gz"
+    # Fallback OBO (already cached from previous runs)
+    GO_BASIC_OBO = "go-basic.obo"
+    GO_OBO_FILE  = "go.obo"
+    GAF_FILE     = "goa_human.gaf.gz"
 
-    # Human taxonomy ID
+    # Human NCBI taxonomy ID
     HUMAN_TAX_ID = 9606
 
-    # GO namespaces
-    NAMESPACES = {
-        "biological_process": "BP",
-        "molecular_function": "MF",
-        "cellular_component": "CC"
-    }
-
-    # Namespace mapping for gene2go Category column
-    CATEGORY_TO_NAMESPACE = {
-        "Process": "biological_process",
-        "Function": "molecular_function",
-        "Component": "cellular_component"
-    }
-
-    def __init__(self, data_dir: str, gene_symbol_map: Dict[int, str] = None):
-        """
-        Initialize the Gene Ontology parser.
-
-        Args:
-            data_dir: Directory to store downloaded and processed data
-            gene_symbol_map: Optional dict mapping Entrez Gene ID to symbol
-                            (used for creating aggregated annotations)
-        """
+    def __init__(self, data_dir: str):
         super().__init__(data_dir)
+        # BaseParser sets source_name = "geneontology" (from class name).
+        # Override to "gene_ontology" so it matches the databases.yaml key.
+        # Note: source_dir stays as data_dir/geneontology (where raw files live).
         self.source_name = "gene_ontology"
-        self.gene_symbol_map = gene_symbol_map or {}
+
+    # ------------------------------------------------------------------
+    # download_data
+    # ------------------------------------------------------------------
 
     def download_data(self) -> bool:
-        """
-        Download the Gene Ontology OBO and gene2go annotation files.
+        """Download GO OBO and GOA human annotation files."""
+        logger.info("Downloading Gene Ontology files …")
+        success = True
 
-        Returns:
-            True if successful, False otherwise
-        """
-        logger.info("Downloading Gene Ontology files...")
-
-        # Download GO OBO
-        obo_result = self.download_file(self.GO_OBO_URL, "go-basic.obo")
-        if not obo_result:
-            logger.error("Failed to download GO OBO file")
-            return False
-        logger.info(f"Successfully downloaded GO OBO to {obo_result}")
-
-        # Download NCBI gene2go (primary source, same as Hetionet)
-        gene2go_result = self.download_file(self.GENE2GO_URL, "gene2go.gz")
-        if not gene2go_result:
-            logger.warning("Failed to download gene2go - will try GOA annotations")
-            # Fallback to GOA Human annotations
-            goa_result = self.download_file(self.GOA_HUMAN_URL, "goa_human.gaf.gz")
-            if not goa_result:
-                logger.warning("Failed to download GOA annotations - continuing without gene associations")
+        # 1. GO OBO (full ontology)
+        obo_path = self.source_dir / self.GO_OBO_FILE
+        basic_path = self.source_dir / self.GO_BASIC_OBO
+        if not obo_path.exists() and not basic_path.exists():
+            result = self.download_file(self.GO_OBO_URL, self.GO_OBO_FILE)
+            if not result:
+                logger.error("Failed to download GO OBO file")
+                success = False
         else:
-            logger.info(f"Successfully downloaded gene2go to {gene2go_result}")
+            logger.info(f"GO OBO already cached — skipping download")
 
-        logger.info("Successfully downloaded Gene Ontology files")
-        return True
+        # 2. GOA human annotation (GAF)
+        gaf_path = self.source_dir / self.GAF_FILE
+        if not gaf_path.exists():
+            result = self.download_file(self.GOA_HUMAN_URL, self.GAF_FILE)
+            if not result:
+                logger.error("Failed to download GOA human annotation file")
+                success = False
+        else:
+            logger.info(f"GOA human annotation already cached — skipping download")
+
+        return success
+
+    # ------------------------------------------------------------------
+    # parse_data
+    # ------------------------------------------------------------------
 
     def parse_data(self) -> Dict[str, pd.DataFrame]:
-        """
-        Parse GO OBO and gene2go annotation files.
+        """Parse GO OBO and GOA annotation files; return 6 DataFrames."""
+        result: Dict[str, pd.DataFrame] = {}
 
-        Returns:
-            Dictionary with DataFrames for GO terms and gene associations
-        """
-        result = {}
-
-        # Parse GO ontology first to get GO term names
-        obo_path = self.source_dir / "go-basic.obo"
-        go_term_info = {}  # go_id -> {name, namespace}
-        if obo_path.exists():
-            go_terms = self._parse_go_ontology(obo_path)
-            result.update(go_terms)
-
-            # Build lookup for GO term names and namespaces
-            for key in ["biological_process_nodes", "molecular_function_nodes", "cellular_component_nodes"]:
-                if key in go_terms:
-                    for _, row in go_terms[key].iterrows():
-                        go_term_info[row['go_id']] = {
-                            'name': row['name'],
-                            'namespace': row['namespace']
-                        }
+        # --- GO terms ---
+        obo_path = self._find_obo_file()
+        if obo_path is None:
+            logger.error("No GO OBO file found — cannot parse GO terms")
         else:
-            logger.error(f"GO OBO file not found: {obo_path}")
+            go_dfs = self._parse_go_ontology(obo_path)
+            result.update(go_dfs)
 
-        # Parse gene2go (primary source, same as Hetionet)
-        gene2go_path = self.source_dir / "gene2go.gz"
-        if gene2go_path.exists():
-            associations = self._parse_gene2go(gene2go_path, go_term_info)
-            result.update(associations)
+        # --- Gene-GO associations ---
+        symbol_to_entrez = self._build_symbol_to_entrez_map()
+        gaf_path = self.source_dir / self.GAF_FILE
+        if gaf_path.exists():
+            assoc_dfs = self._parse_goa_annotations(gaf_path, symbol_to_entrez)
+            result.update(assoc_dfs)
         else:
-            # Fallback to GOA annotations
-            logger.warning(f"gene2go not found, trying GOA annotations")
-            goa_path = self.source_dir / "goa_human.gaf.gz"
-            if goa_path.exists():
-                associations = self._parse_goa_annotations(goa_path)
-                result.update(associations)
-            else:
-                logger.warning(f"GOA annotations not found: {goa_path}")
+            logger.error(f"GOA annotation file not found: {gaf_path}")
 
         return result
 
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _find_obo_file(self) -> Optional[Path]:
+        """Return the path to the best available OBO file."""
+        for fname in (self.GO_OBO_FILE, self.GO_BASIC_OBO):
+            p = self.source_dir / fname
+            if p.exists():
+                logger.info(f"Using OBO file: {p}")
+                return p
+        return None
+
     def _parse_go_ontology(self, obo_path: Path) -> Dict[str, pd.DataFrame]:
-        """
-        Parse the GO OBO file to extract terms.
-
-        Args:
-            obo_path: Path to the GO OBO file
-
-        Returns:
-            Dictionary with DataFrames for BP, MF, CC terms
-        """
-        logger.info(f"Parsing GO ontology from {obo_path}")
-
-        if obonet:
-            return self._parse_go_with_obonet(obo_path)
-        elif pronto:
-            return self._parse_go_with_pronto(obo_path)
-        else:
-            logger.error("Neither obonet nor pronto is installed")
+        """Parse GO OBO file and return BP/MF/CC node DataFrames."""
+        if not HAS_OBONET:
+            logger.error("obonet is not installed — cannot parse OBO file")
             return {}
 
-    def _parse_go_with_obonet(self, obo_path: Path) -> Dict[str, pd.DataFrame]:
-        """Parse GO using obonet."""
+        logger.info(f"Parsing GO ontology from {obo_path} …")
         try:
             graph = obonet.read_obo(str(obo_path))
-
-            bp_terms = []
-            mf_terms = []
-            cc_terms = []
-
-            for node_id, node_data in graph.nodes(data=True):
-                if not node_id.startswith("GO:"):
-                    continue
-
-                if node_data.get("is_obsolete", False):
-                    continue
-
-                namespace = node_data.get("namespace", "")
-                term = {
-                    "go_id": node_id,
-                    "name": node_data.get("name", ""),
-                    "definition": self._clean_definition(node_data.get("def", "")),
-                    "namespace": namespace
-                }
-
-                if namespace == "biological_process":
-                    bp_terms.append(term)
-                elif namespace == "molecular_function":
-                    mf_terms.append(term)
-                elif namespace == "cellular_component":
-                    cc_terms.append(term)
-
-            logger.info(f"Parsed {len(bp_terms)} BP, {len(mf_terms)} MF, {len(cc_terms)} CC terms")
-
-            return {
-                "biological_process_nodes": pd.DataFrame(bp_terms),
-                "molecular_function_nodes": pd.DataFrame(mf_terms),
-                "cellular_component_nodes": pd.DataFrame(cc_terms)
-            }
-
-        except Exception as e:
-            logger.error(f"Error parsing GO with obonet: {e}")
+        except Exception as exc:
+            logger.error(f"Failed to read OBO file: {exc}")
             return {}
 
-    def _parse_go_with_pronto(self, obo_path: Path) -> Dict[str, pd.DataFrame]:
-        """Parse GO using pronto."""
-        try:
-            ontology = pronto.Ontology(str(obo_path))
+        bp_terms, mf_terms, cc_terms = [], [], []
 
-            bp_terms = []
-            mf_terms = []
-            cc_terms = []
+        for node_id, node_data in graph.nodes(data=True):
+            if not node_id.startswith("GO:"):
+                continue
+            if node_data.get("is_obsolete", False):
+                continue
 
-            for term in ontology.terms():
-                if not term.id.startswith("GO:"):
-                    continue
-
-                if term.obsolete:
-                    continue
-
-                namespace = term.namespace or ""
-                term_data = {
-                    "go_id": term.id,
-                    "name": term.name or "",
-                    "definition": str(term.definition) if term.definition else "",
-                    "namespace": namespace
-                }
-
-                if namespace == "biological_process":
-                    bp_terms.append(term_data)
-                elif namespace == "molecular_function":
-                    mf_terms.append(term_data)
-                elif namespace == "cellular_component":
-                    cc_terms.append(term_data)
-
-            logger.info(f"Parsed {len(bp_terms)} BP, {len(mf_terms)} MF, {len(cc_terms)} CC terms")
-
-            return {
-                "biological_process_nodes": pd.DataFrame(bp_terms),
-                "molecular_function_nodes": pd.DataFrame(mf_terms),
-                "cellular_component_nodes": pd.DataFrame(cc_terms)
+            namespace = node_data.get("namespace", "")
+            term = {
+                "go_id":       node_id,
+                "name":        node_data.get("name", ""),
+                "definition":  self._clean_definition(node_data.get("def", "")),
             }
 
-        except Exception as e:
-            logger.error(f"Error parsing GO with pronto: {e}")
-            return {}
+            if namespace == "biological_process":
+                bp_terms.append(term)
+            elif namespace == "molecular_function":
+                mf_terms.append(term)
+            elif namespace == "cellular_component":
+                cc_terms.append(term)
 
-    def _parse_goa_annotations(self, goa_path: Path) -> Dict[str, pd.DataFrame]:
+        logger.info(
+            f"Parsed {len(bp_terms)} BP, {len(mf_terms)} MF, {len(cc_terms)} CC terms"
+        )
+
+        return {
+            BP_NODES: pd.DataFrame(bp_terms),
+            MF_NODES: pd.DataFrame(mf_terms),
+            CC_NODES: pd.DataFrame(cc_terms),
+        }
+
+    def _build_symbol_to_entrez_map(self) -> Dict[str, int]:
         """
-        Parse GOA annotation file to extract gene-GO associations.
+        Build a gene-symbol → Entrez Gene ID mapping from NCBI gene_info.
 
-        Args:
-            goa_path: Path to the GOA GAF file (gzipped)
-
-        Returns:
-            Dictionary with DataFrames for gene-BP, gene-MF, gene-CC associations
+        Looks first in the ncbigene raw directory (reusing data already
+        downloaded by NCBIGeneParser), then falls back to the local
+        source directory.
         """
-        logger.info(f"Parsing GOA annotations from {goa_path}")
+        candidates = [
+            self.data_dir / "ncbigene" / "Homo_sapiens.gene_info",
+            self.source_dir / "Homo_sapiens.gene_info",
+        ]
+        gene_info_path: Optional[Path] = None
+        for p in candidates:
+            if p.exists():
+                gene_info_path = p
+                break
 
-        try:
-            # GAF 2.2 column names
-            columns = [
-                "DB", "DB_Object_ID", "DB_Object_Symbol", "Qualifier", "GO_ID",
-                "DB_Reference", "Evidence_Code", "With_From", "Aspect",
-                "DB_Object_Name", "DB_Object_Synonym", "DB_Object_Type",
-                "Taxon", "Date", "Assigned_By", "Annotation_Extension",
-                "Gene_Product_Form_ID"
-            ]
-
-            # Read GAF file (skip comment lines)
-            rows = []
-            with gzip.open(goa_path, 'rt') as f:
-                for line in f:
-                    if line.startswith('!'):
-                        continue
-                    parts = line.strip().split('\t')
-                    if len(parts) >= 15:
-                        rows.append(parts[:17] if len(parts) >= 17 else parts + [''] * (17 - len(parts)))
-
-            df = pd.DataFrame(rows, columns=columns)
-
-            # Filter for human genes (taxon:9606)
-            df = df[df['Taxon'].str.contains('taxon:9606', na=False)]
-
-            # Separate by aspect (P=BP, F=MF, C=CC)
-            bp_assoc = df[df['Aspect'] == 'P'][['DB_Object_Symbol', 'GO_ID', 'Evidence_Code']].copy()
-            bp_assoc.columns = ['gene_symbol', 'go_id', 'evidence']
-            bp_assoc['relationship'] = 'geneParticipatesInBiologicalProcess'
-
-            mf_assoc = df[df['Aspect'] == 'F'][['DB_Object_Symbol', 'GO_ID', 'Evidence_Code']].copy()
-            mf_assoc.columns = ['gene_symbol', 'go_id', 'evidence']
-            mf_assoc['relationship'] = 'geneHasMolecularFunction'
-
-            cc_assoc = df[df['Aspect'] == 'C'][['DB_Object_Symbol', 'GO_ID', 'Evidence_Code']].copy()
-            cc_assoc.columns = ['gene_symbol', 'go_id', 'evidence']
-            cc_assoc['relationship'] = 'geneAssociatedWithCellularComponent'
-
-            # Remove duplicates
-            bp_assoc = bp_assoc.drop_duplicates(subset=['gene_symbol', 'go_id'])
-            mf_assoc = mf_assoc.drop_duplicates(subset=['gene_symbol', 'go_id'])
-            cc_assoc = cc_assoc.drop_duplicates(subset=['gene_symbol', 'go_id'])
-
-            logger.info(f"Parsed {len(bp_assoc)} BP, {len(mf_assoc)} MF, {len(cc_assoc)} CC associations")
-
-            return {
-                "gene_bp_associations": bp_assoc,
-                "gene_mf_associations": mf_assoc,
-                "gene_cc_associations": cc_assoc
-            }
-
-        except Exception as e:
-            logger.error(f"Error parsing GOA annotations: {e}")
-            return {}
-
-    def _parse_gene2go(self, gene2go_path: Path, go_term_info: Dict) -> Dict[str, pd.DataFrame]:
-        """
-        Parse NCBI gene2go file to extract gene-GO associations.
-
-        Creates aggregated output matching the Hetionet format:
-        GO_annotations-9606-inferred-allev.tsv with columns:
-        go_id, go_name, go_domain, tax_id, annotation_type, size, gene_ids, gene_symbols
-
-        Args:
-            gene2go_path: Path to gene2go.gz
-            go_term_info: Dict mapping go_id to {name, namespace}
-
-        Returns:
-            Dictionary with DataFrames for aggregated annotations and individual associations
-        """
-        logger.info(f"Parsing gene2go from {gene2go_path}")
-
-        try:
-            # gene2go columns: tax_id, GeneID, GO_ID, Evidence, Qualifier, GO_term, PubMed, Category
-            df = pd.read_csv(
-                gene2go_path,
-                sep='\t',
-                compression='gzip',
-                comment='#',
-                names=['tax_id', 'GeneID', 'GO_ID', 'Evidence', 'Qualifier', 'GO_term', 'PubMed', 'Category'],
-                dtype={'tax_id': int, 'GeneID': int}
+        if gene_info_path is None:
+            logger.warning(
+                "Homo_sapiens.gene_info not found — "
+                "gene-symbol → Entrez mapping will be empty; "
+                "run ncbigene parser first or place the file in data/raw/ncbigene/"
             )
-
-            logger.info(f"Loaded {len(df)} gene2go records")
-
-            # Filter for human genes only
-            df = df[df['tax_id'] == self.HUMAN_TAX_ID]
-            logger.info(f"After human filter: {len(df)} records")
-
-            # Map Category to namespace
-            df['namespace'] = df['Category'].map(self.CATEGORY_TO_NAMESPACE)
-
-            # Get gene symbols from map if available
-            if self.gene_symbol_map:
-                df['gene_symbol'] = df['GeneID'].map(self.gene_symbol_map)
-            else:
-                df['gene_symbol'] = df['GeneID'].astype(str)
-
-            # Aggregate by GO term to create the Hetionet format
-            aggregated = []
-            for go_id, group in df.groupby('GO_ID'):
-                gene_ids = sorted(group['GeneID'].unique())
-                gene_symbols = [self.gene_symbol_map.get(gid, str(gid)) for gid in gene_ids]
-
-                # Get GO term name and namespace from OBO data or gene2go
-                if go_id in go_term_info:
-                    go_name = go_term_info[go_id]['name']
-                    namespace = go_term_info[go_id]['namespace']
-                else:
-                    go_name = group['GO_term'].iloc[0] if 'GO_term' in group.columns else ''
-                    namespace = group['namespace'].iloc[0] if 'namespace' in group.columns else ''
-
-                aggregated.append({
-                    'go_id': go_id,
-                    'go_name': go_name,
-                    'go_domain': namespace,
-                    'tax_id': self.HUMAN_TAX_ID,
-                    'annotation_type': 'inferred',
-                    'size': len(gene_ids),
-                    'gene_ids': '|'.join(map(str, gene_ids)),
-                    'gene_symbols': '|'.join(gene_symbols)
-                })
-
-            go_annotations_df = pd.DataFrame(aggregated)
-            logger.info(f"Created {len(go_annotations_df)} aggregated GO annotations")
-
-            # Also create individual associations for backward compatibility
-            bp_assoc = df[df['namespace'] == 'biological_process'][['GeneID', 'GO_ID', 'Evidence', 'gene_symbol']].copy()
-            bp_assoc.columns = ['entrez_gene_id', 'go_id', 'evidence', 'gene_symbol']
-            bp_assoc['relationship'] = 'geneParticipatesInBiologicalProcess'
-            bp_assoc = bp_assoc.drop_duplicates(subset=['entrez_gene_id', 'go_id'])
-
-            mf_assoc = df[df['namespace'] == 'molecular_function'][['GeneID', 'GO_ID', 'Evidence', 'gene_symbol']].copy()
-            mf_assoc.columns = ['entrez_gene_id', 'go_id', 'evidence', 'gene_symbol']
-            mf_assoc['relationship'] = 'geneHasMolecularFunction'
-            mf_assoc = mf_assoc.drop_duplicates(subset=['entrez_gene_id', 'go_id'])
-
-            cc_assoc = df[df['namespace'] == 'cellular_component'][['GeneID', 'GO_ID', 'Evidence', 'gene_symbol']].copy()
-            cc_assoc.columns = ['entrez_gene_id', 'go_id', 'evidence', 'gene_symbol']
-            cc_assoc['relationship'] = 'geneAssociatedWithCellularComponent'
-            cc_assoc = cc_assoc.drop_duplicates(subset=['entrez_gene_id', 'go_id'])
-
-            logger.info(f"Parsed {len(bp_assoc)} BP, {len(mf_assoc)} MF, {len(cc_assoc)} CC individual associations")
-
-            return {
-                "go_annotations": go_annotations_df,
-                "gene_bp_associations": bp_assoc,
-                "gene_mf_associations": mf_assoc,
-                "gene_cc_associations": cc_assoc
-            }
-
-        except Exception as e:
-            logger.error(f"Error parsing gene2go: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
             return {}
 
-    def _clean_definition(self, definition: str) -> str:
-        """Clean up definition string from OBO format."""
+        logger.info(f"Loading gene_info from {gene_info_path} …")
+        try:
+            df = pd.read_csv(
+                gene_info_path,
+                sep="\t",
+                usecols=["#tax_id", "GeneID", "Symbol"],
+                dtype={"#tax_id": int, "GeneID": int, "Symbol": str},
+            )
+            df = df[df["#tax_id"] == self.HUMAN_TAX_ID]
+            mapping = dict(zip(df["Symbol"], df["GeneID"]))
+            logger.info(f"Loaded {len(mapping):,} symbol→Entrez mappings")
+            return mapping
+        except Exception as exc:
+            logger.error(f"Failed to read gene_info: {exc}")
+            return {}
+
+    def _parse_goa_annotations(
+        self,
+        gaf_path: Path,
+        symbol_to_entrez: Dict[str, int],
+    ) -> Dict[str, pd.DataFrame]:
+        """
+        Parse GOA human GAF file and return gene-BP/MF/CC association DataFrames.
+
+        Columns: entrez_gene_id, go_id, evidence
+        """
+        logger.info(f"Parsing GOA annotations from {gaf_path} …")
+
+        rows = []
+        try:
+            with gzip.open(gaf_path, "rt", encoding="utf-8") as fh:
+                for line in fh:
+                    if line.startswith("!"):
+                        continue
+                    parts = line.rstrip("\n").split("\t")
+                    if len(parts) < 15:
+                        continue
+                    # Pad to 17 columns if needed
+                    while len(parts) < 17:
+                        parts.append("")
+                    rows.append(parts[:17])
+        except Exception as exc:
+            logger.error(f"Failed to read GAF file: {exc}")
+            return {}
+
+        df = pd.DataFrame(rows, columns=_GAF_COLUMNS)
+        logger.info(f"Loaded {len(df):,} raw GAF records")
+
+        # Keep only human annotations
+        df = df[df["Taxon"].str.contains("taxon:9606", na=False)]
+        logger.info(f"After human filter: {len(df):,} records")
+
+        # Map gene symbol → Entrez Gene ID
+        if symbol_to_entrez:
+            df["entrez_gene_id"] = df["DB_Object_Symbol"].map(symbol_to_entrez)
+            df = df.dropna(subset=["entrez_gene_id"])
+            df["entrez_gene_id"] = df["entrez_gene_id"].astype(int)
+        else:
+            logger.warning(
+                "No symbol→Entrez mapping available; "
+                "association DataFrames will be empty"
+            )
+            return {GENE_BP: pd.DataFrame(columns=["entrez_gene_id", "go_id", "evidence"]),
+                    GENE_MF: pd.DataFrame(columns=["entrez_gene_id", "go_id", "evidence"]),
+                    GENE_CC: pd.DataFrame(columns=["entrez_gene_id", "go_id", "evidence"])}
+
+        # Split by GO aspect: P=BP, F=MF, C=CC
+        def _extract(aspect_code: str) -> pd.DataFrame:
+            sub = df[df["Aspect"] == aspect_code][
+                ["entrez_gene_id", "GO_ID", "Evidence_Code"]
+            ].copy()
+            sub.columns = ["entrez_gene_id", "go_id", "evidence"]
+            sub = sub.drop_duplicates(subset=["entrez_gene_id", "go_id"])
+            sub = sub.reset_index(drop=True)
+            return sub
+
+        bp_df = _extract("P")
+        mf_df = _extract("F")
+        cc_df = _extract("C")
+
+        logger.info(
+            f"Associations — BP: {len(bp_df):,}, MF: {len(mf_df):,}, CC: {len(cc_df):,}"
+        )
+
+        return {GENE_BP: bp_df, GENE_MF: mf_df, GENE_CC: cc_df}
+
+    @staticmethod
+    def _clean_definition(definition: str) -> str:
+        """Strip OBO-format quotes and citation brackets from a definition.
+
+        OBO format: "Definition text." [citation]
+        """
         if not definition:
             return ""
-        definition = definition.strip('"')
+        # Remove leading quote
+        if definition.startswith('"'):
+            definition = definition[1:]
+        # Remove citation bracket and everything after it
         if " [" in definition:
             definition = definition.split(" [")[0]
-        return definition
+        # Remove trailing quote (left after stripping the citation)
+        if definition.endswith('"'):
+            definition = definition[:-1]
+        # Replace any embedded tab characters with a space to prevent TSV field splitting
+        definition = definition.replace('\t', ' ')
+        return definition.strip()
+
+    # ------------------------------------------------------------------
+    # get_schema
+    # ------------------------------------------------------------------
 
     def get_schema(self) -> Dict[str, Dict[str, str]]:
-        """
-        Get the schema for Gene Ontology data.
-
-        Returns:
-            Dictionary defining the schema for GO nodes and associations
-        """
+        """Return the schema for all 6 output DataFrames."""
+        node_schema = {
+            "go_id":       "Gene Ontology ID (e.g. GO:0008150)",
+            "name":        "Human-readable GO term name",
+            "definition":  "Text definition of the GO term",
+        }
+        assoc_schema = {
+            "entrez_gene_id": "NCBI Entrez Gene ID (integer)",
+            "go_id":          "Gene Ontology ID",
+            "evidence":       "GO evidence code (e.g. IDA, IEA, TAS)",
+        }
         return {
-            "biological_process_nodes": {
-                "go_id": "Gene Ontology ID (e.g., GO:0008150)",
-                "name": "GO term name",
-                "definition": "GO term definition",
-                "namespace": "GO namespace (biological_process)"
-            },
-            "molecular_function_nodes": {
-                "go_id": "Gene Ontology ID",
-                "name": "GO term name",
-                "definition": "GO term definition",
-                "namespace": "GO namespace (molecular_function)"
-            },
-            "cellular_component_nodes": {
-                "go_id": "Gene Ontology ID",
-                "name": "GO term name",
-                "definition": "GO term definition",
-                "namespace": "GO namespace (cellular_component)"
-            },
-            "go_annotations": {
-                "go_id": "Gene Ontology ID",
-                "go_name": "GO term name",
-                "go_domain": "GO namespace (biological_process, molecular_function, cellular_component)",
-                "tax_id": "Taxonomy ID (9606 for human)",
-                "annotation_type": "Annotation type (inferred)",
-                "size": "Number of genes annotated to this term",
-                "gene_ids": "Pipe-separated Entrez Gene IDs",
-                "gene_symbols": "Pipe-separated gene symbols"
-            },
-            "gene_bp_associations": {
-                "entrez_gene_id": "Entrez Gene ID",
-                "go_id": "GO term ID",
-                "evidence": "Evidence code",
-                "gene_symbol": "Gene symbol",
-                "relationship": "Relationship type"
-            },
-            "gene_mf_associations": {
-                "entrez_gene_id": "Entrez Gene ID",
-                "go_id": "GO term ID",
-                "evidence": "Evidence code",
-                "gene_symbol": "Gene symbol",
-                "relationship": "Relationship type"
-            },
-            "gene_cc_associations": {
-                "entrez_gene_id": "Entrez Gene ID",
-                "go_id": "GO term ID",
-                "evidence": "Evidence code",
-                "gene_symbol": "Gene symbol",
-                "relationship": "Relationship type"
-            }
+            BP_NODES: node_schema,
+            MF_NODES: node_schema,
+            CC_NODES: node_schema,
+            GENE_BP:  assoc_schema,
+            GENE_MF:  assoc_schema,
+            GENE_CC:  assoc_schema,
         }
