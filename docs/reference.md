@@ -26,8 +26,6 @@ alzkb-updater/
 │   └── output/                   # populated RDF, node/edge CSVs, import.cypher
 │
 ├── eval/                         # eval_after_parser.py, eval_after_ontology.py, eval_after_memgraph.py
-├── test/
-│   └── eval_parser.py            # legacy parser + mapping evaluation tool
 │
 ├── docs/                         # overview.md, reference.md
 ├── .ista/                        # bundled ista library (pip install -e .ista)
