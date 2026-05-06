@@ -1,100 +1,87 @@
-# Database Configuration
-# Edit this file to enable/disable sources and configure access credentials.
-#
-# Fields:
-#   enabled: set to true to include this source in the pipeline
-#   args:    constructor arguments passed to the parser
-#            (use *_env suffix to read a value from an environment variable)
-#   notes:   description of the data source
-
 databases:
-
-  # Core sources (direct integration)
   aopdb:
-    enabled: true
+    enabled: false
     args:
       mysql_config:
-        host: "localhost"
+        host: localhost
         user_env: MYSQL_USERNAME
         password_env: MYSQL_PASSWORD
         database_env: MYSQL_DB_NAME
-    notes: "Adverse Outcome Pathway Database. Provides Pathway nodes and geneInPathway/pathwayContainsGene edges. Requires local MySQL."
-
+    notes: Adverse Outcome Pathway Database. Provides Pathway nodes and geneInPathway/pathwayContainsGene
+      edges. Requires local MySQL.
   disgenet:
     enabled: true
     args:
       api_key_env: DISGENET_API_KEY
-      base_url: "https://www.disgenet.org/api"
-    notes: "Gene-disease associations via REST API. Provides geneAssociatesWithDisease edges. Queries disease terms from project.yaml."
-
+      base_url: https://www.disgenet.org/api
+    notes: Gene-disease associations via REST API. Provides geneAssociatesWithDisease
+      edges. Queries disease terms from project.yaml.
   drugbank:
     enabled: true
     args:
+      source_url: https://go.drugbank.com/releases/{version}/downloads/all-drug-links
+      version: latest
       username_env: DRUGBANK_USERNAME
       password_env: DRUGBANK_PASSWORD
-    notes: "Drug information and drug-gene binding. Provides Drug nodes and chemicalBindsGene edges. Requires authentication."
-
+    notes: Drug information and drug-gene binding. Provides Drug nodes with rich data
+      properties (ID, name, description, indication, CAS number, drug type, SMILES,
+      InChI, ChEMBL, PubChem, ChEBI, KEGG identifiers) and chemicalBindsGene edges
+      (filtered to genes with UniProt accession or HGNC symbol). Only drugs with at
+      least one external cross-reference identifier are included. Drug indication
+      is stored as a data property (not a Disease node). Requires free academic account
+      (HTTP Basic Auth). Version can be 'latest' or specific version (e.g., '5-1-14').
   ncbigene:
-    enabled: true
-    args: {}
-    notes: "Gene nodes from NCBI FTP. Disease-agnostic; provides the base Gene node set."
-
-  dorothea:
-    enabled: true
-    args: {}
-    notes: "Transcription factor regulatory network from OmniPath API. Provides TranscriptionFactor nodes and transcriptionFactorInteractsWithGene edges."
-
+    enabled: false
+    args:
+      source_url: https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz
+    notes: Gene nodes from NCBI FTP. Disease-agnostic; provides the base Gene node
+      set.
   disease_ontology:
-    enabled: true
+    enabled: false
     args: {}
-    notes: "Disease Ontology slim terms (137 curated diseases). Provides Disease nodes."
-
+    notes: Disease Ontology slim terms (137 curated diseases). Provides Disease nodes.
   gene_ontology:
     enabled: true
     args: {}
-    notes: "GO terms and gene annotations. Provides BiologicalProcess, MolecularFunction, CellularComponent nodes and geneParticipatesInBiologicalProcess, geneHasMolecularFunction, geneAssociatedWithCellularComponent edges."
-
+    notes: GO terms and gene annotations. Provides BiologicalProcess, MolecularFunction,
+      CellularComponent nodes and geneParticipatesInBiologicalProcess, geneHasMolecularFunction,
+      geneAssociatedWithCellularComponent edges.
   uberon:
     enabled: true
     args: {}
-    notes: "Uberon anatomy ontology. Provides BodyPart nodes."
-
-  mesh:
-    enabled: true
-    args: {}
-    notes: "MeSH Signs and Symptoms descriptors (C23.888 subtree). Provides Symptom nodes. Update MESH_YEAR in src/parsers/mesh_parser.py each January."
-
-  gwas:
-    enabled: false
-    args: {}
-    notes: "GWAS Catalog. Provides geneAssociatesWithDisease edges."
-
+    description: Uberon - a cross-species anatomy ontology integrating anatomical
+      structures across multiple organisms. Provides standardized anatomical identifiers
+      for integration with expression and phenotype data.
+    urls:
+    - http://purl.obolibrary.org/obo/uberon/basic.obo
+    - http://purl.obolibrary.org/obo/uberon/subsets/human-view.obo
+    version: latest
+    notes: Uberon anatomy ontology. Provides BodyPart nodes from both uberon-basic
+      and human-view subsets. No edges extracted. No credentials required (public
+      OBO files).
   drugcentral:
     enabled: true
-    args: {}
-    notes: "Drug-disease and drug class data from PostgreSQL. Provides DrugClass nodes and drugTreatsDisease, drugInClass edges. Load dump first: gunzip -c drugcentral.sql.gz | psql drugcentral"
-
-  bindingdb:
-    enabled: false
-    args: {}
-    notes: "Drug-gene binding affinities. Provides chemicalBindsGene edges."
-
+    args:
+      pg_config:
+        host: unmtid-dbs.net
+        port: 5433
+        dbname: drugcentral
+        user_env: DC_USER
+        password_env: DC_PASSWORD
+      llr_threshold: 0.0
+    notes: >-
+      Drug-disease, pharmacologic class, and adverse-effect data from DrugCentral
+      PostgreSQL (v54, 2023-11-01). Public read-only instance at
+      unmtid-dbs.net:5433. Set DC_USER and DC_PASSWORD env vars (public
+      credentials: drugman / dosage). Alternatively load the dump locally:
+      createdb drugcentral && gunzip -c drugcentral.sql.gz | psql drugcentral.
+      Produces: drugs, pharmacologic_classes, diseases, drug_treats_disease,
+      drug_in_class, chemical_causes_effect TSVs.
   bgee:
-    enabled: false
-    args: {}
-    notes: "Differential gene expression by anatomy. Provides anatomyUpregulatesGene and anatomyDownregulatesGene edges."
-
-  ctd:
-    enabled: false
-    args: {}
-    notes: "Comparative Toxicogenomics Database. Provides Chemical nodes and chemicalIncreasesExpression, chemicalDecreasesExpression, chemicalAssociatesWithDisease edges."
-
-  pubtator:
-    enabled: false
-    args: {}
-    notes: "PubTator Central literature co-occurrence mining."
-
-  medline_cooccurrence:
     enabled: true
-    args: {}
-    notes: "MEDLINE co-occurrence. Provides symptomManifestationOfDisease, diseaseLocalizesToAnatomy, and diseaseAssociatesWithDisease edges."
+    args:
+      source_url: https://www.bgee.org/ftp/current/download/calls/expr_calls/Homo_sapiens_expr_simple.tsv.gz
+      tissue_filter: null
+    notes: Gene expression presence/absence calls by anatomy. Provides anatomyExpressesGene
+      edges with expression quality metrics (call quality, FDR, expression score,
+      rank).

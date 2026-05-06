@@ -48,6 +48,8 @@ project:
     BodyPart: ["commonName", "xrefUberon"]
     Symptom: ["commonName", "xrefMeSH"]
     TranscriptionFactor: ["TF"]
+    DrugClass: ["pharma_class_name"]
+    ChemicalEffect: ["commonName", "xrefMeSH"]
 
   node_types:
     # Active: parsers exist and produce these node types
@@ -63,8 +65,8 @@ project:
     - Symptom
     - TranscriptionFactor
     - DrugClass
+    - ChemicalEffect
     # Inactive: defined in ontology but no parser produces these yet
-    # - AdverseEffect
     # - AnimalToxin
     # - Biotoxin
     # - CellType
@@ -117,6 +119,7 @@ project:
   edge_types:
     # Active: parsers exist and produce these edge types
     - geneAssociatesWithDisease
+    - diseaseAssociatesWithGene
     - geneInPathway
     - geneInteractsWithGene
     - geneCovariesWithGene
@@ -192,4 +195,24 @@ project:
       - geneExpressionRank
       - chromosome
       - typeOfGene
+    
+    # BodyPart properties
+    BodyPart:
+      - xrefUberon
+      - commonName
+      - synonym
+      - definition
+      - xrefMeSH
+      - xrefFMA
+    
+    # DrugClass properties
+    DrugClass:
+      - pharma_class_name
+      - pharma_class_code
+      - xrefDrugCentralPharmClass
+    
+    # ChemicalEffect properties
+    ChemicalEffect:
+      - commonName
+      - xrefMeSH
 
