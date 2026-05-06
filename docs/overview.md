@@ -19,8 +19,7 @@ Steps 1–4 run in sequence via `python src/main.py`.
                    → data/output/import.cypher
 ```
 
-Two evaluation tools run independently of the main pipeline:
-- `test/eval_parser.py` — validates per-parser TSV output against `ontology_mappings.yaml` and `get_schema()`
+Evaluation tools of the main pipeline:
 - `eval/eval_after_parser.py`, `eval_after_ontology.py`, `eval_after_memgraph.py` — validate outputs at each pipeline stage
 
 ## Config Files
