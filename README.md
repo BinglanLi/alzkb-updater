@@ -20,7 +20,7 @@ Configuration lives in `config/`:
 
 ## Installation
 
-**Prerequisites:** Python 3.8+, MySQL (for AOP-DB only), Git
+**Prerequisites:** Python 3.8+, MySQL (for AOP-DB), PostgreSQL (for DrugCentral), Git
 
 ```bash
 git clone https://github.com/BinglanLi/alzkb-updater.git
@@ -56,6 +56,9 @@ python src/main.py --source disgenet
 
 # Verbose output
 python src/main.py --log-level DEBUG
+
+# Re-download source files even if they already exist
+python src/main.py --force-download
 ```
 
 Output files appear in `data/output/`:
@@ -173,6 +176,8 @@ alzkb-updater/
 │   ├── processed/                # parsed TSV files (one folder per source)
 │   ├── ontology/                 # base OWL ontology
 │   └── output/                   # final outputs
+├── eval/                            # eval_after_parser.py, eval_after_ontology.py, eval_after_memgraph.py
+├── docs/                            # overview.md, reference.md
 ├── run_individual_components.ipynb  # run parsers interactively
 ├── run.sh                           # convenience wrapper
 └── requirements.txt
@@ -190,10 +195,10 @@ alzkb-updater/
 | DisGeNET | `DisGeNETParser` | REST API (key required) |
 | DoRothEA | `DoRothEAParser` | OmniPath API |
 | DrugBank | `DrugBankParser` | HTTP download (credentials required) |
-| DrugCentral | `DrugCentralParser` | SQL dump |
+| DrugCentral | `DrugCentralParser` | Local PostgreSQL |
 | Gene Ontology | `GeneOntologyParser` | OBO file |
 | GWAS Catalog | `GWASParser` | HTTP download |
-| MEDLINE | `MEDLINECooccurrenceParser` | Pre-computed files |
+| MEDLINE | `MEDLINECooccurrenceParser` | NCBI E-utilities (PubMed) |
 | MeSH | `MeSHParser` | XML download |
 | NCBI Gene | `NCBIGeneParser` | NCBI FTP |
 | PubTator | `PubTatorParser` | NCBI FTP |
@@ -208,9 +213,16 @@ pip install -e .ista
 
 **MySQL connection failed:** verify MySQL is running and credentials in `.env` are correct.
 
+**PostgreSQL connection failed (DrugCentral):** load the dump first — `gunzip -c drugcentral.sql.gz | psql drugcentral` — then verify `psql drugcentral` connects without a password prompt.
+
 **API authentication failed:** check API keys in `.env`.
 
 **Download failed:** some sources need manual download — check the log for instructions.
+
+## Further reading
+
+- [`docs/overview.md`](docs/overview.md) — pipeline step details, config file contracts, and cross-module invariants
+- [`docs/reference.md`](docs/reference.md) — full parser table, environment variables, and dependency list
 
 ## References
 

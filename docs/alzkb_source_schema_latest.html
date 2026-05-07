@@ -101,23 +101,29 @@
 
   <div>
     <h2>Node Types</h2>
-    <div class="legend-item"><div class="swatch circle" style="background:#388E3C;border:2px solid #1B5E20"></div>AlzKB Node Type (11)</div>
-    <div class="legend-item"><div class="swatch" style="background:#CE93D8;border:2px solid #7B1FA2;border-radius:8px"></div>AlzKB Edge Type (19)</div>
+    <div class="legend-item"><div class="swatch circle" style="background:#005f05;border:2px solid #005f05"></div>AlzKB Node Type (11)</div>
+    <div class="legend-item"><div class="swatch" style="background:#419b4c;border:2px solid #419b4c;border-radius:8px"></div>AlzKB Edge Type (21)</div>
   </div>
 
   <div>
     <h2>Source Databases</h2>
-    <label class="filter-label"><input type="checkbox" id="f-direct" checked><div class="dot" style="background:#1565C0"></div>Direct (5)</label>
-    <label class="filter-label"><input type="checkbox" id="f-hetionet" checked><div class="dot" style="background:#E65100"></div>Via Hetionet (19)</label>
-    <label class="filter-label"><input type="checkbox" id="f-indirect" checked><div class="dot" style="background:#F9A825"></div>Hetionet sub-source (5)</label>
-    <label class="filter-label"><input type="checkbox" id="f-new"><div class="dot" style="background:#6A1B9A"></div>New / alzkb-updater (2)</label>
-    <label class="filter-label"><input type="checkbox" id="f-unused"><div class="dot" style="background:#9E9E9E"></div>Not used (2)</label>
+    <label class="filter-label"><input type="checkbox" id="f-direct" checked><div class="dot" style="background:#0077ff"></div>Direct (16)</label>
+    <label class="filter-label"><input type="checkbox" id="f-hetionet" checked><div class="dot" style="background:#9E9E9E"></div>Hetionet (7)</label>
+    <label class="filter-label"><input type="checkbox" id="f-new" checked><div class="dot" style="background:#2d1efe"></div>New (7)</label>
   </div>
 
   <div>
     <h2>Activity</h2>
-    <label class="filter-label"><input type="checkbox" id="f-active-yes" checked><div class="dot" style="background:#2e7d32"></div>Active (27)</label>
+    <label class="filter-label"><input type="checkbox" id="f-active-yes" checked><div class="dot" style="background:#00838F"></div>Active (27)</label>
     <label class="filter-label"><input type="checkbox" id="f-active-no" checked><div class="dot active-no-dot"></div>Inactive (6)</label>
+  </div>
+
+  <div>
+    <h2>Status</h2>
+    <label class="filter-label"><input type="checkbox" id="f-status-implemented" checked><div class="dot" style="background:#00838F"></div>Implemented (4)</label>
+    <label class="filter-label"><input type="checkbox" id="f-status-todo" checked><div class="dot" style="background:#fc981c"></div>To-do (12)</label>
+    <label class="filter-label"><input type="checkbox" id="f-status-tbd" checked><div class="dot" style="background:#cd375a"></div>TBD (5)</label>
+    <label class="filter-label"><input type="checkbox" id="f-status-obsolete" checked><div class="dot" style="background:#757575"></div>Obsolete (9)</label>
   </div>
 
   <div>
@@ -193,13 +199,12 @@ const ALZKB_EDGE_TYPES = [
   { id: "et_CIE",  label: "CHEMICAL\nINCREASESEXPRESSION",         src: "nt_Drug",              tgt: "nt_Gene" },
   { id: "et_CDE",  label: "CHEMICAL\nDECREASESEXPRESSION",         src: "nt_Drug",              tgt: "nt_Gene" },
   { id: "et_DTD",  label: "DRUG\nTREATSDISEASE",                   src: "nt_Drug",              tgt: "nt_Disease" },
-  { id: "et_DCE",  label: "DRUG\nCAUSESEFFECT",                    src: "nt_Drug",              tgt: "nt_Disease" },
+  { id: "et_CAD",  label: "CHEMICAL ASSOCIATES\nWITH DISEASE",    src: "nt_Drug",              tgt: "nt_Disease" },
+  { id: "et_CCE",  label: "CHEMICAL\nCAUSESEFFECT",               src: "nt_Drug",              tgt: "nt_Disease" },
   { id: "et_GMF",  label: "GENE HAS\nMOLECULAR FUNCTION",         src: "nt_Gene",              tgt: "nt_MolecularFunction" },
   { id: "et_GCG",  label: "GENE\nCOVARIESWITHGENE",               src: "nt_Gene",              tgt: "nt_Gene" },
   { id: "et_TFG",  label: "TF INTERACTS\nWITH GENE",              src: "nt_TranscriptionFactor", tgt: "nt_Gene" },
   { id: "et_GIP",  label: "GENE IN\nPATHWAY",                      src: "nt_Gene",              tgt: "nt_Pathway" },
-  { id: "et_BOG",  label: "BODYPART\nOVEREXPRESSESGENE",           src: "nt_BodyPart",          tgt: "nt_Gene" },
-  { id: "et_BUG",  label: "BODYPART\nUNDEREXPRESSESGENE",          src: "nt_BodyPart",          tgt: "nt_Gene" },
   { id: "et_GBP",  label: "GENE PARTICIPATES IN\nBIOLOGICAL PROCESS", src: "nt_Gene",          tgt: "nt_BiologicalProcess" },
   { id: "et_GCC",  label: "GENE ASSOCIATED WITH\nCELLULAR COMPONENT", src: "nt_Gene",          tgt: "nt_CellularComponent" },
   { id: "et_GRG",  label: "GENE\nREGULATESGENE",                   src: "nt_Gene",              tgt: "nt_Gene" },
@@ -219,13 +224,12 @@ const EDGE_FULL_LABELS = {
   "et_CIE":  "CHEMICALINCREASESEXPRESSION",
   "et_CDE":  "CHEMICALDECREASESEXPRESSION",
   "et_DTD":  "DRUGTREATSDISEASE",
-  "et_DCE":  "DRUGCAUSESEFFECT",
+  "et_CAD":  "CHEMICALASSOCIATESWITHDISEASE",
+  "et_CCE":  "CHEMICALCAUSESEFFECT",
   "et_GMF":  "GENEHASMOLECULARFUNCTION",
   "et_GCG":  "GENECOVARIESWITHGENE",
   "et_TFG":  "TRANSCRIPTIONFACTORINTERACTSWITHGENE",
   "et_GIP":  "GENEINPATHWAY",
-  "et_BOG":  "BODYPARTOVEREXPRESSESGENE",
-  "et_BUG":  "BODYPARTUNDEREXPRESSESGENE",
   "et_GBP":  "GENEPARTICIPATESINBIOLOGICALPROCESS",
   "et_GCC":  "GENEASSOCIATEDWITHCELLULARCOMPONENT",
   "et_GRG":  "GENEREGULATESGENE",
@@ -244,23 +248,19 @@ const EDGE_FULL_LABELS = {
 // ─────────────────────────────────────────────
 
 const COLORS = {
-  "Direct":            "#1565C0",
-  "Hetionet":          "#E65100",
-  "Hetionet-indirect": "#F9A825",
-  "New":               "#6A1B9A",
-  "Not used":          "#9E9E9E",
+  "Direct":   "#0077ff",
+  "Hetionet": "#9E9E9E",
+  "New":      "#2d1efe",
 };
 
 const TAG_COLORS = {
-  "Direct":            "#1565C0",
-  "Hetionet":          "#BF360C",
-  "Hetionet-indirect": "#E65100",
-  "New":               "#4A148C",
-  "Not used":          "#757575",
+  "Direct":   "#0077ff",
+  "Hetionet": "#9E9E9E",
+  "New":      "#2d1efe",
 };
 
 const NODE_R = 50;   // AlzKB node type radius
-const EDGE_W = 185;  // AlzKB edge type pill width
+const EDGE_W = 230;  // AlzKB edge type pill width
 const EDGE_H = 50;   // AlzKB edge type pill height
 const DB_W   = 165;  // source database rect width
 const DB_H   = 30;   // source database rect height
@@ -271,12 +271,17 @@ const DB_H   = 30;   // source database rect height
 
 function updateSidebarCounts(dbs) {
   const counts = {
-    "Direct": 0, "Hetionet": 0, "Hetionet-indirect": 0,
-    "New": 0, "Not used": 0, activeYes: 0, activeNo: 0,
+    "Direct": 0, "Hetionet": 0, "New": 0,
+    activeYes: 0, activeNo: 0,
+    statusImplemented: 0, statusTodo: 0, statusTbd: 0, statusObsolete: 0,
   };
   for (const db of dbs) {
     if (db.integration in counts) counts[db.integration]++;
     if (db.active) counts.activeYes++; else counts.activeNo++;
+    if      (db.status === "Implemented") counts.statusImplemented++;
+    else if (db.status === "To-do")       counts.statusTodo++;
+    else if (db.status === "TBD")         counts.statusTbd++;
+    else                                  counts.statusObsolete++;
   }
 
   // Each filter label has a bare text node child containing "(N)"
@@ -288,12 +293,14 @@ function updateSidebarCounts(dbs) {
   };
 
   patchLabel("f-direct",   `Direct (${counts["Direct"]})`);
-  patchLabel("f-hetionet", `Via Hetionet (${counts["Hetionet"]})`);
-  patchLabel("f-indirect", `Hetionet sub-source (${counts["Hetionet-indirect"]})`);
-  patchLabel("f-new",      `New / alzkb-updater (${counts["New"]})`);
-  patchLabel("f-unused",   `Not used (${counts["Not used"]})`);
+  patchLabel("f-hetionet", `Hetionet (${counts["Hetionet"]})`);
+  patchLabel("f-new",      `New (${counts["New"]})`);
   patchLabel("f-active-yes", `Active (${counts.activeYes})`);
   patchLabel("f-active-no",  `Inactive (${counts.activeNo})`);
+  patchLabel("f-status-implemented", `Implemented (${counts.statusImplemented})`);
+  patchLabel("f-status-todo",        `To-do (${counts.statusTodo})`);
+  patchLabel("f-status-tbd",         `TBD (${counts.statusTbd})`);
+  patchLabel("f-status-obsolete",    `Obsolete (${counts.statusObsolete})`);
 }
 
 // ─────────────────────────────────────────────
@@ -406,8 +413,8 @@ function initGraph(SOURCE_DBS) {
     if (d.category === "alzkb_node") {
       g.append("circle")
         .attr("r", NODE_R)
-        .attr("fill", "#388E3C")
-        .attr("stroke", "#1B5E20")
+        .attr("fill", "#005f05")
+        .attr("stroke", "#005f05")
         .attr("stroke-width", 2);
       const lines = d.label.split("\n");
       lines.forEach((line, i) => {
@@ -426,13 +433,13 @@ function initGraph(SOURCE_DBS) {
         .attr("x", -EDGE_W/2).attr("y", -EDGE_H/2)
         .attr("width", EDGE_W).attr("height", EDGE_H)
         .attr("rx", 10)
-        .attr("fill", "#EDE7F6")
-        .attr("stroke", "#7B1FA2")
+        .attr("fill", "#419b4c")
+        .attr("stroke", "#419b4c")
         .attr("stroke-width", 1.5);
       const lines = d.label.split("\n");
       lines.forEach((line, i) => {
         g.append("text")
-          .attr("fill", "#4A148C")
+          .attr("fill", "#fff")
           .attr("font-size", "18px")
           .attr("font-weight", "700")
           .attr("text-anchor", "middle")
@@ -483,9 +490,7 @@ function initGraph(SOURCE_DBS) {
   const filterMap = {
     "f-direct":   "Direct",
     "f-hetionet": "Hetionet",
-    "f-indirect": "Hetionet-indirect",
     "f-new":      "New",
-    "f-unused":   "Not used",
   };
 
   function applyFilters() {
@@ -496,11 +501,18 @@ function initGraph(SOURCE_DBS) {
     );
     const showActiveYes = document.getElementById("f-active-yes").checked;
     const showActiveNo  = document.getElementById("f-active-no").checked;
+    const statusShown   = {
+      "Implemented": document.getElementById("f-status-implemented").checked,
+      "To-do":       document.getElementById("f-status-todo").checked,
+      "TBD":         document.getElementById("f-status-tbd").checked,
+      "Obsolete":    document.getElementById("f-status-obsolete").checked,
+    };
 
     function isDbVisible(db) {
       if (!visible.has(db.integration)) return false;
       if (db.active  && !showActiveYes) return false;
       if (!db.active && !showActiveNo)  return false;
+      if (!(statusShown[db.status] ?? true)) return false;
       return true;
     }
 
@@ -520,39 +532,42 @@ function initGraph(SOURCE_DBS) {
       d3.select(this).style("display", isNodeVisible(srcNode) && isNodeVisible(tgtNode) ? null : "none");
     });
 
-    // Re-evaluate which alzkb node/edge types have ALL *visible* contributing databases inactive
+    // Mark a node/edge type inactive if it has contributors but none are both visible AND active
     const allInactiveIds = new Set();
     for (const nt of ALZKB_NODE_TYPES) {
-      const vis = SOURCE_DBS.filter(db => db.nodes.includes(nt.id) && isDbVisible(db));
-      if (vis.length > 0 && vis.every(db => !db.active)) allInactiveIds.add(nt.id);
+      const contributors = SOURCE_DBS.filter(db => db.nodes.includes(nt.id));
+      if (contributors.length > 0 && !contributors.some(db => isDbVisible(db) && db.active))
+        allInactiveIds.add(nt.id);
     }
     for (const et of ALZKB_EDGE_TYPES) {
-      const vis = SOURCE_DBS.filter(db => db.edges.includes(et.id) && isDbVisible(db));
-      if (vis.length > 0 && vis.every(db => !db.active)) allInactiveIds.add(et.id);
+      const contributors = SOURCE_DBS.filter(db => db.edges.includes(et.id));
+      if (contributors.length > 0 && !contributors.some(db => isDbVisible(db) && db.active))
+        allInactiveIds.add(et.id);
     }
 
     nodeSel.each(function(d) {
       if (d.category === "alzkb_node") {
         const inactive = allInactiveIds.has(d.id);
         d3.select(this).select("circle")
-          .attr("fill", inactive ? "transparent" : "#388E3C")
+          .attr("fill", inactive ? "transparent" : "#005f05")
           .attr("stroke-dasharray", inactive ? "8 4" : null);
         d3.select(this).selectAll("text")
-          .attr("fill", inactive ? "#1B5E20" : "#fff")
+          .attr("fill", inactive ? "#005f05" : "#fff")
           .attr("opacity", inactive ? 0.65 : 1);
       } else if (d.category === "alzkb_edge") {
         const inactive = allInactiveIds.has(d.id);
         d3.select(this).select("rect")
-          .attr("fill", inactive ? "transparent" : "#EDE7F6")
+          .attr("fill", inactive ? "transparent" : "#419b4c")
           .attr("stroke-width", inactive ? 2 : 1.5)
           .attr("stroke-dasharray", inactive ? "8 4" : null);
         d3.select(this).selectAll("text")
-          .attr("opacity", inactive ? 0.65 : 1);
+          .attr("fill", inactive ? "#419b4c" : "#fff")
+          .attr("opacity", 1);
       }
     });
   }
 
-  [...Object.keys(filterMap), "f-active-yes", "f-active-no"].forEach(id => {
+  [...Object.keys(filterMap), "f-active-yes", "f-active-no", "f-status-implemented", "f-status-todo", "f-status-tbd", "f-status-obsolete"].forEach(id => {
     document.getElementById(id).addEventListener("change", applyFilters);
   });
 
@@ -579,9 +594,12 @@ function initGraph(SOURCE_DBS) {
       const color = TAG_COLORS[d.integration] || "#666";
       const activeColor = d.active ? "#2e7d32" : "#c62828";
       const activeLabel = d.active ? "Active" : "Inactive";
+      const STATUS_COLORS = { "Implemented": "#00838F", "To-do": "#fc981c", "TBD": "#cd375a", "Obsolete": "#757575" };
+      const statusColor = STATUS_COLORS[d.status] || "#78909C";
       html = `<b>${d.label}</b>` +
         `<span class="tag" style="background:${color}">${d.integration}</span>` +
-        `<span class="tag" style="background:${activeColor};margin-left:4px">${activeLabel}</span><br>` +
+        `<span class="tag" style="background:${activeColor};margin-left:4px">${activeLabel}</span>` +
+        `<span class="tag" style="background:${statusColor};margin-left:4px">${d.status || "N/A"}</span><br>` +
         `<span style="opacity:0.8">Version: ${d.version || "N/A"}<br>Nodes: ${nodeContribs}<br>Edges: ${edgeContribs}</span>`;
     }
     tooltip.html(html).style("opacity", 1);
@@ -668,48 +686,68 @@ function initGraph(SOURCE_DBS) {
 
 const DB_DATA = [
   {
-    "id": "db_Bgee",
-    "label": "Bgee",
-    "integration": "Hetionet",
-    "active": true,
-    "version": "V15.1.1 (2023-11-14)",
+    "id": "db_AOPDB",
+    "label": "AOP-DB",
+    "integration": "Direct",
+    "active": false,
+    "status": "Implemented",
+    "version": "V2 (2021-04-23)",
     "parent": null,
-    "nodes": [],
+    "nodes": [
+      "nt_Pathway"
+    ],
     "edges": [
-      "et_BOG",
-      "et_BUG"
+      "et_GIP",
+      "et_PCG"
     ]
   },
   {
-    "id": "db_BindingDB",
-    "label": "BindingDB",
-    "integration": "Hetionet",
+    "id": "db_NCBIGene",
+    "label": "NCBI Gene",
+    "integration": "Direct",
     "active": true,
-    "version": "2024-05",
+    "status": "Implemented",
+    "version": "N/A",
     "parent": null,
-    "nodes": [],
+    "nodes": [
+      "nt_Gene"
+    ],
+    "edges": []
+  },
+  {
+    "id": "db_DrugBank",
+    "label": "DrugBank",
+    "integration": "Direct",
+    "active": true,
+    "status": "Implemented",
+    "version": "V5.1.15 (2026-03-05)",
+    "parent": null,
+    "nodes": [
+      "nt_Drug"
+    ],
     "edges": [
       "et_CBG"
     ]
   },
   {
-    "id": "db_CTD",
-    "label": "CTD",
+    "id": "db_Bgee",
+    "label": "Bgee",
     "integration": "New",
     "active": true,
-    "version": "2026-02",
+    "status": "Implemented",
+    "version": "V15.1.1 (2023-11-14)",
     "parent": null,
     "nodes": [],
     "edges": [
-      "et_CIE",
-      "et_CDE"
+      "et_AEG"
     ]
   },
   {
     "id": "db_DO",
     "label": "Disease Ontology",
-    "integration": "Hetionet",
+    "integration": "Direct",
     "active": true,
+    "status": "To-do",
     "version": "2024-03",
     "parent": null,
     "nodes": [
@@ -722,6 +760,7 @@ const DB_DATA = [
     "label": "DisGeNET",
     "integration": "Direct",
     "active": true,
+    "status": "To-do",
     "version": "V7.0 (2020-05)",
     "parent": null,
     "nodes": [
@@ -732,89 +771,11 @@ const DB_DATA = [
     ]
   },
   {
-    "id": "db_DoRothEA",
-    "label": "DoRothEA (OmniPath)",
-    "integration": "Direct",
-    "active": false,
-    "version": "2018",
-    "parent": null,
-    "nodes": [
-      "nt_TranscriptionFactor"
-    ],
-    "edges": [
-      "et_TFG"
-    ]
-  },
-  {
-    "id": "db_DrugBank",
-    "label": "DrugBank",
-    "integration": "Direct",
-    "active": true,
-    "version": "V5.1.15 (2026-03-05)",
-    "parent": null,
-    "nodes": [
-      "nt_Drug"
-    ],
-    "edges": [
-      "et_CBG"
-    ]
-  },
-  {
-    "id": "db_DrugCentral",
-    "label": "DrugCentral",
-    "integration": "Hetionet",
-    "active": true,
-    "version": "2023-11-01",
-    "parent": null,
-    "nodes": [
-      "nt_DrugClass"
-    ],
-    "edges": [
-      "et_DIC",
-      "et_DTD"
-    ]
-  },
-  {
-    "id": "db_EPAAcTor",
-    "label": "EPA AcTOR",
-    "integration": "Not used",
-    "active": false,
-    "version": "2022",
-    "parent": null,
-    "nodes": [
-      "nt_Drug"
-    ],
-    "edges": []
-  },
-  {
-    "id": "db_EPADSSTox",
-    "label": "EPA DSSTox",
-    "integration": "Not used",
-    "active": true,
-    "version": "2025",
-    "parent": null,
-    "nodes": [
-      "nt_Drug"
-    ],
-    "edges": []
-  },
-  {
-    "id": "db_ERC",
-    "label": "Evol. Rate Covariation",
-    "integration": "Hetionet",
-    "active": true,
-    "version": "V2 (2025)",
-    "parent": null,
-    "nodes": [],
-    "edges": [
-      "et_GCG"
-    ]
-  },
-  {
     "id": "db_GO",
     "label": "Gene Ontology",
-    "integration": "Hetionet",
+    "integration": "Direct",
     "active": true,
+    "status": "To-do",
     "version": "2024-04-24",
     "parent": null,
     "nodes": [
@@ -829,72 +790,83 @@ const DB_DATA = [
     ]
   },
   {
-    "id": "db_GWAS",
-    "label": "GWAS Catalog",
-    "integration": "Hetionet",
+    "id": "db_DrugCentral",
+    "label": "DrugCentral",
+    "integration": "Direct",
     "active": true,
-    "version": "N/A",
+    "status": "To-do",
+    "version": "2023-11-01",
     "parent": null,
-    "nodes": [],
+    "nodes": [
+      "nt_DrugClass"
+    ],
     "edges": [
-      "et_GAD"
+      "et_DIC",
+      "et_DTD"
     ]
   },
   {
-    "id": "db_hetioDag",
-    "label": "hetio-dag",
-    "integration": "Hetionet",
-    "active": false,
-    "version": "2017-02-03",
+    "id": "db_Uberon",
+    "label": "Uberon",
+    "integration": "Direct",
+    "active": true,
+    "status": "To-do",
+    "version": "V2024-03-22",
     "parent": null,
-    "nodes": [],
+    "nodes": [
+      "nt_BodyPart"
+    ],
+    "edges": []
+  },
+  {
+    "id": "db_MeSH",
+    "label": "NCBI MeSH",
+    "integration": "Direct",
+    "active": true,
+    "status": "To-do",
+    "version": "2026",
+    "parent": null,
+    "nodes": [
+      "nt_Symptom"
+    ],
+    "edges": []
+  },
+  {
+    "id": "db_WikiPW",
+    "label": "WikiPathways",
+    "integration": "New",
+    "active": true,
+    "status": "To-do",
+    "version": "V2026-03",
+    "parent": null,
+    "nodes": [
+      "nt_Pathway"
+    ],
     "edges": [
-      "et_GIG"
+      "et_GIP"
     ]
   },
   {
-    "id": "db_HuRI",
-    "label": "HuRI",
-    "integration": "Hetionet",
-    "active": false,
-    "version": "HuRI (2020)",
+    "id": "db_CollecTRI",
+    "label": "CollecTRI",
+    "integration": "New",
+    "active": true,
+    "status": "To-do",
+    "version": "V1 (2023)",
     "parent": null,
-    "nodes": [],
+    "nodes": [
+      "nt_TranscriptionFactor"
+    ],
     "edges": [
-      "et_GIG"
-    ]
-  },
-  {
-    "id": "db_IncInter",
-    "label": "Incomplete Interactome",
-    "integration": "Hetionet",
-    "active": false,
-    "version": "2017-02-03",
-    "parent": null,
-    "nodes": [],
-    "edges": [
-      "et_GIG"
-    ]
-  },
-  {
-    "id": "db_LINCS",
-    "label": "LINCS L1000",
-    "integration": "Hetionet",
-    "active": false,
-    "version": "2020",
-    "parent": null,
-    "nodes": [],
-    "edges": [
-      "et_CIE",
-      "et_CDE",
-      "et_GRG"
+      "et_TFG"
     ]
   },
   {
     "id": "db_MEDLINE",
     "label": "MEDLINE",
-    "integration": "Hetionet",
+    "integration": "Direct",
     "active": true,
+    "status": "To-do",
     "version": "N/A",
     "parent": null,
     "nodes": [],
@@ -905,46 +877,64 @@ const DB_DATA = [
     ]
   },
   {
-    "id": "db_NCBIGene",
-    "label": "NCBI Gene",
+    "id": "db_BindingDB",
+    "label": "BindingDB",
     "integration": "Direct",
     "active": true,
-    "version": "N/A",
-    "parent": null,
-    "nodes": [
-      "nt_Gene"
-    ],
-    "edges": []
-  },
-  {
-    "id": "db_MeSH",
-    "label": "NCBI MeSH",
-    "integration": "Hetionet",
-    "active": true,
-    "version": "2026",
-    "parent": null,
-    "nodes": [
-      "nt_Symptom"
-    ],
-    "edges": []
-  },
-  {
-    "id": "db_PDB",
-    "label": "PharmacotherapyDB",
-    "integration": "Hetionet",
-    "active": false,
-    "version": "2016-03-15",
+    "status": "To-do",
+    "version": "2024-05",
     "parent": null,
     "nodes": [],
     "edges": [
-      "et_DTD"
+      "et_CBG"
+    ]
+  },
+  {
+    "id": "db_CTD",
+    "label": "CTD",
+    "integration": "New",
+    "active": true,
+    "status": "To-do",
+    "version": "2026-02",
+    "parent": null,
+    "nodes": [],
+    "edges": [
+      "et_CIE",
+      "et_CDE"
+    ]
+  },
+  {
+    "id": "db_ERC",
+    "label": "Evol. Rate Covariation",
+    "integration": "Direct",
+    "active": true,
+    "status": "To-do",
+    "version": "V2 (2025)",
+    "parent": null,
+    "nodes": [],
+    "edges": [
+      "et_GCG"
+    ]
+  },
+  {
+    "id": "db_GWAS",
+    "label": "GWAS Catalog",
+    "integration": "Direct",
+    "active": true,
+    "status": "TBD",
+    "version": "N/A",
+    "parent": null,
+    "nodes": [],
+    "edges": [
+      "et_GAD"
     ]
   },
   {
     "id": "db_PubChem",
     "label": "PubChem (Xref Drug IDs)",
-    "integration": "Hetionet",
+    "integration": "Direct",
     "active": true,
+    "status": "TBD",
     "version": "N/A",
     "parent": null,
     "nodes": [
@@ -957,6 +947,7 @@ const DB_DATA = [
     "label": "PubTator Central",
     "integration": "New",
     "active": true,
+    "status": "TBD",
     "version": "N/A",
     "parent": null,
     "nodes": [],
@@ -968,8 +959,9 @@ const DB_DATA = [
   {
     "id": "db_Reactome",
     "label": "Reactome",
-    "integration": "Hetionet",
+    "integration": "New",
     "active": true,
+    "status": "TBD",
     "version": "2026",
     "parent": null,
     "nodes": [
@@ -981,107 +973,37 @@ const DB_DATA = [
     ]
   },
   {
-    "id": "db_SIDER",
-    "label": "SIDER",
-    "integration": "Hetionet",
-    "active": false,
-    "version": "V4.1(2015-10-21)",
-    "parent": null,
-    "nodes": [
-      "nt_Disease"
-    ],
-    "edges": [
-      "et_DCE"
-    ]
-  },
-  {
-    "id": "db_TISSUES",
-    "label": "TISSUES",
+    "id": "db_OTS2",
+    "label": "Open Target Safety 2.0",
     "integration": "New",
-    "active": true,
+    "active": false,
+    "status": "TBD",
     "version": "N/A",
     "parent": null,
     "nodes": [],
     "edges": [
-      "et_AEG"
+      "et_CCE"
     ]
   },
   {
-    "id": "db_Uberon",
-    "label": "Uberon",
+    "id": "db_SIDER",
+    "label": "SIDER",
     "integration": "Hetionet",
-    "active": true,
-    "version": "V2024-03-22",
+    "active": false,
+    "status": "Obsolete",
+    "version": "V4.1(2015-10-21)",
     "parent": null,
-    "nodes": [
-      "nt_BodyPart"
-    ],
-    "edges": []
-  },
-  {
-    "id": "db_WikiPW",
-    "label": "WikiPathways",
-    "integration": "Hetionet",
-    "active": true,
-    "version": "V2026-03",
-    "parent": null,
-    "nodes": [
-      "nt_Pathway"
-    ],
+    "nodes": [],
     "edges": [
-      "et_GIP"
+      "et_CCE"
     ]
-  },
-  {
-    "id": "db_AOPDB",
-    "label": "AOP-DB",
-    "integration": "Direct",
-    "active": false,
-    "version": "V2 (2021-04-23)",
-    "parent": null,
-    "nodes": [
-      "nt_Pathway"
-    ],
-    "edges": [
-      "et_GIP",
-      "et_PCG"
-    ]
-  },
-  {
-    "id": "db_ehrlink",
-    "label": "ehrlink",
-    "integration": "Hetionet-indirect",
-    "active": false,
-    "version": "2012-09",
-    "parent": "db_PDB",
-    "nodes": [],
-    "edges": []
-  },
-  {
-    "id": "db_LabeledIn",
-    "label": "LabeledIn",
-    "integration": "Hetionet-indirect",
-    "active": false,
-    "version": "2014-09-04",
-    "parent": "db_PDB",
-    "nodes": [],
-    "edges": []
-  },
-  {
-    "id": "db_MEDI",
-    "label": "MEDI",
-    "integration": "Hetionet-indirect",
-    "active": false,
-    "version": "2020",
-    "parent": "db_PDB",
-    "nodes": [],
-    "edges": []
   },
   {
     "id": "db_PID",
     "label": "Pathway Int. DB",
     "integration": "Hetionet",
     "active": false,
+    "status": "Obsolete",
     "version": "N/A",
     "parent": null,
     "nodes": [
@@ -1092,35 +1014,79 @@ const DB_DATA = [
     ]
   },
   {
-    "id": "db_PREDICT",
-    "label": "PREDICT",
-    "integration": "Hetionet-indirect",
+    "id": "db_hetioDag",
+    "label": "hetio-dag",
+    "integration": "Hetionet",
     "active": false,
-    "version": "2011-01",
-    "parent": "db_PDB",
-    "nodes": [],
-    "edges": []
-  },
-  {
-    "id": "db_OTS2",
-    "label": "Open Target Safety 2.0",
-    "integration": "New",
-    "active": false,
-    "version": "N/A",
+    "status": "Obsolete",
+    "version": "2017-02-03",
     "parent": null,
-    "nodes": [
-      "nt_Disease"
-    ],
+    "nodes": [],
     "edges": [
-      "et_DCE"
+      "et_GIG"
     ]
   },
   {
-    "id": "db_CollecTRI",
-    "label": "CollecTRI",
-    "integration": "New",
+    "id": "db_HuRI",
+    "label": "HuRI",
+    "integration": "Hetionet",
     "active": false,
-    "version": "V1 (2023)",
+    "status": "Obsolete",
+    "version": "HuRI (2020)",
+    "parent": null,
+    "nodes": [],
+    "edges": [
+      "et_GIG"
+    ]
+  },
+  {
+    "id": "db_IncInter",
+    "label": "Incomplete Interactome",
+    "integration": "Hetionet",
+    "active": false,
+    "status": "Obsolete",
+    "version": "2017-02-03",
+    "parent": null,
+    "nodes": [],
+    "edges": [
+      "et_GIG"
+    ]
+  },
+  {
+    "id": "db_LINCS",
+    "label": "LINCS L1000",
+    "integration": "Direct",
+    "active": false,
+    "status": "Obsolete",
+    "version": "2020",
+    "parent": null,
+    "nodes": [],
+    "edges": [
+      "et_CIE",
+      "et_CDE",
+      "et_GRG"
+    ]
+  },
+  {
+    "id": "db_PDB",
+    "label": "PharmacotherapyDB",
+    "integration": "Hetionet",
+    "active": false,
+    "status": "Obsolete",
+    "version": "2016-03-15",
+    "parent": null,
+    "nodes": [],
+    "edges": [
+      "et_DTD"
+    ]
+  },
+  {
+    "id": "db_DoRothEA",
+    "label": "DoRothEA (OmniPath)",
+    "integration": "Direct",
+    "active": false,
+    "status": "Obsolete",
+    "version": "2018",
     "parent": null,
     "nodes": [
       "nt_TranscriptionFactor"

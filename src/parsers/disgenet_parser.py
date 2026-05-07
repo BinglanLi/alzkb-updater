@@ -13,570 +13,611 @@ is read from config/project.yaml by the pipeline.
 
 import logging
 import os
+import time
 from pathlib import Path
-from typing import Dict, Optional, List, Tuple
+from typing import Dict, List, Optional
+
 import pandas as pd
 import requests
-import time
-from .base_parser import BaseParser
 
-DISGENET_DISEASE_CLASSIFICATIONS = 'disease_classifications'
-DISGENET_DISEASE_MAPPINGS = 'disease_mappings'
-DISGENET_GENE_DISEASE_ASSOCIATIONS = 'gene_disease_associations'
+from .base_parser import BaseParser
+from config_loader import get_disease_scope
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Output DataFrame names (stems for TSV files under data/processed/disgenet/)
+# These MUST match the source_filename values in config/ontology_mappings.yaml
+# where applicable.
+# ---------------------------------------------------------------------------
+GENES_OUTPUT = "genes"                          # → genes.tsv
+DISEASES_OUTPUT = "disease_classifications"     # → disease_classifications.tsv  (ontology_mappings.yaml)
+DISEASE_MAPPINGS_OUTPUT = "disease_mappings"    # → disease_mappings.tsv         (ontology_mappings.yaml)
+GDA_OUTPUT = "gene_disease_associations"        # → gene_disease_associations.tsv
+
+# Raw cache file names written to data/raw/disgenet/
+RAW_GDA_FILE = "api_gene_disease_associations.tsv"
+RAW_DISEASE_CLASSIFICATIONS_FILE = "api_disease_classifications.tsv"
+RAW_DISEASE_MAPPINGS_FILE = "api_disease_mappings.tsv"
+
+# Vocabulary prefixes used in the DisGeNET diseaseMapping field
+VOCAB_MAP = {
+    "MESH": "MSH", "MSH": "MSH",
+    "ICD10": "ICD10", "NCI": "NCI",
+    "OMIM": "OMIM", "ICD9CM": "ICD9CM",
+    "HPO": "HPO", "DO": "DO",
+    "MONDO": "MONDO", "UMLS": "UMLS",
+    "EFO": "EFO", "ORDO": "ORDO",
+}
+VOCAB_COLS = ["MSH", "ICD10", "NCI", "OMIM", "ICD9CM", "HPO", "DO",
+              "MONDO", "UMLS", "EFO", "ORDO"]
 
 
 class DisGeNETParser(BaseParser):
     """
-    Parser for DisGeNET gene-disease association data.
+    Parser for DisGeNET gene-disease association data via REST API.
 
-    Supports both API-based retrieval and manual file-based parsing.
-    Disease search terms are configurable via the disease_scope parameter.
+    Queries the DisGeNET REST API to retrieve gene-disease associations (GDAs)
+    for diseases configured in config/project.yaml.  Disease scope is never
+    hard-coded; it is read from the disease_scope parameter or from
+    config/project.yaml via get_disease_scope().
+
+    Outputs
+    -------
+    genes
+        Gene nodes: geneId, geneSymbol, geneName, ensemblId, proteinId,
+        pLI, DSI, DPI.
+    disease_classifications
+        Disease nodes: diseaseId, diseaseName, diseaseType, diseaseClass,
+        diseaseSemanticType.
+    disease_mappings
+        Disease cross-reference codes: diseaseId, MSH, ICD10, DO, MONDO, …
+    gene_disease_associations
+        GDA edges: geneId, diseaseId, gdaScore, evidenceIndex,
+        numberOfPublications, numberOfSnps.
     """
 
-    API_BASE_URL = "https://api.disgenet.com/api/v1"
-
-    def __init__(self, data_dir: str, api_key: Optional[str] = None,
-                 disease_scope: Optional[Dict] = None):
+    def __init__(
+        self,
+        data_dir: str,
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
+        disease_scope: Optional[Dict] = None,
+    ):
         """
-        Initialize DisGeNET parser.
-
-        Args:
-            data_dir: Directory for storing data files.
-            api_key: DisGeNET API key (optional, for API access).
-            disease_scope: Disease scope dict from project config. Required key:
-                           primary_terms (list of search strings).
+        Parameters
+        ----------
+        data_dir:
+            Directory for storing raw data files.
+        api_key:
+            DisGeNET API key.  Falls back to the DISGENET_API_KEY env var.
+        base_url:
+            Base URL for the DisGeNET REST API.
+            Defaults to https://www.disgenet.org/api.
+        disease_scope:
+            Disease scope dict from project config (auto-injected by pipeline).
+            Falls back to config/project.yaml via get_disease_scope().
         """
         super().__init__(data_dir)
-        self.api_key = api_key or os.getenv('DISGENET_API_KEY')
+        self.api_key = api_key or os.getenv("DISGENET_API_KEY")
+        self.API_BASE_URL = (base_url or "https://www.disgenet.org/api").rstrip("/")
+
         self.session = requests.Session()
 
-        # Disease scope configuration — required for API-based querying
-        if disease_scope and disease_scope.get("primary_terms"):
-            self.disease_terms = disease_scope["primary_terms"]
-        else:
-            raise ValueError(
-                "DisGeNETParser requires 'disease_scope.primary_terms' in project.yaml. "
-                "Set disease_scope_mode: none in databases.yaml to skip disease filtering."
-            )
+        # Disease scope — prefer caller-supplied dict, then project.yaml
+        _cfg_scope = disease_scope if disease_scope else get_disease_scope()
+        self.disease_terms: List[str] = _cfg_scope.get("primary_terms", [])
+        self.umls_cuis: List[str] = _cfg_scope.get("umls_cuis", [])
 
         if self.api_key:
             self.session.headers.update({
-                'Authorization': self.api_key,
-                'accept': 'application/json',
+                "Authorization": self.api_key,
+                "accept": "application/json",
             })
-            logger.info("DisGeNET API key configured")
+            logger.info("DisGeNET API key configured; base URL: %s", self.API_BASE_URL)
         else:
-            logger.warning("No DisGeNET API key provided. Will attempt file-based parsing.")
-    
+            logger.warning(
+                "No DisGeNET API key provided — set DISGENET_API_KEY or pass api_key."
+            )
+
+        if not self.disease_terms and not self.umls_cuis:
+            logger.warning(
+                "No disease terms or UMLS CUIs in disease_scope; "
+                "API queries will return nothing."
+            )
+
+    # ------------------------------------------------------------------
+    # download_data
+    # ------------------------------------------------------------------
+
     def download_data(self) -> bool:
         """
-        Download or check for DisGeNET data.
-        
-        If API key is available, downloads data via API.
-        Otherwise, checks for manually downloaded files.
-        
-        Returns:
-            True if data is available, False otherwise.
+        Download GDA data from the DisGeNET REST API and derive disease files.
+
+        Strategy
+        --------
+        1. Start with explicit umls_cuis from project.yaml.
+        2. Search by primary_terms to discover additional disease CUIs.
+        3. Fetch GDAs for every unique CUI (with pagination).
+        4. Derive disease classification and mapping files from GDA data.
+
+        Returns True when data is ready (freshly downloaded or cached).
         """
-        if self.api_key:
-            return self._download_via_api()
-        else:
-            return self._check_manual_files()
-    
-    def _check_manual_files(self) -> bool:
-        """Check for manually downloaded DisGeNET files."""
-        logger.info("Checking for DisGeNET data files...")
-        logger.info("Note: DisGeNET data must be downloaded manually from:")
-        logger.info("  https://www.disgenet.org/downloads")
-        logger.info("  Required files:")
-        logger.info("    - curated_gene_disease_associations.tsv")
-        logger.info("    - disease_classifications.tsv")
-        logger.info("    - disease_mappings.tsv")
-        
-        required_files = [
-            f"{DISGENET_GENE_DISEASE_ASSOCIATIONS}.tsv",
-            f"{DISGENET_DISEASE_CLASSIFICATIONS}.tsv",
-            f"{DISGENET_DISEASE_MAPPINGS}.tsv"
-        ]
-        
-        all_exist = True
-        for filename in required_files:
-            filepath = self.get_file_path(filename)
-            if os.path.exists(filepath):
-                logger.info(f"✓ Found {filename}")
-            else:
-                logger.error(f"✗ {filename} not found at: {filepath}")
-                all_exist = False
-        
-        if not all_exist:
-            logger.error("Please download manually or provide API key")
+        if not self.api_key:
+            logger.error("No API key — cannot download DisGeNET data.")
             return False
-        
-        return True
-    
-    def _download_via_api(self) -> bool:
-        """
-        Download DisGeNET data via API.
 
-        Retrieves disease IDs matching the configured disease scope, then
-        fetches gene-disease associations for each.
+        raw_gda = self.get_file_path(RAW_GDA_FILE)
+        raw_cls = self.get_file_path(RAW_DISEASE_CLASSIFICATIONS_FILE)
+        raw_map = self.get_file_path(RAW_DISEASE_MAPPINGS_FILE)
 
-        Returns:
-            True if successful, False otherwise.
-        """
-        logger.info(f"Downloading DisGeNET data via API (disease terms: {self.disease_terms})...")
-
-        output_files = [
-            self.get_file_path(f"api_{DISGENET_DISEASE_CLASSIFICATIONS}.tsv"),
-            self.get_file_path(f"api_{DISGENET_DISEASE_MAPPINGS}.tsv"),
-            self.get_file_path(f"api_{DISGENET_GENE_DISEASE_ASSOCIATIONS}.tsv"),
-        ]
-        if all(Path(f).exists() for f in output_files) and not self.force:
-            logger.info("All DisGeNET API files already present, skipping download")
+        if (Path(raw_gda).exists() and Path(raw_cls).exists()
+                and Path(raw_map).exists() and not self.force):
+            logger.info("DisGeNET raw files already present; skipping download.")
             return True
 
-        try:
-            # Step 1: Get disease IDs and metadata for configured terms
-            disease_classifications, disease_mappings = self.get_disease_ids(self.disease_terms)
+        # ---- Step 1: Collect disease CUIs --------------------------------
+        all_cuis: List[str] = list(self.umls_cuis)
 
-            if disease_classifications is None or disease_mappings is None:
-                logger.error("Failed to retrieve disease IDs from API")
-                return False
+        if self.disease_terms:
+            logger.info(
+                "Searching for additional disease CUIs by term(s): %s",
+                self.disease_terms,
+            )
+            term_cuis = self._search_disease_cuis(self.disease_terms)
+            for cui in term_cuis:
+                if cui not in all_cuis:
+                    all_cuis.append(cui)
 
-            # Save disease data frames
-            classifications_path = self.get_file_path(f"api_{DISGENET_DISEASE_CLASSIFICATIONS}.tsv")
-            disease_classifications.to_csv(classifications_path, sep='\t', index=False)
-            logger.info(f"✓ Saved disease classifications: {classifications_path}")
-
-            mappings_path = self.get_file_path(f"api_{DISGENET_DISEASE_MAPPINGS}.tsv")
-            disease_mappings.to_csv(mappings_path, sep='\t', index=False)
-            logger.info(f"✓ Saved disease mappings: {mappings_path}")
-
-            # Step 2: Get unique disease IDs from disease_mappings
-            unique_disease_ids = disease_mappings['diseaseId'].dropna().unique().tolist()
-            logger.info(f"✓ Found {len(unique_disease_ids)} unique disease IDs")
-
-            if not unique_disease_ids:
-                logger.warning("No disease IDs found to query associations")
-                return False
-
-            # Step 3: Fetch gene-disease associations for each disease ID
-            all_associations = []
-            for disease_id in unique_disease_ids:
-                logger.info(f"Fetching associations for disease ID: {disease_id}")
-                associations = self._get_disease_associations_by_id(disease_id)
-
-                if associations is not None and len(associations) > 0:
-                    all_associations.append(associations)
-                    logger.info(f"  ✓ Retrieved {len(associations)} associations")
-                else:
-                    logger.warning(f"  No associations found for {disease_id}")
-
-                # Rate limiting - be respectful to the API
-                time.sleep(0.5)
-
-            # Step 4: Combine all associations
-            if all_associations:
-                combined_associations = pd.concat(all_associations, ignore_index=True)
-
-                # Remove duplicates if any
-                initial_count = len(combined_associations)
-                combined_associations = combined_associations.drop_duplicates()
-                final_count = len(combined_associations)
-
-                if initial_count != final_count:
-                    logger.info(f"Removed {initial_count - final_count} duplicate associations")
-
-                # Save combined associations
-                output_path = self.get_file_path(f"api_{DISGENET_GENE_DISEASE_ASSOCIATIONS}.tsv")
-                combined_associations.to_csv(output_path, sep='\t', index=False)
-                logger.info(f"✓ Downloaded {len(combined_associations)} total gene-disease associations via API")
-
-                return True
-            else:
-                logger.error("No gene-disease associations retrieved")
-                return False
-
-        except Exception as e:
-            logger.error(f"API download failed: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
+        if not all_cuis:
+            logger.error(
+                "No disease CUIs available. "
+                "Check disease_scope.umls_cuis / primary_terms in project.yaml."
+            )
             return False
-    
-    
-    def get_disease_ids(self, search_terms: Optional[List[str]] = None) -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame]]:
+
+        logger.info(
+            "Will query GDAs for %d disease CUI(s): %s", len(all_cuis), all_cuis
+        )
+
+        # ---- Step 2: Fetch GDAs for each CUI -----------------------------
+        all_gda_records: List[Dict] = []
+        for cui in all_cuis:
+            records = self._fetch_gdas_for_disease(cui)
+            logger.info("  %s → %d GDA record(s)", cui, len(records))
+            all_gda_records.extend(records)
+            time.sleep(0.5)
+
+        if not all_gda_records:
+            logger.error("No GDA records retrieved from DisGeNET API.")
+            return False
+
+        gda_df = pd.DataFrame(all_gda_records).drop_duplicates()
+        gda_df.to_csv(raw_gda, sep="\t", index=False)
+        logger.info("✓ Saved %d GDA records → %s", len(gda_df), raw_gda)
+
+        # ---- Step 3: Derive disease classification file from GDA data ----
+        cls_cols = [c for c in [
+            "diseaseId", "diseaseName", "diseaseType",
+            "diseaseClasses_MSH", "diseaseClasses_UMLS_ST",
+            "diseaseClasses_DO", "diseaseClasses_HPO",
+        ] if c in gda_df.columns]
+
+        if cls_cols and "diseaseId" in cls_cols:
+            cls_df = gda_df[cls_cols].drop_duplicates(subset=["diseaseId"]).copy()
+            cls_df["sourceDatabase"] = "DisGeNET"
+            cls_df.to_csv(raw_cls, sep="\t", index=False)
+            logger.info("✓ Saved %d disease classification records → %s",
+                        len(cls_df), raw_cls)
+        else:
+            pd.DataFrame(columns=["diseaseId", "diseaseName"]).to_csv(
+                raw_cls, sep="\t", index=False
+            )
+
+        # ---- Step 4: Derive disease mappings from diseaseMapping field ---
+        if "diseaseId" in gda_df.columns and "diseaseMapping" in gda_df.columns:
+            map_df = self._parse_disease_mappings(gda_df)
+            map_df.to_csv(raw_map, sep="\t", index=False)
+            logger.info("✓ Saved %d disease mapping records → %s",
+                        len(map_df), raw_map)
+        else:
+            pd.DataFrame(columns=["diseaseId"] + VOCAB_COLS).to_csv(
+                raw_map, sep="\t", index=False
+            )
+
+        return True
+
+    def _parse_disease_mappings(self, gda_df: pd.DataFrame) -> pd.DataFrame:
+        """Parse the diseaseMapping comma-separated field into per-vocab columns."""
+        # Get one row per disease (first occurrence)
+        base = gda_df[["diseaseId", "diseaseName"]].drop_duplicates(
+            subset=["diseaseId"]
+        ).copy() if "diseaseName" in gda_df.columns else (
+            gda_df[["diseaseId"]].drop_duplicates().copy()
+        )
+
+        # Parse mapping codes per disease
+        first_mapping = (
+            gda_df.groupby("diseaseId")["diseaseMapping"].first()
+        )
+
+        def _parse(mapping_str):
+            codes: Dict[str, Optional[str]] = {v: None for v in VOCAB_COLS}
+            if pd.isna(mapping_str):
+                return codes
+            for token in str(mapping_str).split(","):
+                token = token.strip()
+                if "_" in token:
+                    vocab, code = token.split("_", 1)
+                    std = VOCAB_MAP.get(vocab.upper())
+                    if std and codes.get(std) is None:
+                        codes[std] = code
+            return codes
+
+        parsed = first_mapping.apply(_parse).apply(pd.Series)
+        result = base.set_index("diseaseId").join(parsed, how="left").reset_index()
+        result["sourceDatabase"] = "DisGeNET"
+        return result
+
+    # ------------------------------------------------------------------
+    # API helpers
+    # ------------------------------------------------------------------
+
+    def _search_disease_cuis(self, terms: List[str]) -> List[str]:
+        """Search for disease CUIs using GET /disease/search."""
+        cuis: List[str] = []
+        for term in terms:
+            endpoint = f"{self.API_BASE_URL}/disease/search"
+            params = {"q": term}
+            try:
+                resp = self.session.get(endpoint, params=params, timeout=30)
+                resp.raise_for_status()
+                data = resp.json()
+                if isinstance(data, list):
+                    for item in data:
+                        cui = item.get("diseaseId") or item.get("disease_id", "")
+                        if cui and cui not in cuis:
+                            cuis.append(cui)
+                    logger.info("  '%s' → %d disease(s) found", term, len(data))
+                time.sleep(0.3)
+            except requests.RequestException as exc:
+                logger.warning("Disease search failed for '%s': %s", term, exc)
+        return cuis
+
+    def _fetch_gdas_for_disease(self, disease_cui: str) -> List[Dict]:
         """
-        Get disease IDs and related information from DisGeNET API using free text search.
-
-        Args:
-            search_terms: List of disease search strings (e.g., ["alzheimer"]).
-                          If None, uses self.disease_terms.
-
-        Returns:
-            Tuple of two DataFrames:
-            - disease_classifications: disease classification information
-            - disease_mappings: disease code mappings across vocabularies
+        Fetch all GDA records for a disease CUI via GET /gda/disease/{diseaseid}.
+        Handles pagination (page_number parameter, 100 records/page default).
         """
-        if search_terms is None:
-            search_terms = self.disease_terms
+        endpoint = f"{self.API_BASE_URL}/gda/disease/{disease_cui}"
+        all_records: List[Dict] = []
+        page = 0
 
-        all_classifications = []
-        all_mappings = []
+        while True:
+            params = {"page_number": page}
+            try:
+                resp = self.session.get(endpoint, params=params, timeout=60)
 
-        for term in search_terms:
-            logger.info(f"Querying DisGeNET API for disease term: '{term}'...")
-            c, m = self._query_disease_term(term)
-            if c is not None:
-                all_classifications.append(c)
-            if m is not None:
-                all_mappings.append(m)
+                if resp.status_code == 404:
+                    logger.debug("No GDAs for %s (404)", disease_cui)
+                    break
+                if resp.status_code == 429:
+                    logger.warning("Rate limited by DisGeNET; sleeping 10 s…")
+                    time.sleep(10)
+                    continue
 
-        if not all_classifications:
-            return None, None
+                resp.raise_for_status()
+                data = resp.json()
 
-        classifications = pd.concat(all_classifications, ignore_index=True).drop_duplicates()
-        mappings = pd.concat(all_mappings, ignore_index=True).drop_duplicates()
+                if not isinstance(data, list) or not data:
+                    break
 
-        logger.info(f"Total: {len(classifications)} classifications, {len(mappings)} mappings")
-        return classifications, mappings
+                all_records.extend(data)
+                logger.debug(
+                    "  %s page %d: %d record(s)", disease_cui, page, len(data)
+                )
 
-    def _query_disease_term(self, search_term: str) -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame]]:
-        """
-        Query DisGeNET API for a single disease search term.
+                if len(data) < 100:
+                    break
 
-        Args:
-            search_term: Free text disease search string.
+                page += 1
+                time.sleep(0.3)
 
-        Returns:
-            Tuple of (classifications_df, mappings_df) or (None, None).
-        """
-        endpoint = f"{self.API_BASE_URL}/entity/disease"
-        params = {
-            'disease_free_text_search_string': search_term,
-        }
+            except requests.RequestException as exc:
+                logger.error("Failed to fetch GDAs for %s: %s", disease_cui, exc)
+                break
 
-        # Make the API call 
-        try:
-            response = self.session.get(
-                endpoint, 
-                params=params, 
-                timeout=30)
-            response.raise_for_status()
+        return all_records
 
-            data = response.json()
+    # ------------------------------------------------------------------
+    # parse_data
+    # ------------------------------------------------------------------
 
-            if 'payload' not in data:
-                logger.warning("No disease entities found in API response")
-                return None, None
-
-            payload = data['payload']
-            logger.info(f"✓ Retrieved {len(payload)} disease entities from API")
-
-            # Create disease_classifications DataFrame
-            classifications_data = []
-            for item in payload:
-                # Concatenate disease classes with commas
-                disease_classes_msh = ','.join(item.get('diseaseClasses_MSH', []))
-                disease_classes_umls_st = ','.join(item.get('diseaseClasses_UMLS_ST', []))
-                disease_classes_do = ','.join(item.get('diseaseClasses_DO', []))
-                disease_classes_hpo = ','.join(item.get('diseaseClasses_HPO', []))
-
-                classifications_data.append({
-                    'diseaseName': item.get('name', ''),
-                    'diseaseId': item.get('diseaseUMLSCUI', ''),
-                    'diseaseClasses_MSH': disease_classes_msh,
-                    'diseaseClasses_UMLS_ST': disease_classes_umls_st,
-                    'diseaseClasses_DO': disease_classes_do,
-                    'diseaseClasses_HPO': disease_classes_hpo,
-                })
-
-            disease_classifications = pd.DataFrame(classifications_data)
-            disease_classifications['sourceDatabase'] = 'DisGeNET'
-            logger.info(f"✓ Created {DISGENET_DISEASE_CLASSIFICATIONS} with {len(disease_classifications)} rows")
-
-            # Create disease_mappings DataFrame
-            mappings_data = []
-            for item in payload:
-                base_data = {
-                    'diseaseName': item.get('name', ''),
-                    'diseaseId': item.get('diseaseUMLSCUI', '')
-                }
-
-                # Extract disease codes and create columns based on vocabulary
-                disease_codes = item.get('diseaseCodes', [])
-                code_dict = {}
-                for code_item in disease_codes:
-                    vocabulary = code_item.get('vocabulary', '')
-                    code = code_item.get('code', '')
-                    if vocabulary:
-                        code_dict[vocabulary] = code
-
-                # Combine base data with code mappings
-                row_data = {**base_data, **code_dict}
-                mappings_data.append(row_data)
-
-            disease_mappings = pd.DataFrame(mappings_data)
-            disease_mappings['sourceDatabase'] = 'DisGeNET'
-            logger.info(f"✓ Created {DISGENET_DISEASE_MAPPINGS} with {len(disease_mappings)} rows and {len(disease_mappings.columns)} columns")
-
-            return disease_classifications, disease_mappings
-
-        except requests.RequestException as e:
-            logger.error(f"API request failed: {e}")
-            return None, None
-        except Exception as e:
-            logger.error(f"Error processing disease entities: {e}")
-            return None, None
-
-
-    def _get_disease_associations_by_id(self, disease_id: str, 
-                                         limit: int = 10000) -> Optional[pd.DataFrame]:
-        """
-        Get disease-gene associations from DisGeNET API using disease ID.
-        
-        Args:
-            disease_id: Disease ID (UMLS CUI, e.g., C0002395 for Alzheimer's)
-            limit: Maximum number of results
-            
-        Returns:
-            DataFrame of associations or None if failed
-        """
-        logger.info(f"Querying DisGeNET API for disease ID: {disease_id}")
-        
-        # Get gene-disease associations
-        endpoint = f"{self.API_BASE_URL}/gda/summary"
-        params = {
-            'disease': f'UMLS_{disease_id}',
-            'source': 'CURATED',
-        }
-        
-        try:
-            response = self.session.get(endpoint, params=params, timeout=30)
-            response.raise_for_status()
-            
-            data = response.json()
-            
-            if 'payload' not in data:
-                logger.warning("No disease-gene associations found in API response")
-                return None
-
-            payload = data['payload']
-            logger.info(f"✓ Retrieved {len(payload)} disease-gene associations from API")
-            
-            # Create a disease-gene association DataFrame
-            gda_data = []
-            for item in payload:
-                gda_data.append({
-                    'geneId': item.get('geneNcbiID', ''),
-                    'geneSymbol': item.get('symbolOfGene', ''),
-                    'geneType': item.get('geneNcbiType', ''),
-                    'diseaseId': item.get('diseaseUMLSCUI', ''),
-                    'diseaseName': item.get('diseaseName', ''),
-                    'diseaseClasses_MSH': ','.join(item.get('diseaseClasses_MSH', [])),
-                    'diseaseClasses_UMLS_ST': ','.join(item.get('diseaseClasses_UMLS_ST', [])),
-                    'diseaseClasses_DO': ','.join(item.get('diseaseClasses_DO', [])),
-                    'diseaseClasses_HPO': ','.join(item.get('diseaseClasses_HPO', [])),
-                    'diseaseMapping': ','.join(item.get('diseaseVocabularies', [])),
-                    'diseaseType': item.get('diseaseType', ''),
-                    'score': item.get('score', ''),
-                })
-
-            gda_df = pd.DataFrame(gda_data)
-            gda_df['sourceDatabase'] = 'DisGeNET'
-            logger.info(f"✓ Retrieved {len(gda_df)} gene-disease associations")
-
-            return gda_df
-            
-        except requests.RequestException as e:
-            logger.error(f"API request failed: {e}")
-            return None
-    
-    
     def parse_data(self) -> Dict[str, pd.DataFrame]:
         """
-        Parse DisGeNET data.
+        Parse DisGeNET raw files into four clean DataFrames.
 
-        Returns:
-            Dictionary with 'gene_disease_associations', 'disease_mappings', and 'disease_classifications' DataFrames.
+        Returns
+        -------
+        dict with keys:
+          genes                       Gene nodes
+          disease_classifications     Disease nodes
+          disease_mappings            Disease cross-references
+          gene_disease_associations   GDA edges
         """
-        logger.info("Parsing DisGeNET data...")
+        logger.info("Parsing DisGeNET data…")
 
-        result = {}
+        # Load GDA data
+        raw_gda = self.get_file_path(RAW_GDA_FILE)
+        if not Path(raw_gda).exists():
+            logger.warning("No raw GDA file found at %s", raw_gda)
+            return {}
 
-        # Try API file first for gene-disease associations
-        api_gda_file = self.get_file_path(f"api_{DISGENET_GENE_DISEASE_ASSOCIATIONS}.tsv")
-        logger.info("Using API-downloaded gene-disease associations data")
-        try:
-            assoc_df = self.read_tsv(api_gda_file)
-            if assoc_df is not None:
-                assoc_df['sourceDatabase'] = 'DisGeNET'
-                result['gene_disease_associations'] = assoc_df
-                logger.info(f"✓ Parsed {len(assoc_df)} gene-disease associations from API")
-        except FileNotFoundError:
-            logger.error(f"Gene-disease associations file not found: {api_gda_file}")
-        except Exception as e:
-            logger.error(f"Failed to parse API gene-disease associations: {e}")
+        gda_df = self.read_tsv(raw_gda)
+        if gda_df is None or gda_df.empty:
+            logger.warning("Raw GDA file is empty or unreadable.")
+            return {}
 
-        # Fall back to manual files
-        if 'gene_disease_associations' not in result:
-            logger.info("Using manually downloaded gene-disease associations data as fallback")
-            gda_file = self.get_file_path(f"{DISGENET_GENE_DISEASE_ASSOCIATIONS}.tsv")
-            try:
-                assoc_df = self.read_tsv(gda_file)
-                if assoc_df is not None:
-                    assoc_df['sourceDatabase'] = 'DisGeNET'
-                    result['gene_disease_associations'] = assoc_df
-                    logger.info(f"✓ Parsed {len(assoc_df)} gene-disease associations")
-            except FileNotFoundError:
-                logger.error(f"Gene-disease associations file not found: {gda_file}")
-            except Exception as e:
-                logger.error(f"Failed to parse gene-disease associations: {e}")
+        logger.info(
+            "Loaded %d GDA record(s); columns: %s", len(gda_df), list(gda_df.columns)
+        )
 
-        # Parse API disease mappings if available
-        api_mappings_file = self.get_file_path(f"api_{DISGENET_DISEASE_MAPPINGS}.tsv")
-        logger.info("Using API-downloaded disease mappings data")
-        try:
-            mappings_df = self.read_tsv(api_mappings_file)
+        # Load disease classification file
+        raw_cls = self.get_file_path(RAW_DISEASE_CLASSIFICATIONS_FILE)
+        cls_df: Optional[pd.DataFrame] = None
+        if Path(raw_cls).exists():
+            cls_df = self.read_tsv(raw_cls)
+            if cls_df is not None and cls_df.empty:
+                cls_df = None
 
-            if mappings_df is not None:
-                mappings_df['sourceDatabase'] = 'DisGeNET'
-                result['disease_mappings'] = mappings_df
-            logger.info(f"✓ Parsed {len(mappings_df)} disease mappings from API")
+        # Load disease mappings file
+        raw_map = self.get_file_path(RAW_DISEASE_MAPPINGS_FILE)
+        map_df: Optional[pd.DataFrame] = None
+        if Path(raw_map).exists():
+            map_df = self.read_tsv(raw_map)
+            if map_df is not None and map_df.empty:
+                map_df = None
 
-        except FileNotFoundError:
-            logger.error(f"Disease mappings file not found: {api_mappings_file}")
-        except Exception as e:
-            logger.error(f"Failed to parse API disease mappings: {e}")
+        result: Dict[str, pd.DataFrame] = {
+            GENES_OUTPUT: self._build_gene_nodes(gda_df),
+            DISEASES_OUTPUT: self._build_disease_nodes(gda_df, cls_df),
+            DISEASE_MAPPINGS_OUTPUT: self._build_disease_mappings(gda_df, map_df),
+            GDA_OUTPUT: self._build_gda_edges(gda_df),
+        }
 
-        # Fall back to manually downloaded disease mappings file
-        if 'disease_mappings' not in result:
-            logger.info("Using manually downloaded disease mappings data as fallback")
-            mappings_file = self.get_file_path(f"{DISGENET_DISEASE_MAPPINGS}.tsv")
-            try:
-                mappings_df = self.read_tsv(mappings_file)
-                if mappings_df is not None:
-                    mappings_df['sourceDatabase'] = 'DisGeNET'
-                    result['disease_mappings'] = mappings_df
-                    logger.info(f"✓ Parsed {len(mappings_df)} disease mappings")
-            except FileNotFoundError:
-                logger.error(f"Disease mappings file not found: {mappings_file}")
-            except Exception as e:
-                logger.error(f"Failed to parse disease mappings: {e}")
-        
-        # Parse API disease classifications if available
-        api_classifications_file = self.get_file_path(f"api_{DISGENET_DISEASE_CLASSIFICATIONS}.tsv")
-        logger.info("Using API-downloaded disease classifications data")
-        try:
-            classifications_df = self.read_tsv(api_classifications_file)
-
-            if classifications_df is not None:
-                classifications_df['sourceDatabase'] = 'DisGeNET'
-                result['disease_classifications'] = classifications_df
-                logger.info(f"✓ Parsed {len(classifications_df)} disease classifications from API")
-
-        except FileNotFoundError:
-            logger.error(f"Disease classifications file not found: {api_classifications_file}")
-        except Exception as e:
-                logger.error(f"Failed to parse API disease classifications: {e}")
-
-        # Fall back to manually downloaded disease classifications file
-        if 'disease_classifications' not in result:
-            logger.info("Using manually downloaded disease classifications data as fallback")
-            classifications_file = self.get_file_path(f"{DISGENET_DISEASE_CLASSIFICATIONS}.tsv")
-            try:
-                classifications_df = self.read_tsv(classifications_file)
-                if classifications_df is not None:
-                    classifications_df['sourceDatabase'] = 'DisGeNET'
-                    result['disease_classifications'] = classifications_df
-                    logger.info(f"✓ Parsed {len(classifications_df)} disease classifications")
-            except FileNotFoundError:
-                logger.error(f"Disease classifications file not found: {classifications_file}")
-            except Exception as e:
-                logger.error(f"Failed to parse disease classifications: {e}")
+        for key, df in result.items():
+            logger.info("  %s: %d rows × %d cols", key, len(df), len(df.columns))
 
         return result
-    
-    def get_schema(self) -> Dict[str, Dict[str, str]]:
-        """
-        Get the schema for DisGeNET data.
 
-        Returns:
-            Dictionary describing the schema for associations, mappings, and classifications.
+    # ------------------------------------------------------------------
+    # DataFrame builders
+    # ------------------------------------------------------------------
+
+    def _build_gene_nodes(self, gda_df: pd.DataFrame) -> pd.DataFrame:
         """
-        return {
-            f'{DISGENET_GENE_DISEASE_ASSOCIATIONS}': {
-                'geneId': 'NCBI Gene ID',
-                'geneSymbol': 'Gene symbol',
-                'geneType': 'Gene NCBI type',
-                'diseaseId': 'Disease identifier (UMLS CUI)',
-                'diseaseName': 'Disease name',
-                'diseaseClasses_MSH': 'MeSH disease classifications (comma-separated)',
-                'diseaseClasses_UMLS_ST': 'UMLS semantic type classifications (comma-separated)',
-                'diseaseClasses_DO': 'Disease Ontology classifications (comma-separated)',
-                'diseaseClasses_HPO': 'Human Phenotype Ontology classifications (comma-separated)',
-                'diseaseMapping': 'Disease codes across various vocabularies (comma-separated)',
-                'diseaseType': 'Disease type',
-                'score': 'Association score',
-                'sourceDatabase': 'Source database',
-            },
-            f'{DISGENET_DISEASE_MAPPINGS}': {
-                'diseaseName': 'Disease name',
-                'diseaseId': 'Disease identifier (UMLS CUI)',
-                'MSH': 'MeSH disease code',
-                'ICD10': 'ICD-10 code',
-                'NCI': 'NCI Thesaurus code',
-                'OMIM': 'OMIM code',
-                'ICD9CM': 'ICD-9-CM code',
-                'HPO': 'Human Phenotype Ontology code',
-                'DO': 'Disease Ontology code',
-                'MONDO': 'MONDO code',
-                'UMLS': 'UMLS semantic type code',
-                'ORDO': 'Orphanet code',
-                'EFO': 'Experimental Factor Ontology code',
-                'sourceDatabase': 'Source database',
-            },
-            f'{DISGENET_DISEASE_CLASSIFICATIONS}': {
-                'diseaseName': 'Disease name',
-                'diseaseId': 'Disease identifier (UMLS CUI)',
-                'diseaseClasses_MSH': 'MeSH disease classifications (comma-separated)',
-                'diseaseClasses_UMLS_ST': 'UMLS semantic type classifications (comma-separated)',
-                'diseaseClasses_DO': 'Disease Ontology classifications (comma-separated)',
-                'diseaseClasses_HPO': 'Human Phenotype Ontology classifications (comma-separated)',
-                'sourceDatabase': 'Source database',
-            }
+        Extract unique Gene nodes from GDA data.
+
+        Output columns: geneId, geneSymbol, geneName, ensemblId, proteinId,
+                        pLI, DSI, DPI
+        """
+        # Normalise API field names
+        rename_map = {
+            "geneid": "geneId",
+            "gene_symbol": "geneSymbol",
+            "gene_dsi": "DSI",
+            "gene_dpi": "DPI",
+            "gene_pli": "pLI",
         }
-    
-    def filter_associations_by_disease(self, assoc_df: pd.DataFrame,
-                                       terms: Optional[List[str]] = None) -> pd.DataFrame:
+        df = gda_df.rename(
+            columns={k: v for k, v in rename_map.items() if k in gda_df.columns}
+        )
+
+        present = [c for c in ["geneId", "geneSymbol", "DSI", "DPI", "pLI"]
+                   if c in df.columns]
+        if not present:
+            logger.warning("No gene-level columns found in GDA data.")
+            return pd.DataFrame(
+                columns=["geneId", "geneSymbol", "geneName", "ensemblId",
+                         "proteinId", "pLI", "DSI", "DPI"]
+            )
+
+        genes = df[present].drop_duplicates(
+            subset=["geneId"] if "geneId" in present else present
+        ).copy()
+
+        # Add columns required by schema but not returned by this API endpoint
+        for col in ["geneName", "ensemblId", "proteinId", "DSI", "DPI", "pLI"]:
+            if col not in genes.columns:
+                genes[col] = None
+
+        # Return in canonical column order
+        col_order = ["geneId", "geneSymbol", "geneName", "ensemblId",
+                     "proteinId", "pLI", "DSI", "DPI"]
+        genes = genes[[c for c in col_order if c in genes.columns]]
+        return genes.reset_index(drop=True)
+
+    def _build_disease_nodes(
+        self,
+        gda_df: pd.DataFrame,
+        cls_df: Optional[pd.DataFrame],
+    ) -> pd.DataFrame:
         """
-        Filter associations by disease terms.
+        Build Disease nodes DataFrame.
 
-        Args:
-            assoc_df: DataFrame of all gene-disease associations.
-            terms: List of disease name substrings to match (case-insensitive).
-                   If None, uses self.disease_terms.
-
-        Returns:
-            Filtered DataFrame of matching associations.
+        Output columns: diseaseId, diseaseName, diseaseType, diseaseClass,
+                        diseaseSemanticType
         """
-        if terms is None:
-            terms = self.disease_terms
+        want = ["diseaseId", "diseaseName", "diseaseType",
+                "diseaseClass", "diseaseSemanticType"]
 
-        logger.info(f"Filtering associations for disease terms: {terms}")
+        if cls_df is not None and not cls_df.empty:
+            # Use the dedicated disease classifications file
+            rename = {
+                "diseaseClasses_MSH": "diseaseClass",
+                "diseaseClasses_UMLS_ST": "diseaseSemanticType",
+                "sourceDatabase": "source_database",
+            }
+            d = cls_df.rename(columns={k: v for k, v in rename.items()
+                                        if k in cls_df.columns})
+            keep = [c for c in want if c in d.columns]
+            diseases = d[keep].drop_duplicates(subset=["diseaseId"]).copy()
 
-        pattern = "|".join(terms)
-        mask = assoc_df['diseaseName'].str.contains(pattern, case=False, na=False)
-        filtered = assoc_df[mask].copy()
+            # Supplement diseaseType from GDA data if not already present
+            if "diseaseType" not in diseases.columns or diseases["diseaseType"].isna().all():
+                if "diseaseId" in gda_df.columns and "diseaseType" in gda_df.columns:
+                    dtype_map = (
+                        gda_df[["diseaseId", "diseaseType"]]
+                        .drop_duplicates(subset=["diseaseId"])
+                        .set_index("diseaseId")["diseaseType"]
+                    )
+                    diseases = diseases.set_index("diseaseId")
+                    diseases["diseaseType"] = dtype_map
+                    diseases = diseases.reset_index()
+        else:
+            # Fall back to GDA data
+            rename = {
+                "disease_name": "diseaseName",
+                "disease_type": "diseaseType",
+                "diseaseClasses_MSH": "diseaseClass",
+                "diseaseClasses_UMLS_ST": "diseaseSemanticType",
+            }
+            df = gda_df.rename(
+                columns={k: v for k, v in rename.items() if k in gda_df.columns}
+            )
+            keep = [c for c in want if c in df.columns]
+            diseases = df[keep].drop_duplicates(
+                subset=["diseaseId"] if "diseaseId" in keep else keep
+            ).copy() if keep else pd.DataFrame()
 
-        logger.info(f"Found {len(filtered)} matching gene-disease associations")
+        # Ensure all required columns exist
+        for col in want:
+            if col not in diseases.columns:
+                diseases[col] = None
 
-        if len(filtered) > 0:
-            unique_diseases = filtered['diseaseName'].unique()
-            logger.info(f"Unique diseases matched: {len(unique_diseases)}")
-            for disease in unique_diseases[:5]:
-                logger.info(f"  - {disease}")
+        diseases = diseases[want].copy()
+        return diseases.reset_index(drop=True)
 
-        return filtered
+    def _build_disease_mappings(
+        self,
+        gda_df: pd.DataFrame,
+        map_df: Optional[pd.DataFrame],
+    ) -> pd.DataFrame:
+        """
+        Build disease cross-reference mappings DataFrame.
 
+        Output columns: diseaseId, diseaseName, MSH, ICD10, NCI, OMIM,
+                        ICD9CM, HPO, DO, MONDO, UMLS, EFO, ORDO
+        """
+        want = ["diseaseId", "diseaseName"] + VOCAB_COLS
+
+        if map_df is not None and not map_df.empty:
+            # Use the dedicated disease mappings file
+            keep = [c for c in want if c in map_df.columns]
+            mappings = map_df[keep].drop_duplicates(
+                subset=["diseaseId"] if "diseaseId" in keep else keep
+            ).copy()
+        else:
+            # Derive from GDA diseaseMapping field
+            if "diseaseId" in gda_df.columns and "diseaseMapping" in gda_df.columns:
+                mappings = self._parse_disease_mappings(gda_df)
+                keep = [c for c in want if c in mappings.columns]
+                mappings = mappings[keep].copy()
+            else:
+                mappings = pd.DataFrame(columns=want)
+
+        # Ensure all required columns exist
+        for col in want:
+            if col not in mappings.columns:
+                mappings[col] = None
+
+        # DO column is required by ontology_mappings.yaml filter
+        if "DO" not in mappings.columns:
+            mappings["DO"] = None
+
+        mappings = mappings[[c for c in want if c in mappings.columns]].copy()
+        return mappings.reset_index(drop=True)
+
+    def _build_gda_edges(self, gda_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Build Gene-Disease Association edge DataFrame.
+
+        Output columns: geneId, diseaseId, gdaScore, evidenceIndex,
+                        numberOfPublications, numberOfSnps
+        """
+        # Normalise field names from various API versions
+        rename_map = {
+            # Older API snake_case
+            "geneid": "geneId",
+            "gene_symbol": "geneSymbol",
+            "disease_name": "diseaseName",
+            "Npubmeds": "numberOfPublications",
+            "NofSnps": "numberOfSnps",
+            # Current API
+            "score": "gdaScore",
+            "EI": "evidenceIndex",
+            "nPubs": "numberOfPublications",
+            "nSnps": "numberOfSnps",
+        }
+        df = gda_df.rename(
+            columns={k: v for k, v in rename_map.items() if k in gda_df.columns}
+        ).copy()
+
+        # Required output columns
+        required = ["geneId", "diseaseId", "gdaScore",
+                    "evidenceIndex", "numberOfPublications", "numberOfSnps"]
+        for col in required:
+            if col not in df.columns:
+                df[col] = None
+
+        edges = df[required].copy()
+        return edges.reset_index(drop=True)
+
+    # ------------------------------------------------------------------
+    # get_schema
+    # ------------------------------------------------------------------
+
+    def get_schema(self) -> Dict[str, Dict[str, str]]:
+        """Return the column schema for all DisGeNET output DataFrames."""
+        return {
+            GENES_OUTPUT: {
+                "geneId": "NCBI Gene ID",
+                "geneSymbol": "HGNC gene symbol",
+                "geneName": "Full gene name",
+                "ensemblId": "Ensembl gene identifier",
+                "proteinId": "UniProt protein identifier",
+                "pLI": "Probability of loss-of-function intolerance (gnomAD)",
+                "DSI": "Disease Specificity Index (0–1; higher = more disease-specific)",
+                "DPI": "Disease Pleiotropy Index (0–1; higher = more disease classes)",
+            },
+            DISEASES_OUTPUT: {
+                "diseaseId": "Disease identifier (UMLS CUI)",
+                "diseaseName": "Disease name",
+                "diseaseType": "Disease type (disease, group, phenotype)",
+                "diseaseClass": "Disease class (MeSH hierarchy code)",
+                "diseaseSemanticType": "UMLS semantic type",
+            },
+            DISEASE_MAPPINGS_OUTPUT: {
+                "diseaseId": "Disease identifier (UMLS CUI)",
+                "diseaseName": "Disease name",
+                "MSH": "MeSH code",
+                "ICD10": "ICD-10 code",
+                "NCI": "NCI Thesaurus code",
+                "OMIM": "OMIM identifier",
+                "ICD9CM": "ICD-9-CM code",
+                "HPO": "Human Phenotype Ontology code",
+                "DO": "Disease Ontology identifier",
+                "MONDO": "MONDO identifier",
+                "UMLS": "UMLS CUI cross-reference",
+                "EFO": "Experimental Factor Ontology code",
+                "ORDO": "Orphanet code",
+            },
+            GDA_OUTPUT: {
+                "geneId": "NCBI Gene ID",
+                "diseaseId": "Disease identifier (UMLS CUI)",
+                "gdaScore": "GDA score (0–1)",
+                "evidenceIndex": "Evidence Index (0–1; proportion of supporting evidence)",
+                "numberOfPublications": "Number of supporting PubMed publications",
+                "numberOfSnps": "Number of associated SNPs",
+            },
+        }

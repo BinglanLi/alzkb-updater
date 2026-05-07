@@ -78,13 +78,23 @@ class AOPDBParser(BaseParser):
             logger.error(f"Failed to get table names: {e}")
             return []
     
+    def _connect(self):
+        """Open and return a new MySQL connection using self.mysql_config."""
+        import mysql.connector
+        return mysql.connector.connect(
+            host=self.mysql_config.get('host', 'localhost'),
+            user=self.mysql_config.get('user', 'root'),
+            password=self.mysql_config.get('password', ''),
+            database=self.mysql_config.get('database', 'aopdb')
+        )
+
     def download_data(self) -> bool:
         """
         Check for AOP-DB database.
-        
+
         Since AOP-DB is a large MySQL database, this method only checks
         if the database is accessible.
-        
+
         Returns:
             True if database is accessible, False otherwise.
         """
@@ -92,37 +102,26 @@ class AOPDBParser(BaseParser):
         logger.info("Note: AOP-DB must be downloaded and imported into MySQL from:")
         logger.info("  https://gaftp.epa.gov/EPADataCommons/ORD/AOP-DB/")
         logger.info("  File: AOP-DB_v2.zip (7.2 GB compressed)")
-        
+
         if not self._mysql_available:
             logger.error("MySQL connector not available")
             return False
-        
+
         if not self.mysql_config:
             logger.error("MySQL configuration not provided")
             logger.info("Please provide mysql_config with: host, user, password, database")
             return False
-        
-        # Try to connect to database
+
         try:
-            import mysql.connector
-            
-            conn = mysql.connector.connect(
-                host=self.mysql_config.get('host', 'localhost'),
-                user=self.mysql_config.get('user', 'root'),
-                password=self.mysql_config.get('password', ''),
-                database=self.mysql_config.get('database', 'aopdb')
-            )
-            
-            self.connection = conn
+            self.connection = self._connect()
             logger.info("✓ Successfully connected to AOP-DB")
-            
-            # List available tables
+
             tables = self._get_table_names()
             logger.info(f"Found {len(tables)} tables in database")
             logger.debug(f"Available tables: {', '.join(tables)}")
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(f"Failed to connect to AOP-DB: {e}")
             return False
@@ -140,8 +139,15 @@ class AOPDBParser(BaseParser):
         logger.info("Parsing AOP-DB data...")
         
         if not self.connection:
-            logger.error("Not connected to database. Call download_data() first.")
-            return {}
+            if not self._mysql_available or not self.mysql_config:
+                logger.error("Not connected to AOP-DB and cannot reconnect (missing config or connector).")
+                return {}
+            try:
+                self.connection = self._connect()
+                logger.info("✓ Reconnected to AOP-DB for parsing")
+            except Exception as e:
+                logger.error(f"Failed to connect to AOP-DB: {e}")
+                return {}
         
         result = {}
         

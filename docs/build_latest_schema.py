@@ -25,8 +25,8 @@ PLACEHOLDER = "const DB_DATA = null; // @INJECT"
 NODE_LABEL_TO_ID = {
     "Gene":                "nt_Gene",
     "Disease":             "nt_Disease",
-    "ChemicalEffect":      "nt_Disease",
     "Drug":                "nt_Drug",
+    "Chemical":            "nt_Drug",   # Drug and Chemical are synonymous in this ontology
     "Pathway":             "nt_Pathway",
     "TranscriptionFactor": "nt_TranscriptionFactor",
     "BiologicalProcess":   "nt_BiologicalProcess",
@@ -38,15 +38,15 @@ NODE_LABEL_TO_ID = {
 }
 
 EDGE_LABEL_TO_ID = {
-    "bodyPartOverexpressesGene":            "et_BOG",
-    "bodyPartUnderexpressesGene":           "et_BUG",
+    "chemicalAssociatesWithDisease":        "et_CAD",
     "chemicalBindsGene":                    "et_CBG",
+    "chemicalCausesEffect":                 "et_CCE",
     "chemicalIncreasesExpression":          "et_CIE",
     "chemicalDecreasesExpression":          "et_CDE",
     "diseaseLocalizesToAnatomy":            "et_DLA",
+    "diseaseAssociatesWithDisease":         "et_DAD",
     "drugInClass":                          "et_DIC",
     "drugTreatsDisease":                    "et_DTD",
-    "drugCausesEffect":                     "et_DCE",
     "geneAssociatesWithDisease":            "et_GAD",
     "geneCovariesWithGene":                 "et_GCG",
     "geneHasMolecularFunction":             "et_GMF",
@@ -57,7 +57,6 @@ EDGE_LABEL_TO_ID = {
     "geneRegulatesGene":                    "et_GRG",
     "symptomManifestationOfDisease":        "et_SMD",
     "transcriptionFactorInteractsWithGene": "et_TFG",
-    "diseaseAssociatesWithDisease":         "et_DAD",
     "pathwayContainsGene":                  "et_PCG",
     "anatomyExpressesGene":                 "et_AEG",
 }
@@ -81,7 +80,8 @@ def transform_row(row: dict) -> dict | None:
         "id":          db_id,
         "label":       row.get("Label", "").strip(),
         "integration": row.get("Integration Path", "").strip(),
-        "active":   row.get("Active", "").strip() == "Yes",
+        "active":      row.get("Active", "").strip() == "Yes",
+        "status":      row.get("Status", "").strip() or "N/A",
         "version":     row.get("Latest Version", "").strip() or "N/A",
         "parent":      row.get("Sub-source Of", "").strip() or None,
         "nodes":       nodes,
