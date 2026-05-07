@@ -174,6 +174,22 @@ mappings:
         source_database: sourceDatabase
 
   # ---------------------------------------------------------------------------
+  # CollectTRI - Transcription Factor Regulatory Network
+  # ---------------------------------------------------------------------------
+  collectri.transcription_factors:
+    data_type: node
+    node_type: TranscriptionFactor
+    source_filename: transcription_factors.tsv
+    merge: true
+    skip: false
+    parse_config:
+      headers: true
+      iri_column_name: tf_symbol
+      data_property_map:
+        tf_symbol: TF
+        source_database: sourceDatabase
+
+  # ---------------------------------------------------------------------------
   # Disease Ontology - Slim Terms (137 curated diseases)
   # ---------------------------------------------------------------------------
   disease_ontology.slim_terms:
@@ -438,6 +454,24 @@ mappings:
         expression_score: expressionScore
         expression_rank: expressionRank
         unbiased: unbiased
+
+  # ---------------------------------------------------------------------------
+  # CollectTRI relationships
+  # ---------------------------------------------------------------------------
+  collectri.tf_gene_interactions:
+    data_type: relationship
+    relationship_type: transcriptionFactorInteractsWithGene
+    source_filename: tf_gene_interactions.tsv
+    merge: false
+    skip: false
+    parse_config:
+      headers: true
+      subject_node_type: TranscriptionFactor
+      subject_column_name: tf_symbol
+      subject_match_property: TF
+      object_node_type: Gene
+      object_column_name: target_gene
+      object_match_property: geneSymbol
 
   # ---------------------------------------------------------------------------
   # DrugBank - Drug-Gene Binding Edges

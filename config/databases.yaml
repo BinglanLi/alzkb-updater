@@ -94,3 +94,8 @@ databases:
       MeSH (Medical Subject Headings) descriptor XML from NLM. Extracts Symptom
       nodes from the Signs and Symptoms subtree (C23.888). Public source — no
       credentials required. Produces: symptom_nodes.tsv.
+
+  collectri:
+    enabled: false
+    args: {}
+    notes: "CollectTRI transcription factor regulatory network from OmniPath API. Provides TranscriptionFactor nodes and transcriptionFactorInteractsWithGene edges with stimulation/inhibition annotations."
