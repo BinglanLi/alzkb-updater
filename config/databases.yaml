@@ -43,6 +43,11 @@ databases:
     args: {}
     notes: "Transcription factor regulatory network from OmniPath API. Provides TranscriptionFactor nodes and transcriptionFactorInteractsWithGene edges."
 
+  collectri:
+    enabled: false
+    args: {}
+    notes: "CollectTRI transcription factor regulatory network from OmniPath API. Provides TranscriptionFactor nodes and transcriptionFactorInteractsWithGene edges with stimulation/inhibition annotations."
+
   disease_ontology:
     enabled: false
     args: {}
