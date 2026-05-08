@@ -107,3 +107,15 @@ databases:
     enabled: false
     args: {}
     notes: "CollectTRI transcription factor regulatory network from OmniPath API. Provides TranscriptionFactor nodes and transcriptionFactorInteractsWithGene edges with stimulation/inhibition annotations."
+
+  evolutionary_rate_covariation:
+    enabled: true
+    description: "Evolutionary Rate Covariation - mammal functional evolutionary rate covariation matrices"
+    args:
+      url: "https://datadryad.org/downloads/file_stream/3949673"
+      file_path: "ERC_matrices/mammal_ftERC.RDS"
+    credentials: null
+    notes: >-
+      Evolutionary Rate Covariation (ERC) - mammal functional ERC matrices from Dryad.
+      Provides gene-gene covariation edges (geneCoevolvesWithGene) using Fisher-transformed
+      ERC scores. No credentials required (public dataset). Produces: gene_covariation.tsv.

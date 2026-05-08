@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from parsers import (
     AOPDBParser,
+    EvolutionaryRateCovariationParser,
     BgeeParser,
     BindingDBParser,
     CollectTRIParser,
@@ -70,6 +71,7 @@ PARSERS = {
     "ncbigene": NCBIGeneParser,
     "pubtator": PubTatorParser,
     "uberon": UberonParser,
+    "evolutionary_rate_covariation": EvolutionaryRateCovariationParser,
 }
 
 # ---------------------------------------------------------------------------
