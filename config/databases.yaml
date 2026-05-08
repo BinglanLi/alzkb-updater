@@ -30,6 +30,14 @@ databases:
       least one external cross-reference identifier are included. Drug indication
       is stored as a data property (not a Disease node). Requires free academic account
       (HTTP Basic Auth). Version can be 'latest' or specific version (e.g., '5-1-14').
+  bindingdb:
+    enabled: true
+    args: {}
+    notes: >-
+      BindingDB - Database of measured binding affinities. Provides chemicalBindsGene
+      edges for drugs/chemicals with measured binding affinity to protein targets.
+      Public source — no credentials required. Produces: drug_binds_gene.tsv.
+
   ncbigene:
     enabled: false
     args:
