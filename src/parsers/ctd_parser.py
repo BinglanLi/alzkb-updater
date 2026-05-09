@@ -1,20 +1,20 @@
 """
 CTD (Comparative Toxicogenomics Database) Parser for the knowledge graph.
 
-This module parses CTD chemical-gene interaction data to extract expression
-relationships (chemicalIncreasesExpression, chemicalDecreasesExpression) for the knowledge graph.
+Downloads the CTD chemical-gene interactions bulk TSV and extracts two
+expression edge types plus the associated node tables:
 
-Data Source: http://ctdbase.org/downloads/
+  chemical_nodes.tsv                  — Chemical nodes (MeSH)
+  gene_nodes.tsv                      — Gene nodes (NCBI Gene)
+  chemical_increases_expression.tsv   — chemicalIncreasesExpression edges
+  chemical_decreases_expression.tsv   — chemicalDecreasesExpression edges
 
-Output:
-  - chemical_increases_expression.tsv: chemicalIncreasesExpression relationships
-  - chemical_decreases_expression.tsv: chemicalDecreasesExpression relationships
+Data Source: http://ctdbase.org/reports/CTD_chem_gene_ixns.tsv.gz
 """
 
 import logging
-import gzip
-from pathlib import Path
-from typing import Dict, List
+from typing import Dict
+
 import pandas as pd
 
 from .base_parser import BaseParser
@@ -26,181 +26,231 @@ class CTDParser(BaseParser):
     """
     Parser for CTD (Comparative Toxicogenomics Database).
 
-    Extracts chemical-gene expression relationships for use in the knowledge graph's
-    chemicalIncreasesExpression and chemicalDecreasesExpression relationships.
+    Downloads the chemical-gene interaction file and extracts rows whose
+    InteractionActions column contains an "increases^expression" or
+    "decreases^expression" action token.
+
+    No credentials required — public download.
     """
 
-    # CTD chemical-gene interactions URL
     CTD_URL = "http://ctdbase.org/reports/CTD_chem_gene_ixns.tsv.gz"
+    _FILENAME = "CTD_chem_gene_ixns.tsv.gz"
+
+    # Column names as they appear in the CTD file (after skipping # comment lines)
+    _CTD_COLS = [
+        "ChemicalName",
+        "ChemicalID",
+        "CasRN",
+        "GeneSymbol",
+        "GeneID",
+        "GeneForms",
+        "Organism",
+        "OrganismID",
+        "Interaction",
+        "InteractionActions",
+        "PubMedIDs",
+    ]
 
     def __init__(self, data_dir: str):
-        """
-        Initialize the CTD parser.
-
-        Args:
-            data_dir: Directory to store downloaded and processed data
-        """
         super().__init__(data_dir)
         self.source_name = "ctd"
+        self.source_dir = self.data_dir / self.source_name
+        self.source_dir.mkdir(parents=True, exist_ok=True)
+
+    # ------------------------------------------------------------------
+    # Download
+    # ------------------------------------------------------------------
 
     def download_data(self) -> bool:
-        """
-        Download CTD chemical-gene interactions.
-
-        Returns:
-            True if successful, False otherwise
-        """
-        logger.info("Downloading CTD chemical-gene interactions...")
-
-        result = self.download_file(self.CTD_URL, "CTD_chem_gene_ixns.tsv.gz")
-
+        """Download the CTD chemical-gene interactions file."""
+        logger.info("Downloading CTD chemical-gene interactions …")
+        result = self.download_file(self.CTD_URL, self._FILENAME)
         if result:
-            logger.info(f"Successfully downloaded CTD to {result}")
+            logger.info("CTD file available at: %s", result)
             return True
-        else:
-            logger.error("Failed to download CTD")
-            return False
+        logger.error("Failed to download CTD chemical-gene interactions.")
+        return False
+
+    # ------------------------------------------------------------------
+    # Parse
+    # ------------------------------------------------------------------
 
     def parse_data(self) -> Dict[str, pd.DataFrame]:
         """
-        Parse CTD chemical-gene interaction data.
+        Parse the CTD chemical-gene interactions file.
 
-        Returns:
-            Dictionary with:
-              - 'chemical_increases_expression': Increased expression relationships
-              - 'chemical_decreases_expression': Decreased expression relationships
+        Returns a dict with up to four DataFrames:
+          - chemical_nodes
+          - gene_nodes
+          - chemical_increases_expression
+          - chemical_decreases_expression
         """
-        tsv_path = self.source_dir / "CTD_chem_gene_ixns.tsv.gz"
-
+        tsv_path = self.source_dir / self._FILENAME
         if not tsv_path.exists():
-            logger.error(f"CTD file not found: {tsv_path}")
+            logger.error("CTD file not found: %s", tsv_path)
             return {}
 
-        logger.info(f"Parsing CTD from {tsv_path}")
+        logger.info("Parsing CTD from %s …", tsv_path)
 
         try:
-            # CTD file has comment lines starting with #
-            # Read and skip comments
             df = pd.read_csv(
                 tsv_path,
-                sep='\t',
-                compression='gzip',
-                comment='#',
+                sep="\t",
+                compression="gzip",
+                comment="#",
                 header=None,
-                names=[
-                    'ChemicalName', 'ChemicalID', 'CasRN', 'GeneSymbol', 'GeneID',
-                    'GeneForms', 'Organism', 'OrganismID', 'Interaction',
-                    'InteractionActions', 'PubMedIDs'
-                ],
-                low_memory=False
+                names=self._CTD_COLS,
+                low_memory=False,
+                dtype=str,
             )
-
-            logger.info(f"Loaded {len(df)} CTD interactions")
-
-            # Filter for human interactions (OrganismID 9606)
-            df = df[df['OrganismID'] == 9606]
-            logger.info(f"Filtered to {len(df)} human interactions")
-
-            # Extract expression relationships
-            increases = []
-            decreases = []
-
-            for _, row in df.iterrows():
-                chemical_name = row.get('ChemicalName', '')
-                chemical_id = row.get('ChemicalID', '')
-                gene_symbol = row.get('GeneSymbol', '')
-                gene_id = row.get('GeneID', '')
-                interaction_actions = str(row.get('InteractionActions', ''))
-                pubmed_ids = row.get('PubMedIDs', '')
-
-                if not chemical_name or not gene_symbol:
-                    continue
-
-                # Parse interaction actions to find expression changes
-                # CTD format: "increases^expression|decreases^activity"
-                actions = interaction_actions.split('|')
-
-                for action in actions:
-                    if '^' not in action:
-                        continue
-
-                    direction, target = action.split('^', 1)
-
-                    # Check for expression-related interactions
-                    if 'expression' in target.lower() or 'mrna' in target.lower():
-                        record = {
-                            "chemical_name": chemical_name,
-                            "chemical_id": chemical_id.replace('MESH:', ''),
-                            "gene_symbol": gene_symbol,
-                            "gene_id": str(gene_id),
-                            "interaction_type": target,
-                            "pubmed_ids": pubmed_ids,
-                            "source": "CTD"
-                        }
-
-                        if direction == 'increases':
-                            record["relationship"] = "chemicalIncreasesExpression"
-                            increases.append(record)
-                        elif direction == 'decreases':
-                            record["relationship"] = "chemicalDecreasesExpression"
-                            decreases.append(record)
-
-            # Remove duplicates
-            increases = self._deduplicate(increases)
-            decreases = self._deduplicate(decreases)
-
-            logger.info(f"Found {len(increases)} increases expression relationships")
-            logger.info(f"Found {len(decreases)} decreases expression relationships")
-
-            result = {}
-            if increases:
-                result["chemical_increases_expression"] = pd.DataFrame(increases)
-            if decreases:
-                result["chemical_decreases_expression"] = pd.DataFrame(decreases)
-
-            return result
-
-        except Exception as e:
-            logger.error(f"Error parsing CTD: {e}")
+        except Exception as exc:
+            logger.exception("Failed to read CTD file: %s", exc)
             return {}
 
-    def _deduplicate(self, records: List[Dict]) -> List[Dict]:
-        """Remove duplicate records based on chemical-gene pair."""
-        seen = set()
-        unique = []
-        for r in records:
-            key = (r['chemical_id'], r['gene_symbol'])
-            if key not in seen:
-                seen.add(key)
-                unique.append(r)
-        return unique
+        logger.info("Loaded %d raw CTD rows.", len(df))
+
+        # ---- Normalise ChemicalID to MESH:XXXXXXX format ----
+        df["ChemicalID"] = df["ChemicalID"].apply(self._normalize_mesh_id)
+
+        # ---- Drop rows missing essential fields ----
+        df = df.dropna(subset=["ChemicalID", "GeneID", "InteractionActions"])
+        df = df[df["ChemicalID"].str.strip() != ""]
+        df = df[df["GeneID"].str.strip() != ""]
+
+        # ---- Explode pipe-separated InteractionActions into one row each ----
+        df = df.copy()
+        df["InteractionActions"] = df["InteractionActions"].str.split("|")
+        df = df.explode("InteractionActions")
+        df["InteractionActions"] = df["InteractionActions"].str.strip()
+
+        # ---- Keep only expression-related actions ----
+        expr_mask = df["InteractionActions"].str.contains(
+            r"\^expression", case=False, na=False, regex=True
+        )
+        df_expr = df[expr_mask].copy()
+        logger.info("Rows with expression actions: %d", len(df_expr))
+
+        if df_expr.empty:
+            logger.warning("No expression-related interactions found in CTD data.")
+            return {}
+
+        # ---- Split into increases / decreases ----
+        inc_mask = df_expr["InteractionActions"].str.lower().str.startswith(
+            "increases^", na=False
+        )
+        dec_mask = df_expr["InteractionActions"].str.lower().str.startswith(
+            "decreases^", na=False
+        )
+
+        df_inc = df_expr[inc_mask].copy()
+        df_dec = df_expr[dec_mask].copy()
+        logger.info("  increases^expression rows : %d", len(df_inc))
+        logger.info("  decreases^expression rows : %d", len(df_dec))
+
+        # ---- Build edge DataFrames ----
+        def _build_edges(src: pd.DataFrame) -> pd.DataFrame:
+            out = pd.DataFrame(
+                {
+                    "chemical_id": src["ChemicalID"].str.strip(),
+                    "gene_id": src["GeneID"].str.strip(),
+                    "interaction_text": src["Interaction"].fillna("").str.strip(),
+                    "organism": src["OrganismID"].fillna("").str.strip(),
+                    "pubmed_ids": src["PubMedIDs"].fillna(""),
+                }
+            )
+            return out.drop_duplicates().reset_index(drop=True)
+
+        inc_edges = _build_edges(df_inc)
+        dec_edges = _build_edges(df_dec)
+
+        # ---- Build Chemical node DataFrame ----
+        chem_df = (
+            df_expr[["ChemicalID", "ChemicalName"]]
+            .drop_duplicates(subset=["ChemicalID"])
+            .rename(columns={"ChemicalID": "chemical_id", "ChemicalName": "chemical_name"})
+            .copy()
+        )
+        chem_df["mesh_id"] = chem_df["chemical_id"]
+        chem_df = chem_df[["chemical_id", "chemical_name", "mesh_id"]].reset_index(drop=True)
+
+        # ---- Build Gene node DataFrame ----
+        gene_df = (
+            df_expr[["GeneID", "GeneSymbol", "OrganismID"]]
+            .drop_duplicates(subset=["GeneID", "OrganismID"])
+            .rename(
+                columns={
+                    "GeneID": "gene_id",
+                    "GeneSymbol": "gene_symbol",
+                    "OrganismID": "organism",
+                }
+            )
+            .copy()
+        )
+        gene_df = gene_df[["gene_id", "gene_symbol", "organism"]].reset_index(drop=True)
+
+        logger.info("Chemical nodes : %d", len(chem_df))
+        logger.info("Gene nodes     : %d", len(gene_df))
+        logger.info(
+            "increases_expression edges : %d  |  decreases_expression edges : %d",
+            len(inc_edges),
+            len(dec_edges),
+        )
+
+        result: Dict[str, pd.DataFrame] = {}
+        if not chem_df.empty:
+            result["chemical_nodes"] = chem_df
+        if not gene_df.empty:
+            result["gene_nodes"] = gene_df
+        if not inc_edges.empty:
+            result["chemical_increases_expression"] = inc_edges
+        if not dec_edges.empty:
+            result["chemical_decreases_expression"] = dec_edges
+
+        return result
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _normalize_mesh_id(mesh_id) -> str:
+        """Return a MeSH ID in MESH:XXXXXXX format."""
+        if pd.isna(mesh_id):
+            return ""
+        mesh_id = str(mesh_id).strip()
+        if mesh_id and not mesh_id.startswith("MESH:"):
+            mesh_id = f"MESH:{mesh_id}"
+        return mesh_id
+
+    # ------------------------------------------------------------------
+    # Schema
+    # ------------------------------------------------------------------
 
     def get_schema(self) -> Dict[str, Dict[str, str]]:
-        """
-        Get the schema for CTD data.
-
-        Returns:
-            Dictionary defining the schema for chemical-gene expression relationships
-        """
+        """Return the column schema for each output table."""
         return {
-            "chemical_increases_expression": {
-                "chemical_name": "Chemical/drug name",
-                "chemical_id": "MeSH ID for chemical",
-                "gene_symbol": "Gene symbol",
+            "chemical_nodes": {
+                "chemical_id": "MeSH ID for the chemical (e.g. MESH:D000082)",
+                "chemical_name": "Name of the chemical",
+                "mesh_id": "MeSH identifier (same as chemical_id)",
+            },
+            "gene_nodes": {
                 "gene_id": "NCBI Gene ID",
-                "interaction_type": "Type of interaction (expression, mRNA, etc.)",
-                "pubmed_ids": "Supporting PubMed IDs",
-                "relationship": "Relationship type (chemicalIncreasesExpression)",
-                "source": "Data source (CTD)"
+                "gene_symbol": "Gene symbol",
+                "organism": "Taxon ID (OrganismID from CTD)",
+            },
+            "chemical_increases_expression": {
+                "chemical_id": "Source chemical MeSH ID",
+                "gene_id": "Target NCBI Gene ID",
+                "interaction_text": "Full interaction description from CTD",
+                "organism": "Organism taxon ID",
+                "pubmed_ids": "Pipe-separated PubMed IDs supporting the interaction",
             },
             "chemical_decreases_expression": {
-                "chemical_name": "Chemical/drug name",
-                "chemical_id": "MeSH ID for chemical",
-                "gene_symbol": "Gene symbol",
-                "gene_id": "NCBI Gene ID",
-                "interaction_type": "Type of interaction (expression, mRNA, etc.)",
-                "pubmed_ids": "Supporting PubMed IDs",
-                "relationship": "Relationship type (chemicalDecreasesExpression)",
-                "source": "Data source (CTD)"
-            }
+                "chemical_id": "Source chemical MeSH ID",
+                "gene_id": "Target NCBI Gene ID",
+                "interaction_text": "Full interaction description from CTD",
+                "organism": "Organism taxon ID",
+                "pubmed_ids": "Pipe-separated PubMed IDs supporting the interaction",
+            },
         }
