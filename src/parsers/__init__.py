@@ -25,6 +25,7 @@ from .ctd_parser import CTDParser
 from .pubtator_parser import PubTatorParser
 from .medline_cooccurrence_parser import MEDLINECooccurrenceParser
 from .evolutionary_rate_covariation import EvolutionaryRateCovariationParser
+from .reactome_parser import ReactomeParser
 
 __all__ = [
     'BaseParser',
@@ -46,4 +47,5 @@ __all__ = [
     'PubTatorParser',
     'MEDLINECooccurrenceParser',
     'EvolutionaryRateCovariationParser',
+    'ReactomeParser',
 ]

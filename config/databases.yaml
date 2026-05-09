@@ -121,7 +121,19 @@ databases:
       url: "https://datadryad.org/downloads/file_stream/3949673"
       file_path: "ERC_matrices/mammal_ftERC.RDS"
     credentials: null
-    notes: >-
-      Evolutionary Rate Covariation (ERC) - mammal functional ERC matrices from Dryad.
-      Provides gene-gene covariation edges (geneCoevolvesWithGene) using Fisher-transformed
-      ERC scores. No credentials required (public dataset). Produces: gene_covariation.tsv.
+    notes: 'Evolutionary Rate Covariation (ERC) - mammal functional ERC matrices from
+      Dryad. Provides gene-gene covariation edges (geneCoevolvesWithGene) using Fisher-transformed
+      ERC scores. No credentials required (public dataset). Produces: gene_covariation.tsv.'
+
+  reactome:
+    enabled: true
+    args: {}
+    urls:
+    - https://reactome.org/download/current/UniProt2Reactome_All_Levels.txt
+    - https://reactome.org/download/current/ReactomePathways.txt
+    - https://reactome.org/download/current/ReactomePathwaysRelation.txt
+    notes: "Reactome - Curated pathway database. Provides Pathway nodes and proteinParticipatesInPathway\
+      \ edges. UniProt2Reactome_All_Levels.txt maps UniProt IDs to Reactome pathways;\
+      \ ReactomePathways.txt provides pathway names and species; ReactomePathwaysRelation.txt\
+      \ defines pathway hierarchy. Public source \u2014 no credentials required. Produces:\
+      \ pathway_nodes.tsv, protein_pathway_associations.tsv."
