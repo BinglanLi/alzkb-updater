@@ -162,7 +162,7 @@ alzkb-updater/
 │   │   ├── drugcentral_parser.py
 │   │   ├── gene_ontology_parser.py
 │   │   ├── gwas_parser.py
-│   │   ├── medline_cooccurrence_parser.py
+│   │   ├── medline_parser.py
 │   │   ├── mesh_parser.py
 │   │   ├── ncbigene_parser.py
 │   │   ├── pubtator_parser.py
@@ -198,7 +198,7 @@ alzkb-updater/
 | DrugCentral | `DrugCentralParser` | Local PostgreSQL |
 | Gene Ontology | `GeneOntologyParser` | OBO file |
 | GWAS Catalog | `GWASParser` | HTTP download |
-| MEDLINE | `MEDLINECooccurrenceParser` | NCBI E-utilities (PubMed) |
+| MEDLINE | `MEDLINEParser` | NCBI E-utilities (PubMed) |
 | MeSH | `MeSHParser` | XML download |
 | NCBI Gene | `NCBIGeneParser` | NCBI FTP |
 | PubTator | `PubTatorParser` | NCBI FTP |

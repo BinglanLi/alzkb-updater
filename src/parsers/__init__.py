@@ -22,8 +22,7 @@ from .drugcentral_parser import DrugCentralParser
 from .bindingdb_parser import BindingDBParser
 from .bgee_parser import BgeeParser
 from .ctd_parser import CTDParser
-from .pubtator_parser import PubTatorParser
-from .medline_cooccurrence_parser import MEDLINECooccurrenceParser
+from .medline_parser import MEDLINEParser
 from .evolutionary_rate_covariation import EvolutionaryRateCovariationParser
 from .reactome_parser import ReactomeParser
 
@@ -44,8 +43,7 @@ __all__ = [
     'BindingDBParser',
     'BgeeParser',
     'CTDParser',
-    'PubTatorParser',
-    'MEDLINECooccurrenceParser',
+    'MEDLINEParser',
     'EvolutionaryRateCovariationParser',
     'ReactomeParser',
 ]

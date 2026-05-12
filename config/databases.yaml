@@ -33,19 +33,19 @@ databases:
   bindingdb:
     enabled: true
     args: {}
-    notes: "BindingDB - Database of measured binding affinities. Provides chemicalBindsGene\
-      \ edges for drugs/chemicals with measured binding affinity to protein targets.\
-      \ Public source \u2014 no credentials required. Produces: drug_binds_gene.tsv."
+    notes: 'BindingDB - Database of measured binding affinities. Provides chemicalBindsGene
+      edges for drugs/chemicals with measured binding affinity to protein targets.
+      Public source — no credentials required. Produces: drug_binds_gene.tsv.'
   ctd:
     enabled: true
     args: {}
-    notes: "CTD (Comparative Toxicogenomics Database) chemical-gene interactions.\
-      \ Extracts chemicalIncreasesExpression and chemicalDecreasesExpression edges\
-      \ from the bulk CTD_chem_gene_ixns.tsv.gz file. Public source \u2014 no credentials\
-      \ required. Produces: chemical_nodes.tsv, gene_nodes.tsv, chemical_increases_expression.tsv,\
-      \ chemical_decreases_expression.tsv."
+    notes: 'CTD (Comparative Toxicogenomics Database) chemical-gene interactions.
+      Extracts chemicalIncreasesExpression and chemicalDecreasesExpression edges from
+      the bulk CTD_chem_gene_ixns.tsv.gz file. Public source — no credentials required.
+      Produces: chemical_nodes.tsv, gene_nodes.tsv, chemical_increases_expression.tsv,
+      chemical_decreases_expression.tsv.'
   ncbigene:
-    enabled: false
+    enabled: true
     args:
       source_url: https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz
     notes: Gene nodes from NCBI FTP. Disease-agnostic; provides the base Gene node
@@ -93,14 +93,12 @@ databases:
         user_env: DC_USER
         password_env: DC_PASSWORD
       llr_threshold: 0.0
-    notes: >-
-      Drug-disease, pharmacologic class, and adverse-effect data from DrugCentral
-      PostgreSQL (v54, 2023-11-01). Public read-only instance at
-      unmtid-dbs.net:5433. Set DC_USER and DC_PASSWORD env vars (public
-      credentials: drugman / dosage). Alternatively load the dump locally:
-      createdb drugcentral && gunzip -c drugcentral.sql.gz | psql drugcentral.
-      Produces: drugs, pharmacologic_classes, diseases, drug_treats_disease,
-      drug_in_class, chemical_causes_effect TSVs.
+    notes: 'Drug-disease, pharmacologic class, and adverse-effect data from DrugCentral
+      PostgreSQL (v54, 2023-11-01). Public read-only instance at unmtid-dbs.net:5433.
+      Set DC_USER and DC_PASSWORD env vars (public credentials: drugman / dosage).
+      Alternatively load the dump locally: createdb drugcentral && gunzip -c drugcentral.sql.gz
+      | psql drugcentral. Produces: drugs, pharmacologic_classes, diseases, drug_treats_disease,
+      drug_in_class, chemical_causes_effect TSVs.'
   bgee:
     enabled: true
     args:
@@ -109,32 +107,30 @@ databases:
     notes: Gene expression presence/absence calls by anatomy. Provides anatomyExpressesGene
       edges with expression quality metrics (call quality, FDR, expression score,
       rank).
-
   mesh:
     enabled: true
     args:
-      base_url: "https://nlmpubs.nlm.nih.gov/projects/mesh/MESH_FILES/xmlmesh/"
-    notes: >-
-      MeSH (Medical Subject Headings) descriptor XML from NLM. Extracts Symptom
-      nodes from the Signs and Symptoms subtree (C23.888). Public source — no
-      credentials required. Produces: symptom_nodes.tsv.
-
+      base_url: https://nlmpubs.nlm.nih.gov/projects/mesh/MESH_FILES/xmlmesh/
+    notes: 'MeSH (Medical Subject Headings) descriptor XML from NLM. Extracts Symptom
+      nodes from the Signs and Symptoms subtree (C23.888). Public source — no credentials
+      required. Produces: symptom_nodes.tsv.'
   collectri:
-    enabled: false
+    enabled: true
     args: {}
-    notes: "CollectTRI transcription factor regulatory network from OmniPath API. Provides TranscriptionFactor nodes and transcriptionFactorInteractsWithGene edges with stimulation/inhibition annotations."
-
+    notes: CollectTRI transcription factor regulatory network from OmniPath API. Provides
+      TranscriptionFactor nodes and transcriptionFactorInteractsWithGene edges with
+      stimulation/inhibition annotations.
   evolutionary_rate_covariation:
     enabled: true
-    description: "Evolutionary Rate Covariation - mammal functional evolutionary rate covariation matrices"
+    description: Evolutionary Rate Covariation - mammal functional evolutionary rate
+      covariation matrices
     args:
-      url: "https://datadryad.org/downloads/file_stream/3949673"
-      file_path: "ERC_matrices/mammal_ftERC.RDS"
+      url: https://datadryad.org/downloads/file_stream/3949673
+      file_path: ERC_matrices/mammal_ftERC.RDS
     credentials: null
     notes: 'Evolutionary Rate Covariation (ERC) - mammal functional ERC matrices from
       Dryad. Provides gene-gene covariation edges (geneCoevolvesWithGene) using Fisher-transformed
       ERC scores. No credentials required (public dataset). Produces: gene_covariation.tsv.'
-
   reactome:
     enabled: true
     args: {}
@@ -142,8 +138,19 @@ databases:
     - https://reactome.org/download/current/UniProt2Reactome_All_Levels.txt
     - https://reactome.org/download/current/ReactomePathways.txt
     - https://reactome.org/download/current/ReactomePathwaysRelation.txt
-    notes: "Reactome - Curated pathway database. Provides Pathway nodes and proteinParticipatesInPathway\
-      \ edges. UniProt2Reactome_All_Levels.txt maps UniProt IDs to Reactome pathways;\
-      \ ReactomePathways.txt provides pathway names and species; ReactomePathwaysRelation.txt\
-      \ defines pathway hierarchy. Public source \u2014 no credentials required. Produces:\
-      \ pathway_nodes.tsv, protein_pathway_associations.tsv."
+    notes: 'Reactome - Curated pathway database. Provides Pathway nodes and proteinParticipatesInPathway
+      edges. UniProt2Reactome_All_Levels.txt maps UniProt IDs to Reactome pathways;
+      ReactomePathways.txt provides pathway names and species; ReactomePathwaysRelation.txt
+      defines pathway hierarchy. Public source — no credentials required. Produces:
+      pathway_nodes.tsv, protein_pathway_associations.tsv.'
+  medline:
+    enabled: true
+    args:
+      api_key_env: NCBI_EUTILS_API_KEY
+    notes: >
+      MEDLINE co-occurrence parser. Queries PubMed via NCBI E-utilities for
+      disease, symptom, and anatomy terms, then computes pairwise Fisher exact
+      test co-occurrence statistics. Produces disease_symptom_cooccurrence,
+      disease_anatomy_cooccurrence, and disease_disease_cooccurrence TSVs.
+      Depends on disease_ontology, mesh, and uberon parsers having run first.
+      Optional: set NCBI_EUTILS_API_KEY in .env for 10 req/sec (default: 3 req/sec).
