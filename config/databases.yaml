@@ -51,9 +51,19 @@ databases:
     notes: Gene nodes from NCBI FTP. Disease-agnostic; provides the base Gene node
       set.
   disease_ontology:
-    enabled: false
+    enabled: true
     args: {}
-    notes: Disease Ontology slim terms (137 curated diseases). Provides Disease nodes.
+    description: Disease Ontology (DO) - A standardized ontology for human disease
+      representation
+    urls:
+    - https://raw.githubusercontent.com/DiseaseOntology/HumanDiseaseOntology/main/src/ontology/doid.obo
+    format: OBO
+    version: latest
+    notes: 'Disease Ontology (DO) - Comprehensive ontology of human diseases. Provides
+      standardized Disease nodes with disease identifiers, names, and hierarchical
+      relationships. Primary source is the OBO format file (doid.obo). Also generates
+      slim-terms.tsv (137 curated diseases from Hetionet/GWAS Catalog integration).
+      Public source — no credentials required. Produces: disease_nodes.tsv, slim_terms.tsv.'
   gene_ontology:
     enabled: true
     args: {}
