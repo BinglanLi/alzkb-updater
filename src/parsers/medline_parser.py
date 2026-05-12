@@ -118,22 +118,16 @@ class MEDLINEParser(BaseParser):
             return {}
 
         disease_df = self._load_disease_list(mesh_names)
-        # test
-        disease_df = disease_df[:2]
         if disease_df is None or disease_df.empty:
             logger.error("Empty disease list; aborting medline parse")
             return {}
 
         symptom_df = self._load_symptom_list()
-        # test
-        symptom_df = symptom_df[:2]
         if symptom_df is None or symptom_df.empty:
             logger.error("Empty symptom list; aborting medline parse")
             return {}
 
         anatomy_df = self._load_anatomy_list(mesh_names)
-        # test
-        anatomy_df = anatomy_df[:2]
         if anatomy_df is None or anatomy_df.empty:
             logger.error("Empty anatomy list; aborting medline parse")
             return {}
