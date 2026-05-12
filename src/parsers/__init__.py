@@ -17,7 +17,6 @@ from .disease_ontology_parser import DiseaseOntologyParser
 from .gene_ontology_parser import GeneOntologyParser
 from .uberon_parser import UberonParser
 from .mesh_parser import MeSHParser
-from .gwas_parser import GWASParser
 from .drugcentral_parser import DrugCentralParser
 from .bindingdb_parser import BindingDBParser
 from .bgee_parser import BgeeParser
@@ -38,7 +37,6 @@ __all__ = [
     'GeneOntologyParser',
     'UberonParser',
     'MeSHParser',
-    'GWASParser',
     'DrugCentralParser',
     'BindingDBParser',
     'BgeeParser',
