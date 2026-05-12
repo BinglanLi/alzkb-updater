@@ -1,6 +1,6 @@
 # AlzKB Updater
 
-A pipeline for building and updating the [Alzheimer's Knowledge Base (AlzKB)](https://github.com/EpistasisLab/AlzKB) — a disease-specific knowledge graph integrating data from 16 biomedical databases.
+A pipeline for building and updating the [Alzheimer's Knowledge Base (AlzKB)](https://github.com/EpistasisLab/AlzKB) — a disease-specific knowledge graph integrating data from 16 biomedical databases (14 enabled by default; AOP-DB requires local MySQL).
 
 ## Overview
 
@@ -20,7 +20,7 @@ Configuration lives in `config/`:
 
 ## Installation
 
-**Prerequisites:** Python 3.8+, MySQL (for AOP-DB), PostgreSQL (for DrugCentral), Git
+**Prerequisites:** Python 3.8+, MySQL (for AOP-DB), Git
 
 ```bash
 git clone https://github.com/BinglanLi/alzkb-updater.git
@@ -33,6 +33,10 @@ pip install -r requirements.txt
 
 # Install ista (bundled in .ista/)
 pip install -e .ista
+
+# Install NCBI EDirect (required by the MEDLINE parser)
+bash edirect/install-edirect.sh
+export PATH="$(pwd)/edirect:${PATH}"   # add to ~/.bashrc or ~/.zshrc to persist
 ```
 
 **Credentials** — create a `.env` file:
@@ -40,9 +44,12 @@ pip install -e .ista
 DISGENET_API_KEY=your_key_here
 DRUGBANK_USERNAME=your_username
 DRUGBANK_PASSWORD=your_password
-MYSQL_USERNAME=root
+DC_USER=drugman                    # DrugCentral public read-only account
+DC_PASSWORD=dosage
+MYSQL_USERNAME=root                # Only needed if running AOP-DB
 MYSQL_PASSWORD=your_password
 MYSQL_DB_NAME=aopdb
+NCBI_EUTILS_API_KEY=your_key_here  # Optional; raises MEDLINE rate limit to 10 req/s
 ```
 
 ## Usage
@@ -149,23 +156,24 @@ alzkb-updater/
 │   └── ontology_mappings.yaml    # column-to-ontology-property mappings
 ├── src/
 │   ├── main.py                   # pipeline entry point (read this first)
-│   ├── parsers/                  # 16 source parsers
+│   ├── parsers/                  # 17 source parsers
 │   │   ├── base_parser.py
 │   │   ├── aopdb_parser.py
 │   │   ├── bgee_parser.py
 │   │   ├── bindingdb_parser.py
+│   │   ├── collecttri_parser.py
 │   │   ├── ctd_parser.py
 │   │   ├── disease_ontology_parser.py
 │   │   ├── disgenet_parser.py
 │   │   ├── dorothea_parser.py
 │   │   ├── drugbank_parser.py
 │   │   ├── drugcentral_parser.py
+│   │   ├── evolutionary_rate_covariation.py
 │   │   ├── gene_ontology_parser.py
-│   │   ├── gwas_parser.py
 │   │   ├── medline_parser.py
 │   │   ├── mesh_parser.py
 │   │   ├── ncbigene_parser.py
-│   │   ├── pubtator_parser.py
+│   │   ├── reactome_parser.py
 │   │   └── uberon_parser.py
 │   ├── ontology/
 │   │   └── populator.py          # OWL population via ista
@@ -185,24 +193,24 @@ alzkb-updater/
 
 ## Data sources
 
-| Source | Parser | Access |
-|--------|--------|--------|
-| AOP-DB | `AOPDBParser` | Local MySQL |
-| Bgee | `BgeeParser` | HTTP download |
-| BindingDB | `BindingDBParser` | HTTP download |
-| CTD | `CTDParser` | HTTP download |
-| Disease Ontology | `DiseaseOntologyParser` | OBO file |
-| DisGeNET | `DisGeNETParser` | REST API (key required) |
-| DoRothEA | `DoRothEAParser` | OmniPath API |
-| DrugBank | `DrugBankParser` | HTTP download (credentials required) |
-| DrugCentral | `DrugCentralParser` | Local PostgreSQL |
-| Gene Ontology | `GeneOntologyParser` | OBO file |
-| GWAS Catalog | `GWASParser` | HTTP download |
-| MEDLINE | `MEDLINEParser` | NCBI E-utilities (PubMed) |
-| MeSH | `MeSHParser` | XML download |
-| NCBI Gene | `NCBIGeneParser` | NCBI FTP |
-| PubTator | `PubTatorParser` | NCBI FTP |
-| Uberon | `UberonParser` | OBO file |
+| Source | Parser | Access | Enabled |
+|--------|--------|--------|---------|
+| AOP-DB | `AOPDBParser` | Local MySQL | No |
+| Bgee | `BgeeParser` | HTTP download | Yes |
+| BindingDB | `BindingDBParser` | HTTP download | Yes |
+| CollectTRI | `CollectTRIParser` | OmniPath API | Yes |
+| CTD | `CTDParser` | HTTP download | Yes |
+| Disease Ontology | `DiseaseOntologyParser` | OBO file | Yes |
+| DisGeNET | `DisGeNETParser` | REST API (key required) | Yes |
+| DrugBank | `DrugBankParser` | HTTP download (credentials required) | Yes |
+| DrugCentral | `DrugCentralParser` | Remote PostgreSQL (public credentials) | Yes |
+| Evolutionary Rate Covariation | `EvolutionaryRateCovariationParser` | HTTP download (Dryad) | Yes |
+| Gene Ontology | `GeneOntologyParser` | OBO file | Yes |
+| MEDLINE | `MEDLINEParser` | NCBI E-utilities (PubMed) | Yes |
+| MeSH | `MeSHParser` | XML download | Yes |
+| NCBI Gene | `NCBIGeneParser` | NCBI FTP | Yes |
+| Reactome | `ReactomeParser` | HTTP download | Yes |
+| Uberon | `UberonParser` | OBO file | Yes |
 
 ## Troubleshooting
 
@@ -213,7 +221,9 @@ pip install -e .ista
 
 **MySQL connection failed:** verify MySQL is running and credentials in `.env` are correct.
 
-**PostgreSQL connection failed (DrugCentral):** load the dump first — `gunzip -c drugcentral.sql.gz | psql drugcentral` — then verify `psql drugcentral` connects without a password prompt.
+**DrugCentral connection failed:** the pipeline connects to a public read-only instance at `unmtid-dbs.net:5433`. Verify `DC_USER=drugman` and `DC_PASSWORD=dosage` are set in `.env`. To use a local dump instead, load it with `createdb drugcentral && gunzip -c drugcentral.sql.gz | psql drugcentral` and update `pg_config.host` in `databases.yaml`.
+
+**EDirect not found (MEDLINE parser):** run `bash edirect/install-edirect.sh` from the repo root and add `edirect/` to your PATH.
 
 **API authentication failed:** check API keys in `.env`.
 
