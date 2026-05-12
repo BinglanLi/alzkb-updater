@@ -55,4 +55,5 @@ Thumbs.db
 .env.local
 
 # EDirect CLI (installed locally via install-edirect.sh)
-edirect/
+edirect/*
+!edirect/install-edirect.sh
