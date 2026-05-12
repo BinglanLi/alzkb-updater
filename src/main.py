@@ -42,7 +42,7 @@ from parsers import (
     MEDLINEParser,
     MeSHParser,
     NCBIGeneParser,
-    PubTatorParser,
+    ReactomeParser,
     UberonParser,
 )
 
@@ -67,9 +67,9 @@ PARSERS = {
     "medline": MEDLINEParser,
     "mesh": MeSHParser,
     "ncbigene": NCBIGeneParser,
-    "pubtator": PubTatorParser,
     "uberon": UberonParser,
     "evolutionary_rate_covariation": EvolutionaryRateCovariationParser,
+    "reactome": ReactomeParser,
 }
 
 # ---------------------------------------------------------------------------
