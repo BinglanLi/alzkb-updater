@@ -7,7 +7,7 @@ Generates data/raw/diseaseontology/slim-terms.tsv by combining:
      via xref fields in mondo.obo (downloaded if absent)
 
 Run from project root:
-  python scripts/generate_disease_slim.py
+  python src/generate_disease_slim.py
 
 Output columns: doid, name, source, pathophysiology
   - TopNodes_DOcancerslim terms: source=TopNodes_DOcancerslim, pathophysiology=neoplastic
@@ -30,7 +30,7 @@ MONDO_OBO = Path("data/raw/mondo/mondo.obo")
 MONDO_OBO_URL = "http://purl.obolibrary.org/obo/mondo.obo"
 OUTPUT = Path("data/raw/diseaseontology/slim-terms.tsv")
 GWAS_URL = "https://www.ebi.ac.uk/gwas/api/search/downloads/studies/v1.0.3.1"
-MIN_STUDIES = 30
+MIN_STUDIES = 20
 
 
 def load_doid_graph():
