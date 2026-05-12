@@ -21,6 +21,7 @@ import re
 from pathlib import Path
 from typing import Dict, Optional
 
+import networkx as nx
 import pandas as pd
 
 try:
@@ -129,6 +130,8 @@ class DiseaseOntologyParser(BaseParser):
             logger.error(f"Failed to parse OBO file: {exc}")
             return {}
 
+        doid4_depths = self._compute_doid4_depths(graph)
+
         rows = []
         for node_id, data in graph.nodes(data=True):
             if not node_id.startswith("DOID:"):
@@ -163,6 +166,21 @@ class DiseaseOntologyParser(BaseParser):
                 scope_primary_terms,
             )
             if not (in_slim or matches_scope):
+                continue
+
+            # ---- Filter: Skip overly broad categorical nodes -----------------------
+            # Exclude terms whose EVERY parent is a direct child of DOID:4
+            # (depth ≤ 1). Terms with at least one deep parent (depth ≥ 2)
+            # are specific enough to keep.
+            is_a_list = [
+                entry.split(" !")[0].strip()
+                for entry in data.get("is_a", [])
+            ]
+            if self._is_too_broad(is_a_list, doid4_depths):
+                if in_slim:
+                    logger.debug(
+                        "Excluded broad slim term: %s (%s)", node_id, name
+                    )
                 continue
 
             # ---- Extract fields --------------------------------------------
@@ -214,6 +232,30 @@ class DiseaseOntologyParser(BaseParser):
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _compute_doid4_depths(graph) -> dict:
+        """Return {node_id: min_depth_from_DOID:4} via NetworkX BFS.
+
+        obonet edges run child→parent, so reverse the graph to traverse
+        downward from the root.
+        """
+        return dict(
+            nx.single_source_shortest_path_length(graph.reverse(), "DOID:4")
+        )
+
+    @staticmethod
+    def _is_too_broad(is_a_list: list, depth_map: dict) -> bool:
+        """
+        Return True if every direct parent of a term is depth ≤ 1 from DOID:4.
+
+        Such terms are pure categorical nodes (e.g. "monogenic disease" whose
+        only parent is "genetic disease" at depth 1). Terms with at least one
+        parent at depth ≥ 2 are specific enough to pass.
+        """
+        if not is_a_list:
+            return False
+        return all(depth_map.get(p, 999) <= 1 for p in is_a_list)
 
     def _load_slim_doids(self) -> Optional[set]:
         """
