@@ -44,6 +44,7 @@ from parsers import (
     NCBIGeneParser,
     ReactomeParser,
     UberonParser,
+    StringParser,
 )
 
 logger = logging.getLogger(__name__)
@@ -70,6 +71,7 @@ PARSERS = {
     "uberon": UberonParser,
     "evolutionary_rate_covariation": EvolutionaryRateCovariationParser,
     "reactome": ReactomeParser,
+    "string": StringParser,
 }
 
 # ---------------------------------------------------------------------------

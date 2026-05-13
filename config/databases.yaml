@@ -154,3 +154,14 @@ databases:
       disease_anatomy_cooccurrence, and disease_disease_cooccurrence TSVs.
       Depends on disease_ontology, mesh, and uberon parsers having run first.
       Optional: set NCBI_EUTILS_API_KEY in .env for 10 req/sec (default: 3 req/sec).
+  string:
+    enabled: true
+    args:
+      min_combined_score: 700
+    notes: >
+      STRING protein-protein interaction database (human, taxon 9606).
+      Downloads protein.links, protein.info, and protein.aliases files (v12.0)
+      directly from stringdb-downloads.org. Maps Ensembl protein IDs to NCBI
+      Gene IDs via the aliases file (Ensembl_EntrezGene source). Produces
+      genes.tsv (Gene nodes) and gene_interactions.tsv (geneInteractsWithGene
+      edges). Public source, no credentials required.
