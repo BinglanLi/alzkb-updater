@@ -525,6 +525,7 @@ class DrugBankParser(BaseParser):
                         "gene_symbol": gene_symbol,
                         "uniprot_id": uniprot_id,
                         "interaction_type": itype,
+                        "source_database": "DrugBank",
                     }
                 )
         return edges
@@ -637,5 +638,6 @@ class DrugBankParser(BaseParser):
                 "gene_symbol": "HGNC gene symbol of the target/enzyme/carrier/transporter",
                 "uniprot_id": "UniProt accession of the polypeptide",
                 "interaction_type": "Type of interaction (target/enzyme/carrier/transporter)",
+                "source_database": "Source database name",
             },
         }
