@@ -440,18 +440,12 @@ mappings:
     skip: false
     parse_config:
       headers: true
-      source_node:
-        node_type: Gene
-        iri_column_name: geneId
-        merge_column:
-          source_column_name: geneId
-          data_property: xrefNcbiGene
-      target_node:
-        node_type: Disease
-        iri_column_name: diseaseId
-        merge_column:
-          source_column_name: diseaseId
-          data_property: xrefUmlsCUI
+      subject_node_type: Gene
+      subject_column_name: geneId
+      subject_match_property: xrefNcbiGene
+      object_node_type: Disease
+      object_column_name: diseaseId
+      object_match_property: xrefUmlsCUI
       data_property_map:
         gdaScore: gdaScore
         evidenceIndex: evidenceIndex
