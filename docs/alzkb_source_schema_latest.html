@@ -743,15 +743,15 @@ const DB_DATA = [
     ]
   },
   {
-    "id": "db_DO",
-    "label": "Disease Ontology",
+    "id": "db_Uberon",
+    "label": "Uberon",
     "integration": "Direct",
     "active": true,
-    "status": "To-do",
-    "version": "2024-03",
+    "status": "Implemented",
+    "version": "V2024-03-22",
     "parent": null,
     "nodes": [
-      "nt_Disease"
+      "nt_BodyPart"
     ],
     "edges": []
   },
@@ -760,7 +760,7 @@ const DB_DATA = [
     "label": "DisGeNET",
     "integration": "Direct",
     "active": true,
-    "status": "To-do",
+    "status": "Implemented",
     "version": "V7.0 (2020-05)",
     "parent": null,
     "nodes": [
@@ -771,11 +771,30 @@ const DB_DATA = [
     ]
   },
   {
+    "id": "db_DrugCentral",
+    "label": "DrugCentral",
+    "integration": "Direct",
+    "active": true,
+    "status": "Implemented",
+    "version": "2023-11-01",
+    "parent": null,
+    "nodes": [
+      "nt_Drug",
+      "nt_DrugClass",
+      "nt_Disease"
+    ],
+    "edges": [
+      "et_DIC",
+      "et_DTD",
+      "et_CCE"
+    ]
+  },
+  {
     "id": "db_GO",
     "label": "Gene Ontology",
     "integration": "Direct",
     "active": true,
-    "status": "To-do",
+    "status": "Implemented",
     "version": "2024-04-24",
     "parent": null,
     "nodes": [
@@ -790,40 +809,11 @@ const DB_DATA = [
     ]
   },
   {
-    "id": "db_DrugCentral",
-    "label": "DrugCentral",
-    "integration": "Direct",
-    "active": true,
-    "status": "To-do",
-    "version": "2023-11-01",
-    "parent": null,
-    "nodes": [
-      "nt_DrugClass"
-    ],
-    "edges": [
-      "et_DIC",
-      "et_DTD"
-    ]
-  },
-  {
-    "id": "db_Uberon",
-    "label": "Uberon",
-    "integration": "Direct",
-    "active": true,
-    "status": "To-do",
-    "version": "V2024-03-22",
-    "parent": null,
-    "nodes": [
-      "nt_BodyPart"
-    ],
-    "edges": []
-  },
-  {
     "id": "db_MeSH",
     "label": "NCBI MeSH",
     "integration": "Direct",
     "active": true,
-    "status": "To-do",
+    "status": "Implemented",
     "version": "2026",
     "parent": null,
     "nodes": [
@@ -832,26 +822,11 @@ const DB_DATA = [
     "edges": []
   },
   {
-    "id": "db_WikiPW",
-    "label": "WikiPathways",
-    "integration": "New",
-    "active": true,
-    "status": "To-do",
-    "version": "V2026-03",
-    "parent": null,
-    "nodes": [
-      "nt_Pathway"
-    ],
-    "edges": [
-      "et_GIP"
-    ]
-  },
-  {
     "id": "db_CollecTRI",
     "label": "CollecTRI",
     "integration": "New",
     "active": true,
-    "status": "To-do",
+    "status": "Implemented",
     "version": "V1 (2023)",
     "parent": null,
     "nodes": [
@@ -862,11 +837,80 @@ const DB_DATA = [
     ]
   },
   {
+    "id": "db_BindingDB",
+    "label": "BindingDB",
+    "integration": "Direct",
+    "active": true,
+    "status": "Implemented",
+    "version": "2024-05",
+    "parent": null,
+    "nodes": [],
+    "edges": [
+      "et_CBG"
+    ]
+  },
+  {
+    "id": "db_ERC",
+    "label": "Evol. Rate Covariation",
+    "integration": "Direct",
+    "active": true,
+    "status": "Implemented",
+    "version": "V2 (2025)",
+    "parent": null,
+    "nodes": [],
+    "edges": [
+      "et_GCG"
+    ]
+  },
+  {
+    "id": "db_CTD",
+    "label": "CTD",
+    "integration": "New",
+    "active": true,
+    "status": "Implemented",
+    "version": "2026-02",
+    "parent": null,
+    "nodes": [],
+    "edges": [
+      "et_CIE",
+      "et_CDE"
+    ]
+  },
+  {
+    "id": "db_Reactome",
+    "label": "Reactome",
+    "integration": "New",
+    "active": true,
+    "status": "Implemented",
+    "version": "2026",
+    "parent": null,
+    "nodes": [
+      "nt_Pathway"
+    ],
+    "edges": [
+      "et_GIP",
+      "et_PCG"
+    ]
+  },
+  {
+    "id": "db_DO",
+    "label": "Disease Ontology",
+    "integration": "Direct",
+    "active": true,
+    "status": "Implemented",
+    "version": "2026-04",
+    "parent": null,
+    "nodes": [
+      "nt_Disease"
+    ],
+    "edges": []
+  },
+  {
     "id": "db_MEDLINE",
     "label": "MEDLINE",
     "integration": "Direct",
     "active": true,
-    "status": "To-do",
+    "status": "Implemented",
     "version": "N/A",
     "parent": null,
     "nodes": [],
@@ -877,54 +921,44 @@ const DB_DATA = [
     ]
   },
   {
-    "id": "db_BindingDB",
-    "label": "BindingDB",
+    "id": "db_string",
+    "label": "String",
     "integration": "Direct",
-    "active": true,
-    "status": "To-do",
-    "version": "2024-05",
+    "active": false,
+    "status": "Implemented",
+    "version": "v12.0 (2023-July)",
     "parent": null,
     "nodes": [],
     "edges": [
-      "et_CBG"
+      "et_GIG"
     ]
   },
   {
-    "id": "db_CTD",
-    "label": "CTD",
+    "id": "db_WikiPW",
+    "label": "WikiPathways",
     "integration": "New",
     "active": true,
-    "status": "To-do",
-    "version": "2026-02",
+    "status": "TBD",
+    "version": "V2026-03",
     "parent": null,
-    "nodes": [],
+    "nodes": [
+      "nt_Pathway"
+    ],
     "edges": [
-      "et_CIE",
-      "et_CDE"
-    ]
-  },
-  {
-    "id": "db_ERC",
-    "label": "Evol. Rate Covariation",
-    "integration": "Direct",
-    "active": true,
-    "status": "To-do",
-    "version": "V2 (2025)",
-    "parent": null,
-    "nodes": [],
-    "edges": [
-      "et_GCG"
+      "et_GIP"
     ]
   },
   {
     "id": "db_GWAS",
     "label": "GWAS Catalog",
-    "integration": "Direct",
+    "integration": "New",
     "active": true,
     "status": "TBD",
     "version": "N/A",
     "parent": null,
-    "nodes": [],
+    "nodes": [
+      "nt_Gene"
+    ],
     "edges": [
       "et_GAD"
     ]
@@ -932,7 +966,7 @@ const DB_DATA = [
   {
     "id": "db_PubChem",
     "label": "PubChem (Xref Drug IDs)",
-    "integration": "Direct",
+    "integration": "New",
     "active": true,
     "status": "TBD",
     "version": "N/A",
@@ -950,26 +984,17 @@ const DB_DATA = [
     "status": "TBD",
     "version": "N/A",
     "parent": null,
-    "nodes": [],
-    "edges": [
-      "et_DAD",
-      "et_GAD"
-    ]
-  },
-  {
-    "id": "db_Reactome",
-    "label": "Reactome",
-    "integration": "New",
-    "active": true,
-    "status": "TBD",
-    "version": "2026",
-    "parent": null,
     "nodes": [
-      "nt_Pathway"
+      "nt_Gene",
+      "nt_Drug",
+      "nt_Disease"
     ],
     "edges": [
-      "et_GIP",
-      "et_PCG"
+      "et_DTD",
+      "et_GIG",
+      "et_CIE",
+      "et_CDE",
+      "et_CBG"
     ]
   },
   {
@@ -1055,7 +1080,7 @@ const DB_DATA = [
   {
     "id": "db_LINCS",
     "label": "LINCS L1000",
-    "integration": "Direct",
+    "integration": "Hetionet",
     "active": false,
     "status": "Obsolete",
     "version": "2020",
@@ -1083,7 +1108,7 @@ const DB_DATA = [
   {
     "id": "db_DoRothEA",
     "label": "DoRothEA (OmniPath)",
-    "integration": "Direct",
+    "integration": "Hetionet",
     "active": false,
     "status": "Obsolete",
     "version": "2018",
