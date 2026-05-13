@@ -1,5 +1,5 @@
 Source Database,Update Frequency,"Biomedical Entities (Node types)","Biomedical Relationships (Edge types)",Latest Version,Active,Access Approach,Integration Path,Status,Sub-source Of,Download Link,ID,Label,
-AOP-DB (Adverse Outcome Pathway Database),Semi-Anual,"Pathway","geneInPathway, pathwayContainsGene",V2 (2021-04-23),No,web-based downloads,Direct,Implemented,,https://www.epa.gov/healthresearch/adverse-outcome-pathway-database-aop-db,db_AOPDB,AOP-DB,
+AOP-DB (Adverse Outcome Pathway Database),Semi-Anual,"Drug, Pathway","geneInPathway, pathwayContainsGene",V2 (2021-04-23),No,web-based downloads,Direct,Implemented,,https://www.epa.gov/healthresearch/adverse-outcome-pathway-database-aop-db,db_AOPDB,AOP-DB,
 NCBI Gene (Entrez Gene),Daily,Gene,,N/A,Yes,public FTP,Direct,Implemented,,https://ftp.ncbi.nlm.nih.gov/gene/DATA/,db_NCBIGene,NCBI Gene,
 DrugBank,Quarterly,"Drug",chemicalBindsGene,V5.1.15 (2026-03-05),Yes,web-based downloads,Direct,Implemented,,https://go.drugbank.com/releases/latest,db_DrugBank,DrugBank,
 Bgee,Irregular,,anatomyExpressesGene,V15.1.1 (2023-11-14),Yes,web-based downloads,New,Implemented,,https://www.bgee.org/download/data-dumps,db_Bgee,Bgee,
