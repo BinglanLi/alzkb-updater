@@ -7,17 +7,15 @@ STRING aliases file.
 
 Data Sources (STRING v12.0):
   - protein.links.v12.0: protein1, protein2, combined_score (space-sep)
-  - protein.info.v12.0:  string_protein_id, preferred_name, protein_size, annotation
   - protein.aliases.v12.0: string_protein_id, alias, source
 
 Outputs:
-  - genes.tsv              : Gene nodes (only genes with >= 1 surviving interaction)
   - gene_interactions.tsv  : geneInteractsWithGene edges (combined_score >= min_combined_score)
 """
 
 import logging
 from pathlib import Path
-from typing import Dict, Optional, Set
+from typing import Dict, Optional
 
 import pandas as pd
 
@@ -32,26 +30,19 @@ LINKS_URL = (
     "https://stringdb-downloads.org/download/protein.links." + STRING_VERSION + "/"
     + TAXON + ".protein.links." + STRING_VERSION + ".txt.gz"
 )
-INFO_URL = (
-    "https://stringdb-downloads.org/download/protein.info." + STRING_VERSION + "/"
-    + TAXON + ".protein.info." + STRING_VERSION + ".txt.gz"
-)
 ALIASES_URL = (
     "https://stringdb-downloads.org/download/protein.aliases." + STRING_VERSION + "/"
     + TAXON + ".protein.aliases." + STRING_VERSION + ".txt.gz"
 )
 
 LINKS_GZ   = TAXON + ".protein.links." + STRING_VERSION + ".txt.gz"
-INFO_GZ    = TAXON + ".protein.info." + STRING_VERSION + ".txt.gz"
 ALIASES_GZ = TAXON + ".protein.aliases." + STRING_VERSION + ".txt.gz"
 
 LINKS_FILE   = LINKS_GZ[:-3]
-INFO_FILE    = INFO_GZ[:-3]
 ALIASES_FILE = ALIASES_GZ[:-3]
 
 ENTREZ_SOURCES = {"Ensembl_HGNC_entrez_id", "UniProt_DR_GeneID", "KEGG_GENEID"}
 
-OUTPUT_GENES        = "genes"
 OUTPUT_INTERACTIONS = "gene_interactions"
 
 SOURCE_DB = "STRING"
@@ -82,7 +73,6 @@ class StringParser(BaseParser):
         success = True
         for url, gz_name in [
             (LINKS_URL,   LINKS_GZ),
-            (INFO_URL,    INFO_GZ),
             (ALIASES_URL, ALIASES_GZ),
         ]:
             gz_path = self.download_file(url, gz_name)
@@ -108,50 +98,15 @@ class StringParser(BaseParser):
             return {}
         logger.info("  Proteins with NCBI Gene ID: %d", len(protein_to_gene))
 
-        protein_info = self._build_protein_info_map()
-        if protein_info is None:
-            return {}
-
-        # Build all gene nodes first (before score filtering)
-        genes_df_all = self._build_genes_df(protein_to_gene, protein_info)
-        if genes_df_all is None or genes_df_all.empty:
-            logger.error("No gene records produced.")
-            return {}
-
-        # Build interactions with score filter applied
         interactions_df = self._build_interactions_df(protein_to_gene)
         if interactions_df is None or interactions_df.empty:
             logger.error("No interaction records produced after score filtering.")
             return {}
 
-        # Regenerate genes.tsv: keep only genes that appear in at least one surviving interaction
-        surviving_gene_ids: Set[str] = (
-            set(interactions_df["gene_id_1"].astype(str))
-            | set(interactions_df["gene_id_2"].astype(str))
-        )
-        before_genes = len(genes_df_all)
-        genes_df = genes_df_all[
-            genes_df_all["ncbi_gene_id"].astype(str).isin(surviving_gene_ids)
-        ].copy().reset_index(drop=True)
-        logger.info(
-            "  Gene nodes after interaction-based filter: %d -> %d",
-            before_genes,
-            len(genes_df),
-        )
-
-        return {
-            OUTPUT_GENES:        genes_df,
-            OUTPUT_INTERACTIONS: interactions_df,
-        }
+        return {OUTPUT_INTERACTIONS: interactions_df}
 
     def get_schema(self) -> Dict[str, Dict[str, str]]:
         return {
-            OUTPUT_GENES: {
-                "ncbi_gene_id":       "NCBI Entrez Gene identifier",
-                "ensembl_protein_id": "Ensembl protein identifier (ENSP...)",
-                "gene_symbol":        "Official gene symbol from STRING preferred_name",
-                "gene_name":          "Gene/protein annotation text from STRING",
-            },
             OUTPUT_INTERACTIONS: {
                 "gene_id_1":       "NCBI Entrez Gene ID of the first interaction partner",
                 "gene_id_2":       "NCBI Entrez Gene ID of the second interaction partner",
@@ -209,52 +164,6 @@ class StringParser(BaseParser):
             .to_dict()
         )
         return protein_to_gene
-
-    def _build_protein_info_map(self) -> Optional[Dict[str, tuple]]:
-        info_path = self.get_file_path(INFO_FILE)
-        if not Path(info_path).exists():
-            logger.error("Info file not found: " + info_path)
-            return None
-
-        logger.info("Reading protein info file: " + info_path)
-        info_df = pd.read_csv(info_path, sep="\t", dtype=str, low_memory=False)
-        info_df.columns = [c.lstrip("#") for c in info_df.columns]
-        logger.info("  Total info rows: %d", len(info_df))
-        logger.info("  Columns: %s", list(info_df.columns))
-
-        info_df["protein_id"] = info_df["string_protein_id"].str.replace(
-            "^" + TAXON + r"\.", "", regex=True
-        )
-
-        protein_info = {}
-        for _, row in info_df.iterrows():
-            pid = row["protein_id"]
-            symbol = str(row.get("preferred_name", "") or "")
-            name   = str(row.get("annotation", "") or "")
-            protein_info[pid] = (symbol, name)
-        return protein_info
-
-    def _build_genes_df(
-        self,
-        protein_to_gene: Dict[str, str],
-        protein_info: Dict[str, tuple],
-    ) -> Optional[pd.DataFrame]:
-        records = []
-        for protein_id, ncbi_gene_id in protein_to_gene.items():
-            gene_symbol, gene_name = protein_info.get(protein_id, ("", ""))
-            records.append({
-                "ncbi_gene_id":       str(ncbi_gene_id),
-                "ensembl_protein_id": protein_id,
-                "gene_symbol":        gene_symbol,
-                "gene_name":          gene_name,
-            })
-        if not records:
-            return None
-        genes_df = pd.DataFrame(records)
-        before = len(genes_df)
-        genes_df = genes_df.drop_duplicates(subset="ncbi_gene_id", keep="first")
-        logger.info("  Gene nodes: %d -> %d after dedup", before, len(genes_df))
-        return genes_df.reset_index(drop=True)
 
     def _build_interactions_df(
         self,
