@@ -88,7 +88,6 @@ class MEDLINEParser(BaseParser):
         self.source_name = "medline"
         self.source_dir = self.data_dir / self.source_name
         self.source_dir.mkdir(parents=True, exist_ok=True)
-        self.force = True  # always re-fetch PMIDs; cache can become stale silently
         self.api_key = api_key
         self._processed_dir = self.data_dir.parent / "processed"
         self._mesh_dir = self.data_dir / "mesh"
