@@ -276,7 +276,7 @@ class MEDLINEParser(BaseParser):
         if cache_path.exists() and not self.force:
             with gzip.open(cache_path, "rt") as fh:
                 pmids = frozenset(line.strip() for line in fh if line.strip())
-            logger.debug(f"Cache hit: {len(pmids):,} PMIDs for {mesh_name}")
+            logger.info(f"Cache hit: {len(pmids):,} PMIDs for {mesh_name}")
             return pmids
 
         env = {**os.environ, "PATH": f"{_EDIRECT_DIR}{os.pathsep}{os.environ.get('PATH', '')}"}
