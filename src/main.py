@@ -244,14 +244,22 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python src/main.py                       run the full pipeline
-  python src/main.py --source disgenet     run only DisGeNET extraction
-  python src/main.py --log-level DEBUG     verbose output
+  python src/main.py                         run the full pipeline
+  python src/main.py --source disgenet       run only DisGeNET extraction
+  python src/main.py --step export           run only the graph export step
+  python src/main.py --step populate         run only the ontology populate step
+  python src/main.py --step extract          run only the extract + TSV export step
+  python src/main.py --log-level DEBUG       verbose output
         """,
     )
     parser.add_argument(
         "--source",
         help="Run only this source (e.g., disgenet, aopdb). Skips populate and export.",
+    )
+    parser.add_argument(
+        "--step",
+        choices=["extract", "populate", "export"],
+        help="Run a single pipeline step: extract (download+TSV), populate (OWL), or export (Memgraph CSV).",
     )
     parser.add_argument(
         "--log-level",
@@ -285,6 +293,25 @@ Examples:
         parsed_data = extract(databases, project_config, raw_dir, force_download=args.force_download)
         export_tsv(parsed_data, processed_dir)
         logger.info(f"Single-source run for '{args.source}' complete.")
+        return
+
+    if args.step == "extract":
+        logger.info("Running extract step only")
+        parsed_data = extract(databases, project_config, raw_dir, force_download=args.force_download)
+        export_tsv(parsed_data, processed_dir)
+        logger.info("Extract step complete.")
+        return
+
+    if args.step == "populate":
+        logger.info("Running populate step only")
+        populate(project_config, ontology_mappings, processed_dir)
+        logger.info("Populate step complete.")
+        return
+
+    if args.step == "export":
+        logger.info("Running export step only")
+        export_graph(project_config, output_dir)
+        logger.info("Export step complete.")
         return
 
     logger.info(f"Starting {project_config.get('display_name', 'KG')} pipeline")
