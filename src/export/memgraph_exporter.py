@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from rdflib import Graph, Namespace, RDF, RDFS, OWL
+from rdflib.term import Literal
 
 logger = logging.getLogger(__name__)
 
@@ -168,14 +169,14 @@ class MemgraphExporter:
                 node_id = ind_uri
 
             # Extract data properties
-            properties = {"id": node_id, "uri": ind_uri}
+            properties = {"id": node_id}
             for pred, obj in self.graph.predicate_objects(individual):
                 pred_str = str(pred)
                 # Skip RDF/OWL built-in predicates
                 if any(pred_str.startswith(ns) for ns in [str(RDF), str(RDFS), str(OWL)]):
                     continue
-                # Only data properties (literal values)
-                if hasattr(obj, "toPython"):
+                # Only data properties (literal values), not object property assertions
+                if isinstance(obj, Literal):
                     prop_name = pred_str.rsplit("#", 1)[1] if "#" in pred_str else pred_str
                     properties[prop_name] = str(obj)
 
@@ -230,8 +231,6 @@ class MemgraphExporter:
             edges_by_type[rel_type].append({
                 "start_id": start_id,
                 "end_id": end_id,
-                "start_uri": s_str,
-                "end_uri": o_str,
             })
 
         return dict(edges_by_type)
@@ -241,7 +240,7 @@ class MemgraphExporter:
         Write a node CSV file.
 
         Returns:
-            Property column names for this node type, excluding ``uri``.
+            Property column names for this node type.
             Used by ``_write_cypher_script`` to build CREATE statements.
         """
         if not nodes:
@@ -252,11 +251,8 @@ class MemgraphExporter:
         for node in nodes:
             all_keys.update(node.keys())
 
-        # Order: id first, then sorted property names, uri last (archival only)
         all_keys.discard("id")
-        all_keys.discard("uri")
-        columns = ["id"] + sorted(all_keys) + ["uri"]
-        prop_columns = [c for c in columns if c != "uri"]
+        columns = ["id"] + sorted(all_keys)
 
         with open(filepath, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=columns, extrasaction="ignore")
@@ -264,14 +260,14 @@ class MemgraphExporter:
             for node in nodes:
                 writer.writerow(node)
 
-        return prop_columns
+        return columns
 
     def _write_edge_csv(self, filepath: Path, edges: list, rel_type: str):
         """Write an edge CSV file."""
         if not edges:
             return
 
-        columns = ["start_id", "end_id", "start_uri", "end_uri"]
+        columns = ["start_id", "end_id"]
 
         with open(filepath, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=columns)
