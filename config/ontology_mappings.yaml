@@ -76,7 +76,7 @@ mappings:
     skip: false
     parse_config:
       headers: true
-      iri_column_name: path_name
+      iri_column_name: path_iri
       data_property_map:
         path_id: pathwayId
         path_name: pathwayName

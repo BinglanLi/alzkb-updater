@@ -10,6 +10,7 @@ Note: This is a large MySQL database that must be downloaded and imported.
 """
 
 import logging
+import re
 from typing import Dict, Optional, Any, List
 import pandas as pd
 from .base_parser import BaseParser
@@ -190,6 +191,13 @@ class AOPDBParser(BaseParser):
                 try:
                     df = pd.read_sql(query[result_key], self.connection)
                     df['source_database'] = 'AOPDB'
+                    if result_key == AOPDB_PATHWAYS:
+                        df['path_iri'] = (
+                            df['path_name']
+                            .str.strip()
+                            .str.lower()
+                            .apply(lambda s: re.sub(r"[^a-z0-9_\-\.:]", "_", s))
+                        )
                     result[result_key] = df
                     logger.info(f"✓ Parsed {len(df)} rows from {table_name} (as {result_key})")
                 except Exception as e:
@@ -207,7 +215,8 @@ class AOPDBParser(BaseParser):
         return {
             AOPDB_PATHWAYS: {
                 'path_id': 'Pathway identifier',
-                'path_name': 'Pathway name',
+                'path_name': 'Pathway name (human-readable)',
+                'path_iri': 'URI-safe pathway name used as ontology IRI fragment',
                 'ext_source': 'External source',
                 'source_database': 'AOP-DB'
             },
