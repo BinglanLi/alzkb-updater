@@ -55,7 +55,6 @@ project:
     # Active: parsers exist and produce these node types
     - Gene
     - Drug
-    - Chemical
     - Disease
     - Pathway
     - BiologicalProcess
@@ -67,6 +66,7 @@ project:
     - DrugClass
     - ChemicalEffect
     # Inactive: defined in ontology but no parser produces these yet
+    # - Chemical
     # - AnimalToxin
     # - Biotoxin
     # - CellType
