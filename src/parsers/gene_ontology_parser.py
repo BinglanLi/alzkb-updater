@@ -197,9 +197,9 @@ class GeneOntologyParser(BaseParser):
         )
 
         return {
-            BP_NODES: pd.DataFrame(bp_terms),
-            MF_NODES: pd.DataFrame(mf_terms),
-            CC_NODES: pd.DataFrame(cc_terms),
+            BP_NODES: pd.DataFrame(bp_terms).assign(source_database="Gene Ontology"),
+            MF_NODES: pd.DataFrame(mf_terms).assign(source_database="Gene Ontology"),
+            CC_NODES: pd.DataFrame(cc_terms).assign(source_database="Gene Ontology"),
         }
 
     def _build_symbol_to_entrez_map(self) -> Dict[str, int]:
@@ -312,6 +312,8 @@ class GeneOntologyParser(BaseParser):
             f"Associations — BP: {len(bp_df):,}, MF: {len(mf_df):,}, CC: {len(cc_df):,}"
         )
 
+        for df in [bp_df, mf_df, cc_df]:
+            df["source_database"] = "Gene Ontology"
         return {GENE_BP: bp_df, GENE_MF: mf_df, GENE_CC: cc_df}
 
     @staticmethod

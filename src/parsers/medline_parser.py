@@ -212,6 +212,9 @@ class MEDLINEParser(BaseParser):
             if key not in result:
                 result[key] = pd.DataFrame(columns=cols)
 
+        for df in result.values():
+            df["source_database"] = "MEDLINE"
+
         return result
 
     def get_schema(self) -> Dict[str, Dict[str, str]]:

@@ -192,7 +192,8 @@ class UberonParser(BaseParser):
             "mesh_id", "fma_id", "bto_id", "subsets",
             "is_human", "is_a", "part_of",
         ]
-        nodes_out = nodes_filtered[[c for c in col_order if c in nodes_filtered.columns]]
+        nodes_out = nodes_filtered[[c for c in col_order if c in nodes_filtered.columns]].copy()
+        nodes_out["source_database"] = "Uberon"
 
         return {NODES_OUTPUT: nodes_out}
 

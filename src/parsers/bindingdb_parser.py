@@ -268,7 +268,7 @@ class BindingDBParser(BaseParser):
                 _COL_TARGET:   "target_name",
             }
         )
-        out["source"] = "BindingDB"
+        out["source_database"] = "BindingDB"
 
         # --- Deduplicate ---
         out = out.drop_duplicates(subset=["drugbank_id", "target_name"])
@@ -287,6 +287,6 @@ class BindingDBParser(BaseParser):
                     "Name of the protein target / gene symbol as recorded "
                     "in BindingDB"
                 ),
-                "source": "Source database name (BindingDB)",
+                "source_database": "Source database name (BindingDB)",
             }
         }

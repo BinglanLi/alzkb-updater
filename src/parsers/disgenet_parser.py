@@ -385,6 +385,9 @@ class DisGeNETParser(BaseParser):
             GDA_OUTPUT: self._build_gda_edges(gda_df),
         }
 
+        for df in result.values():
+            df["source_database"] = "DisGeNET"
+
         for key, df in result.items():
             logger.info("  %s: %d rows × %d cols", key, len(df), len(df.columns))
 

@@ -162,6 +162,8 @@ class CTDParser(BaseParser):
 
         inc_edges = _build_edges(df_inc)
         dec_edges = _build_edges(df_dec)
+        inc_edges["source_database"] = "CTD"
+        dec_edges["source_database"] = "CTD"
 
         # ---- Build Chemical node DataFrame ----
         chem_df = (
@@ -172,6 +174,7 @@ class CTDParser(BaseParser):
         )
         chem_df["mesh_id"] = chem_df["chemical_id"]
         chem_df = chem_df[["chemical_id", "chemical_name", "mesh_id"]].reset_index(drop=True)
+        chem_df["source_database"] = "CTD"
 
         # ---- Build Gene node DataFrame ----
         gene_df = (

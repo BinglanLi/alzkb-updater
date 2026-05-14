@@ -209,6 +209,7 @@ class DiseaseOntologyParser(BaseParser):
             rows,
             columns=["doid", "disease_name", "definition", "umls_cui", "symptoms"],
         )
+        df["source_database"] = "Disease Ontology"
         logger.info(f"Disease Ontology slim_terms: {len(df)} rows")
         return {OUTPUT_NAME: df}
 
