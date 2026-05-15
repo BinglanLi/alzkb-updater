@@ -97,8 +97,8 @@ databases:
       PostgreSQL (v54, 2023-11-01). Public read-only instance at unmtid-dbs.net:5433.
       Set DC_USER and DC_PASSWORD env vars (public credentials: drugman / dosage).
       Alternatively load the dump locally: createdb drugcentral && gunzip -c drugcentral.sql.gz
-      | psql drugcentral. Produces: drugs, pharmacologic_classes, diseases, drug_treats_disease,
-      drug_in_class, chemical_causes_effect TSVs.'
+      | psql drugcentral. Produces: drugs, pharmacologic_classes, drug_treats_disease
+      (scoped to project disease_scope umls_cuis), drug_in_class, chemical_causes_effect TSVs.'
   bgee:
     enabled: true
     args:

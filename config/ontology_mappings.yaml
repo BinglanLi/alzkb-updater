@@ -305,25 +305,6 @@ mappings:
         pharma_class_code: pharma_class_code
         source_database: sourceDatabase
 
-  drugcentral.diseases:
-    data_type: node
-    node_type: Disease
-    source_filename: diseases.tsv
-    merge: true
-    skip: false
-    parse_config:
-      headers: true
-      iri_column_name: disease_id
-      data_property_map:
-        disease_id: xrefUmlsCUI
-        disease_name: commonName
-        doid: xrefDiseaseOntology
-        mesh_id: xrefMeSH
-        source_database: sourceDatabase
-      merge_column:
-        source_column_name: disease_id
-        data_property: xrefUmlsCUI
-
   drugcentral.chemical_effects:
     data_type: node
     node_type: ChemicalEffect
