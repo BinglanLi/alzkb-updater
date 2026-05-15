@@ -173,7 +173,7 @@ def export_tsv(parsed_data, processed_dir):
             logger.info(f"  Saved {source_name}/{data_name}.tsv ({len(df)} rows)")
 
 
-def populate(project_config, ontology_mappings, processed_dir):
+def populate(project_config, databases, ontology_mappings, processed_dir):
     """Populate the OWL ontology from processed TSV files using ista."""
     from ontology.populator import OntologyPopulator
 
@@ -192,6 +192,10 @@ def populate(project_config, ontology_mappings, processed_dir):
         if config.get("skip", False):
             continue
         source_name = key.split(".")[0]
+        db_config = databases.get(source_name)
+        if not isinstance(db_config, dict) or not db_config.get("enabled", False):
+            logger.info(f"{source_name} not enabled in databases.yaml, skipping {key}")
+            continue
         if not (processed_dir / source_name).exists():
             logger.info(f"No data for {source_name}, skipping {key}")
             continue
@@ -304,7 +308,7 @@ Examples:
 
     if args.step == "populate":
         logger.info("Running populate step only")
-        populate(project_config, ontology_mappings, processed_dir)
+        populate(project_config, databases, ontology_mappings, processed_dir)
         logger.info("Populate step complete.")
         return
 

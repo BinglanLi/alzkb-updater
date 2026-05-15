@@ -161,22 +161,6 @@ mappings:
         data_property: xrefCasRN
 
   # ---------------------------------------------------------------------------
-  # DoRothEA - Transcription Factor Regulatory Network
-  # ---------------------------------------------------------------------------
-  dorothea.transcription_factors:
-    data_type: node
-    node_type: TranscriptionFactor
-    source_filename: transcription_factors.tsv
-    merge: false
-    skip: false
-    parse_config:
-      headers: true
-      iri_column_name: tf_symbol
-      data_property_map:
-        tf_symbol: TF
-        source_database: sourceDatabase
-
-  # ---------------------------------------------------------------------------
   # CollectTRI - Transcription Factor Regulatory Network
   # ---------------------------------------------------------------------------
   collectri.transcription_factors:
@@ -188,6 +172,9 @@ mappings:
     parse_config:
       headers: true
       iri_column_name: tf_symbol
+      merge_column:
+        source_column_name: tf_symbol
+        data_property: TF
       data_property_map:
         tf_symbol: TF
         source_database: sourceDatabase
