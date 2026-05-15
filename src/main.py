@@ -1,5 +1,5 @@
 """
-AlzKB Pipeline — Build the Alzheimer's Knowledge Base
+Disease KG Pipeline — Build a Disease Knowledge Graph
 
 Runs the full pipeline in four steps:
   1. Extract   — download and parse data from biomedical databases
@@ -244,7 +244,7 @@ def setup_logging(log_level="INFO"):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="AlzKB Pipeline — build a disease knowledge graph",
+        description="Disease KG Pipeline — build a disease knowledge graph",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -288,27 +288,32 @@ Examples:
     for d in [raw_dir, processed_dir, output_dir]:
         d.mkdir(parents=True, exist_ok=True)
 
+    # databases = all listed (enabled + disabled) sources from config
     project_config, databases, ontology_mappings = load_config()
+    enabled_databases = {
+        k: v for k, v in databases.items()
+        if isinstance(v, dict) and v.get("enabled", False)
+    }
 
     if args.source:
         source_config = databases.get(args.source, {})
         source_config["enabled"] = True
-        databases = {args.source: source_config}
-        parsed_data = extract(databases, project_config, raw_dir, force_download=args.force_download)
+        selected_database = {args.source: source_config}
+        parsed_data = extract(selected_database, project_config, raw_dir, force_download=args.force_download)
         export_tsv(parsed_data, processed_dir)
         logger.info(f"Single-source run for '{args.source}' complete.")
         return
 
     if args.step == "extract":
         logger.info("Running extract step only")
-        parsed_data = extract(databases, project_config, raw_dir, force_download=args.force_download)
+        parsed_data = extract(enabled_databases, project_config, raw_dir, force_download=args.force_download)
         export_tsv(parsed_data, processed_dir)
         logger.info("Extract step complete.")
         return
 
     if args.step == "populate":
         logger.info("Running populate step only")
-        populate(project_config, databases, ontology_mappings, processed_dir)
+        populate(project_config, enabled_databases, ontology_mappings, processed_dir)
         logger.info("Populate step complete.")
         return
 
@@ -319,9 +324,9 @@ Examples:
         return
 
     logger.info(f"Starting {project_config.get('display_name', 'KG')} pipeline")
-    parsed_data = extract(databases, project_config, raw_dir, force_download=args.force_download)
+    parsed_data = extract(enabled_databases, project_config, raw_dir, force_download=args.force_download)
     export_tsv(parsed_data, processed_dir)
-    populate(project_config, ontology_mappings, processed_dir)
+    populate(project_config, enabled_databases, ontology_mappings, processed_dir)
     export_graph(project_config, output_dir)
     logger.info("Pipeline complete.")
 
