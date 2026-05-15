@@ -10,21 +10,20 @@ Downloads and parses the Gene Ontology (GO) to extract:
 Data Sources:
   - GO OBO: http://purl.obolibrary.org/obo/go.obo
   - GOA Human: http://current.geneontology.org/annotations/goa_human.gaf.gz
-  - NCBI gene_info (for symbol→Entrez mapping, reused from ncbigene parser)
 
 Output (6 DataFrames):
   - biological_process_nodes.tsv  (go_id, name, definition)
   - molecular_function_nodes.tsv  (go_id, name, definition)
   - cellular_component_nodes.tsv  (go_id, name, definition)
-  - gene_bp_associations.tsv      (entrez_gene_id, go_id, evidence)
-  - gene_mf_associations.tsv      (entrez_gene_id, go_id, evidence)
-  - gene_cc_associations.tsv      (entrez_gene_id, go_id, evidence)
+  - gene_bp_associations.tsv      (gene_symbol, go_id, evidence)
+  - gene_mf_associations.tsv      (gene_symbol, go_id, evidence)
+  - gene_cc_associations.tsv      (gene_symbol, go_id, evidence)
 """
 
 import gzip
 import logging
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict
 
 import pandas as pd
 
@@ -48,6 +47,8 @@ GENE_BP  = "gene_bp_associations"
 GENE_MF  = "gene_mf_associations"
 GENE_CC  = "gene_cc_associations"
 
+_NODE_COLUMNS = ["go_id", "name", "definition"]
+
 # GAF column names (17 columns in GAF 2.2)
 _GAF_COLUMNS = [
     "DB", "DB_Object_ID", "DB_Object_Symbol", "Qualifier", "GO_ID",
@@ -56,6 +57,41 @@ _GAF_COLUMNS = [
     "Taxon", "Date", "Assigned_By", "Annotation_Extension",
     "Gene_Product_Form_ID",
 ]
+
+# Evidence code priority: lower index = higher quality.
+# Experimental > high-throughput > phylogenetic > author/curator > computational > electronic.
+_EVIDENCE_PRIORITY: Dict[str, int] = {
+    code: rank for rank, code in enumerate([
+        "EXP", "IDA", "IPI", "IMP", "IGI", "IEP",   # experimental
+        "HTP", "HDA", "HMP", "HGI", "HEP",           # high-throughput
+        "IBA", "IBD", "IKR", "IRD",                   # phylogenetic
+        "TAS", "IC",                                  # author/curator statement
+        "ISS", "ISO", "ISA", "ISM", "IGC", "RCA",    # computational
+        "NAS", "ND",                                  # non-traceable / no data
+        "IEA",                                        # electronic (least reliable)
+    ])
+}
+_EVIDENCE_FALLBACK = len(_EVIDENCE_PRIORITY)
+
+
+def _best_evidence(codes: pd.Series) -> str:
+    """Return the highest-quality GO evidence code from a group."""
+    return min(codes, key=lambda c: _EVIDENCE_PRIORITY.get(c, _EVIDENCE_FALLBACK))
+
+
+def _extract_aspect(df: pd.DataFrame, aspect_code: str) -> pd.DataFrame:
+    """Extract gene-GO associations for one GO aspect and keep best evidence per pair."""
+    sub = df[df["Aspect"] == aspect_code][
+        ["DB_Object_Symbol", "GO_ID", "Evidence_Code"]
+    ].copy()
+    sub.columns = ["gene_symbol", "go_id", "evidence"]
+    if sub.empty:
+        return sub.reset_index(drop=True)
+    sub = (
+        sub.groupby(["gene_symbol", "go_id"], as_index=False)["evidence"]
+        .agg(_best_evidence)
+    )
+    return sub.reset_index(drop=True)
 
 
 class GeneOntologyParser(BaseParser):
@@ -66,17 +102,12 @@ class GeneOntologyParser(BaseParser):
     the GO OBO file and GOA human annotation file.
     """
 
-    # Official GO data sources (as specified by task)
-    GO_OBO_URL   = "http://purl.obolibrary.org/obo/go.obo"
+    GO_OBO_URL    = "http://purl.obolibrary.org/obo/go.obo"
     GOA_HUMAN_URL = "http://current.geneontology.org/annotations/goa_human.gaf.gz"
 
-    # Fallback OBO (already cached from previous runs)
     GO_BASIC_OBO = "go-basic.obo"
     GO_OBO_FILE  = "go.obo"
     GAF_FILE     = "goa_human.gaf.gz"
-
-    # Human NCBI taxonomy ID
-    HUMAN_TAX_ID = 9606
 
     def __init__(self, data_dir: str):
         super().__init__(data_dir)
@@ -94,26 +125,14 @@ class GeneOntologyParser(BaseParser):
         logger.info("Downloading Gene Ontology files …")
         success = True
 
-        # 1. GO OBO (full ontology)
-        obo_path = self.source_dir / self.GO_OBO_FILE
-        basic_path = self.source_dir / self.GO_BASIC_OBO
-        if not obo_path.exists() and not basic_path.exists():
-            result = self.download_file(self.GO_OBO_URL, self.GO_OBO_FILE)
-            if not result:
-                logger.error("Failed to download GO OBO file")
-                success = False
-        else:
-            logger.info(f"GO OBO already cached — skipping download")
+        # download_file respects self.force and skips if already cached.
+        if not self.download_file(self.GO_OBO_URL, self.GO_OBO_FILE):
+            logger.error("Failed to download GO OBO file")
+            success = False
 
-        # 2. GOA human annotation (GAF)
-        gaf_path = self.source_dir / self.GAF_FILE
-        if not gaf_path.exists():
-            result = self.download_file(self.GOA_HUMAN_URL, self.GAF_FILE)
-            if not result:
-                logger.error("Failed to download GOA human annotation file")
-                success = False
-        else:
-            logger.info(f"GOA human annotation already cached — skipping download")
+        if not self.download_file(self.GOA_HUMAN_URL, self.GAF_FILE):
+            logger.error("Failed to download GOA human annotation file")
+            success = False
 
         return success
 
@@ -125,20 +144,15 @@ class GeneOntologyParser(BaseParser):
         """Parse GO OBO and GOA annotation files; return 6 DataFrames."""
         result: Dict[str, pd.DataFrame] = {}
 
-        # --- GO terms ---
         obo_path = self._find_obo_file()
         if obo_path is None:
             logger.error("No GO OBO file found — cannot parse GO terms")
         else:
-            go_dfs = self._parse_go_ontology(obo_path)
-            result.update(go_dfs)
+            result.update(self._parse_go_ontology(obo_path))
 
-        # --- Gene-GO associations ---
-        symbol_to_entrez = self._build_symbol_to_entrez_map()
         gaf_path = self.source_dir / self.GAF_FILE
         if gaf_path.exists():
-            assoc_dfs = self._parse_goa_annotations(gaf_path, symbol_to_entrez)
-            result.update(assoc_dfs)
+            result.update(self._parse_goa_annotations(gaf_path))
         else:
             logger.error(f"GOA annotation file not found: {gaf_path}")
 
@@ -148,7 +162,7 @@ class GeneOntologyParser(BaseParser):
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _find_obo_file(self) -> Optional[Path]:
+    def _find_obo_file(self) -> "Path | None":
         """Return the path to the best available OBO file."""
         for fname in (self.GO_OBO_FILE, self.GO_BASIC_OBO):
             p = self.source_dir / fname
@@ -180,9 +194,9 @@ class GeneOntologyParser(BaseParser):
 
             namespace = node_data.get("namespace", "")
             term = {
-                "go_id":       node_id,
-                "name":        node_data.get("name", ""),
-                "definition":  self._clean_definition(node_data.get("def", "")),
+                "go_id":      node_id,
+                "name":       node_data.get("name", ""),
+                "definition": self._clean_definition(node_data.get("def", "")),
             }
 
             if namespace == "biological_process":
@@ -196,63 +210,18 @@ class GeneOntologyParser(BaseParser):
             f"Parsed {len(bp_terms)} BP, {len(mf_terms)} MF, {len(cc_terms)} CC terms"
         )
 
-        return {
-            BP_NODES: pd.DataFrame(bp_terms).assign(source_database="Gene Ontology"),
-            MF_NODES: pd.DataFrame(mf_terms).assign(source_database="Gene Ontology"),
-            CC_NODES: pd.DataFrame(cc_terms).assign(source_database="Gene Ontology"),
-        }
+        bp_df = pd.DataFrame(bp_terms, columns=_NODE_COLUMNS)
+        mf_df = pd.DataFrame(mf_terms, columns=_NODE_COLUMNS)
+        cc_df = pd.DataFrame(cc_terms, columns=_NODE_COLUMNS)
+        for df in [bp_df, mf_df, cc_df]:
+            df["source_database"] = "Gene Ontology"
+        return {BP_NODES: bp_df, MF_NODES: mf_df, CC_NODES: cc_df}
 
-    def _build_symbol_to_entrez_map(self) -> Dict[str, int]:
-        """
-        Build a gene-symbol → Entrez Gene ID mapping from NCBI gene_info.
-
-        Looks first in the ncbigene raw directory (reusing data already
-        downloaded by NCBIGeneParser), then falls back to the local
-        source directory.
-        """
-        candidates = [
-            self.data_dir / "ncbigene" / "Homo_sapiens.gene_info",
-            self.source_dir / "Homo_sapiens.gene_info",
-        ]
-        gene_info_path: Optional[Path] = None
-        for p in candidates:
-            if p.exists():
-                gene_info_path = p
-                break
-
-        if gene_info_path is None:
-            logger.warning(
-                "Homo_sapiens.gene_info not found — "
-                "gene-symbol → Entrez mapping will be empty; "
-                "run ncbigene parser first or place the file in data/raw/ncbigene/"
-            )
-            return {}
-
-        logger.info(f"Loading gene_info from {gene_info_path} …")
-        try:
-            df = pd.read_csv(
-                gene_info_path,
-                sep="\t",
-                usecols=["#tax_id", "GeneID", "Symbol"],
-                dtype={"#tax_id": int, "GeneID": int, "Symbol": str},
-            )
-            df = df[df["#tax_id"] == self.HUMAN_TAX_ID]
-            mapping = dict(zip(df["Symbol"], df["GeneID"]))
-            logger.info(f"Loaded {len(mapping):,} symbol→Entrez mappings")
-            return mapping
-        except Exception as exc:
-            logger.error(f"Failed to read gene_info: {exc}")
-            return {}
-
-    def _parse_goa_annotations(
-        self,
-        gaf_path: Path,
-        symbol_to_entrez: Dict[str, int],
-    ) -> Dict[str, pd.DataFrame]:
+    def _parse_goa_annotations(self, gaf_path: Path) -> Dict[str, pd.DataFrame]:
         """
         Parse GOA human GAF file and return gene-BP/MF/CC association DataFrames.
 
-        Columns: entrez_gene_id, go_id, evidence
+        Columns: gene_symbol, go_id, evidence
         """
         logger.info(f"Parsing GOA annotations from {gaf_path} …")
 
@@ -265,7 +234,6 @@ class GeneOntologyParser(BaseParser):
                     parts = line.rstrip("\n").split("\t")
                     if len(parts) < 15:
                         continue
-                    # Pad to 17 columns if needed
                     while len(parts) < 17:
                         parts.append("")
                     rows.append(parts[:17])
@@ -276,44 +244,34 @@ class GeneOntologyParser(BaseParser):
         df = pd.DataFrame(rows, columns=_GAF_COLUMNS)
         logger.info(f"Loaded {len(df):,} raw GAF records")
 
-        # Keep only human annotations
         df = df[df["Taxon"].str.contains("taxon:9606", na=False)]
         logger.info(f"After human filter: {len(df):,} records")
 
-        # Map gene symbol → Entrez Gene ID
-        if symbol_to_entrez:
-            df["entrez_gene_id"] = df["DB_Object_Symbol"].map(symbol_to_entrez)
-            df = df.dropna(subset=["entrez_gene_id"])
-            df["entrez_gene_id"] = df["entrez_gene_id"].astype(int)
-        else:
-            logger.warning(
-                "No symbol→Entrez mapping available; "
-                "association DataFrames will be empty"
-            )
-            return {GENE_BP: pd.DataFrame(columns=["entrez_gene_id", "go_id", "evidence"]),
-                    GENE_MF: pd.DataFrame(columns=["entrez_gene_id", "go_id", "evidence"]),
-                    GENE_CC: pd.DataFrame(columns=["entrez_gene_id", "go_id", "evidence"])}
+        # Restrict to UniProtKB entries; ComplexPortal and RNAcentral rows use
+        # complex/RNA names in DB_Object_Symbol, not gene symbols.
+        n_before = len(df)
+        df = df[df["DB"] == "UniProtKB"]
+        n_dropped = n_before - len(df)
+        if n_dropped:
+            logger.info(f"Dropped {n_dropped:,} non-UniProtKB records (ComplexPortal/RNAcentral)")
 
-        # Split by GO aspect: P=BP, F=MF, C=CC
-        def _extract(aspect_code: str) -> pd.DataFrame:
-            sub = df[df["Aspect"] == aspect_code][
-                ["entrez_gene_id", "GO_ID", "Evidence_Code"]
-            ].copy()
-            sub.columns = ["entrez_gene_id", "go_id", "evidence"]
-            sub = sub.drop_duplicates(subset=["entrez_gene_id", "go_id"])
-            sub = sub.reset_index(drop=True)
-            return sub
+        # Exclude NOT-qualified annotations (explicit negative associations).
+        n_before = len(df)
+        df = df[~df["Qualifier"].str.contains("NOT", na=False)]
+        n_dropped = n_before - len(df)
+        if n_dropped:
+            logger.info(f"Dropped {n_dropped:,} NOT-qualified records")
 
-        bp_df = _extract("P")
-        mf_df = _extract("F")
-        cc_df = _extract("C")
+        bp_df = _extract_aspect(df, "P")
+        mf_df = _extract_aspect(df, "F")
+        cc_df = _extract_aspect(df, "C")
 
         logger.info(
             f"Associations — BP: {len(bp_df):,}, MF: {len(mf_df):,}, CC: {len(cc_df):,}"
         )
 
-        for df in [bp_df, mf_df, cc_df]:
-            df["source_database"] = "Gene Ontology"
+        for assoc_df in [bp_df, mf_df, cc_df]:
+            assoc_df["source_database"] = "Gene Ontology"
         return {GENE_BP: bp_df, GENE_MF: mf_df, GENE_CC: cc_df}
 
     @staticmethod
@@ -324,18 +282,13 @@ class GeneOntologyParser(BaseParser):
         """
         if not definition:
             return ""
-        # Remove leading quote
         if definition.startswith('"'):
             definition = definition[1:]
-        # Remove citation bracket and everything after it
         if " [" in definition:
             definition = definition.split(" [")[0]
-        # Remove trailing quote (left after stripping the citation)
         if definition.endswith('"'):
             definition = definition[:-1]
-        # Replace any embedded tab characters with a space to prevent TSV field splitting
-        definition = definition.replace('\t', ' ')
-        return definition.strip()
+        return definition.replace('\t', ' ').strip()
 
     # ------------------------------------------------------------------
     # get_schema
@@ -344,14 +297,16 @@ class GeneOntologyParser(BaseParser):
     def get_schema(self) -> Dict[str, Dict[str, str]]:
         """Return the schema for all 6 output DataFrames."""
         node_schema = {
-            "go_id":       "Gene Ontology ID (e.g. GO:0008150)",
-            "name":        "Human-readable GO term name",
-            "definition":  "Text definition of the GO term",
+            "go_id":           "Gene Ontology ID (e.g. GO:0008150)",
+            "name":            "Human-readable GO term name",
+            "definition":      "Text definition of the GO term",
+            "source_database": "Source database name",
         }
         assoc_schema = {
-            "entrez_gene_id": "NCBI Entrez Gene ID (integer)",
-            "go_id":          "Gene Ontology ID",
-            "evidence":       "GO evidence code (e.g. IDA, IEA, TAS)",
+            "gene_symbol":     "HGNC gene symbol (matches Gene node geneSymbol property)",
+            "go_id":           "Gene Ontology ID",
+            "evidence":        "GO evidence code (e.g. IDA, IEA, TAS)",
+            "source_database": "Source database name",
         }
         return {
             BP_NODES: node_schema,
