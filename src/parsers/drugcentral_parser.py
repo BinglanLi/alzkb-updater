@@ -26,7 +26,7 @@ from typing import Dict, List, Optional
 import pandas as pd
 
 from .base_parser import BaseParser
-from ..config_loader import get_disease_scope
+from config_loader import get_disease_scope
 
 logger = logging.getLogger(__name__)
 
