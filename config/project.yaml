@@ -2,32 +2,22 @@
 # This file defines the disease scope and ontology settings for this knowledge graph.
 
 project:
-  name: "alzkb"
-  display_name: "Alzheimer's Knowledge Base"
-  version: "2.3.0"
+  name: "<project_name>"          # e.g. "mykb"
+  display_name: "<Disease> Knowledge Base"  # e.g. "Parkinson's Knowledge Base"
+  version: "1.0.0"
 
   disease_scope:
     primary_terms:
-      - "alzheimer"
+      - "<disease_term>"           # e.g. "parkinson"
     umls_cuis:
-      - "C0002395"   # Alzheimer's Disease
-      - "C0750901"   # Alzheimer's Disease, Late Onset
-      - "C0750900"   # Alzheimer's Disease, Early Onset
+      - "<UMLS_CUI>"               # e.g. "C0030567"
     doid_ids:
-      - "DOID:10652"  # Alzheimer's disease
+      - "<DOID>"                   # e.g. "DOID:14330"
     mesh_ids:
-      - "D000544"     # Alzheimer Disease
+      - "<MeSH_ID>"                # e.g. "D010300"
     # drug_names:
-    #   - "donepezil"
-    #   - "rivastigmine"
-    #   - "galantamine"
-    #   - "memantine"
-    #   - "aducanumab"
-    #   - "lecanemab"
-    #   - "tacrine"
-    #   - "solanezumab"
-    #   - "gantenerumab"
-    #   - "donanemab"
+    #   - "<drug1>"
+    #   - "<drug2>"
 
 
   data_filtering:
@@ -37,14 +27,13 @@ project:
 
   ontology:
     base_file: "data/ontology/alzkb_v2.rdf"
-    namespace: "http://jdr.bio/ontologies/alzkb.owl"
     populated_output: "data/output/alzkb_v2_populated.rdf"
 
   graph_indexes:
     Gene: ["geneSymbol", "xrefNcbiGene"]
     Drug: ["commonName", "xrefDrugbank", "xrefDTXSID"]
     Disease: ["commonName", "xrefUmlsCUI", "xrefDiseaseOntology"]
-    Pathway: ["pathwayName"]
+    Pathway: ["pathwayName", "xrefReactomePathway"]
     BodyPart: ["commonName", "xrefUberon"]
     Symptom: ["commonName", "xrefMeSH", "sourceDatabase"]
     TranscriptionFactor: ["TF"]
@@ -188,6 +177,8 @@ project:
     Gene:
       - geneSymbol
       - xrefNcbiGene
+      - geneName
+      - xrefUniProtId
       - geneExpression
       - geneExpressionCallQuality
       - geneExpressionFDR
@@ -196,6 +187,13 @@ project:
       - chromosome
       - typeOfGene
     
+    # Pathway properties
+    Pathway:
+      - pathwayName
+      - pathwayId
+      - xrefReactomePathway
+      - species
+
     # BodyPart properties
     BodyPart:
       - xrefUberon
@@ -220,5 +218,97 @@ project:
     Symptom:
       - commonName
       - xrefMeSH
+      - sourceDatabase
+
+  edge_properties:
+    geneAssociatesWithDisease:
+      - gdaScore
+      - evidenceIndex
+      - numberOfPublications
+      - numberOfSnps
+      - sourceDatabase
+
+    anatomyExpressesGene:
+      - expressionCall
+      - callQuality
+      - fdr
+      - expressionScore
+      - expressionRank
+      - unbiased
+      - sourceDatabase
+
+    chemicalBindsGene:
+      - interactionType
+      - sourceDatabase
+
+    drugTreatsDisease:
+      - indication
+      - sourceDatabase
+
+    chemicalCausesEffect:
+      - support
+      - sourceDatabase
+
+    geneParticipatesInBiologicalProcess:
+      - evidenceCode
+      - sourceDatabase
+
+    geneHasMolecularFunction:
+      - evidenceCode
+      - sourceDatabase
+
+    geneAssociatedWithCellularComponent:
+      - evidenceCode
+      - sourceDatabase
+
+    geneCovariesWithGene:
+      - ercScore
+      - sourceDatabase
+
+    chemicalIncreasesExpression:
+      - interactionText
+      - organism
+      - pubmedIds
+      - sourceDatabase
+
+    chemicalDecreasesExpression:
+      - interactionText
+      - organism
+      - pubmedIds
+      - sourceDatabase
+
+    geneInPathway:
+      - evidenceCode
+      - sourceDatabase
+
+    symptomManifestationOfDisease:
+      - cooccurrence
+      - pFisher
+      - enrichment
+      - oddsRatio
+      - sourceDatabase
+
+    diseaseLocalizesToAnatomy:
+      - cooccurrence
+      - pFisher
+      - enrichment
+      - oddsRatio
+      - sourceDatabase
+
+    diseaseAssociatesWithDisease:
+      - cooccurrence
+      - pFisher
+      - enrichment
+      - oddsRatio
+      - sourceDatabase
+
+    geneInteractsWithGene:
+      - combinedScore
+      - sourceDatabase
+
+    transcriptionFactorInteractsWithGene:
+      - sourceDatabase
+
+    drugInClass:
       - sourceDatabase
 
