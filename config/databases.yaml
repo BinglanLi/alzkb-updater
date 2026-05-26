@@ -143,7 +143,7 @@ databases:
       defines pathway hierarchy. Public source — no credentials required. Produces:
       pathway_nodes.tsv, protein_pathway_associations.tsv.'
   medline:
-    enabled: true
+    enabled: false
     args:
       api_key_env: NCBI_EUTILS_API_KEY
     notes: >
