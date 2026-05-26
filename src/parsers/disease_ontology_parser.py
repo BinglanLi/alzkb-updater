@@ -186,7 +186,7 @@ class DiseaseOntologyParser(BaseParser):
             # ---- Extract fields --------------------------------------------
             raw_def = data.get("def", "")
             definition = self._clean_definition(raw_def)
-            umls_cui = "|".join(umls_list) if umls_list else ""
+            umls_cui = umls_list[0] if umls_list else ""
             symptoms = self._extract_symptoms(raw_def)
 
             rows.append(
