@@ -84,26 +84,32 @@ mappings:
         source_database: sourceDatabase
 
   # ---------------------------------------------------------------------------
-  # DisGeNET - Gene-Disease Associations
+  # Disease Ontology - Slim Terms (Top Cancer Nodes + common GWAS Catalog diseases)
   # ---------------------------------------------------------------------------
-  disgenet.disease_classifications:
+  disease_ontology.disease_nodes:
     data_type: node
     node_type: Disease
-    source_filename: disease_classifications.tsv
+    source_filename: slim_terms.tsv
     merge: false
     skip: false
     parse_config:
       headers: true
-      iri_column_name: diseaseId
+      iri_column_name: doid
       data_property_map:
-        diseaseId: xrefUmlsCUI
-        diseaseName: commonName
+        doid: xrefDiseaseOntology
+        disease_name: commonName
+        definition: diseaseDescription
+        umls_cui: xrefUmlsCUI
+        symptoms: diseaseSymptoms
         source_database: sourceDatabase
 
-  disgenet.disease_mappings:
+  # ---------------------------------------------------------------------------
+  # DisGeNET - Gene-Disease Associations
+  # ---------------------------------------------------------------------------
+  disgenet.diseases:
     data_type: node
     node_type: Disease
-    source_filename: disease_mappings.tsv
+    source_filename: diseases.tsv
     merge: true
     skip: false
     parse_config:
@@ -113,6 +119,8 @@ mappings:
         source_column_name: diseaseId
         data_property: xrefUmlsCUI
       data_property_map:
+        diseaseId: xrefUmlsCUI
+        diseaseName: commonName
         DO: xrefDiseaseOntology
         source_database: sourceDatabase
 
@@ -176,29 +184,6 @@ mappings:
         data_property: TF
       data_property_map:
         tf_symbol: TF
-        source_database: sourceDatabase
-
-  # ---------------------------------------------------------------------------
-  # Disease Ontology - Slim Terms (Top Cancer Nodes + common GWAS Catalog diseases)
-  # ---------------------------------------------------------------------------
-  disease_ontology.disease_nodes:
-    data_type: node
-    node_type: Disease
-    source_filename: slim_terms.tsv
-    merge: true
-    skip: false
-    parse_config:
-      headers: true
-      iri_column_name: doid
-      merge_column:
-        source_column_name: doid
-        data_property: xrefDiseaseOntology
-      data_property_map:
-        doid: xrefDiseaseOntology
-        disease_name: commonName
-        definition: diseaseDescription
-        umls_cui: xrefUmlsCUI
-        symptoms: diseaseSymptoms
         source_database: sourceDatabase
 
   # ---------------------------------------------------------------------------
